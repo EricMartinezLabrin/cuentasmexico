@@ -1,1 +1,10 @@
-<h1>Inicio</h1>
+{% extends 'adm/base/base.html' %}
+{% block title %}Dashboard{% endblock title %}
+{% block body %}
+<h1>Admin</h1>
+
+{{sales}}
+{% for s in sales %}
+{{s.customer.userdetail.country}}
+{% endfor %}
+{% endblock body  %}

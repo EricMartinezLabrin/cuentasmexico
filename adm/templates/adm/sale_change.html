@@ -1,0 +1,96 @@
+{% extends 'adm/base/base.html' %}
+{% load static %}
+{% block title %}Ventas{% endblock title %}
+{% block body %}
+<h1>Venta a {{customer.username}}</h1>
+<!--Available Account-->
+<div class="d-flex mb-4">
+    {% for key,value in availables.items %}
+        <b class="ms-2">{{key}}:</b> {{value}} 
+    {% endfor %}    
+</div>
+<h4>Selecciona uno o más Servicios</h4>
+    <form method="post">
+        {% csrf_token %}
+        <input type="hidden" id='duration' value='1'>
+        <input type="hidden" name="sale" value="{{sale.id}}">
+        <div class="d-flex">
+            <div class="service mt-2 mb-2">
+                <label for="service">Servicio:</label>
+                <input class="form-control" type="text" value="{{sale.account.account_name}}-Perfil {{sale.account.profile}}" name="service" onclick="services()" disabled>
+                <input type="hidden" id="service" value="{{sale.account.id}}">
+            </div>
+
+            <div class="price m-2">
+                <label for="price">Precio:</label>
+                <input type="number" name="price" id="price" class="form-control" value="{{sale.payment_amount}}" disabled>
+            </div>
+            <div class="duration m-2">
+                <label for="duration">Vencimiento:</label>
+                <input type="text" value="{{sale.expiration_date}}" name="expiration_date" class="form-control" disabled>
+            </div>
+            <div class="comp m-2">
+                <label for="price">Comprobante:</label>
+                <input type="text" name="comp" id="comp" class="form-control" value="{{sale.invoice}}" disabled>
+            </div>
+            <div class="bank m-2">
+                <label for="bank">Cuenta:</label>
+                <input name="bank" id="bank" class="form-control" value="{{sale.bank}}" disabled>
+            </div>
+            <div class="method m-2">
+                <label for="method">Metodo de Pago:</label>
+                <input name="method" id="method" class="form-control" value="{{sale.payment_method}}" disabled>
+
+            </div>
+            <input type="submit" value="terminar" class="btn btn-cm">
+
+        </div>
+
+        <div id="accounts">
+            <div class="d-flex">
+                <div class="accfree">
+                    <table class="table table-hover">
+                        <thead>
+                            <th></th>
+                            <th></th>
+                            <th>Email</th>
+                            <th>Clave</th>
+                            <th>Vencimient Cta</th>
+                            <th>Perfil</th>
+                        </thead>
+                        <tbody class="t-img">
+                            {% for a in accounts %}
+                                <tr>
+                                    <td><input class="form-check-input details" name="serv" id="{{a.id}}" type="radio" value="{{a.id}}" onclick="detail()"></td>
+                                        <td><img src="/media/{{a.account_name.logo}}" width="20"></td>
+                                        <td>{{a.email}}</td>
+                                        <td>{{a.password}}</td>
+                                        <td>{{a.expiration_date|date:'d-m-Y'}}</td>
+                                        <td>{{a.profile}}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+    </form>
+                </div>
+                <div id="main-accdetail" class="ms-5 not-visible">
+                    <table class="table table-hover">
+                        <thead>
+                            <th></th>
+                            <th>E-mail</th>
+                            <th>Cliente</th>
+                            <th>Vencimient Cliente</th>
+                            <th>Perfil</th>
+                        </thead>
+                        <tbody class="t-img" id="accdetail">
+                            <!--Rellenado automaticamente-->
+                        </tbody>
+                    </table>                        
+                </div>  
+            </div>
+        </div>    
+
+{% endblock body %}
+{% block extrajs %}
+<script src="{% static 'adm/js/sales.js' %}"></script>
+{% endblock extrajs %}

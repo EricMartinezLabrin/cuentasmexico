@@ -43,7 +43,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'adm',
-    'index'
+    'index',
+    'cupon',
 ]
 
 MIDDLEWARE = [
@@ -137,7 +138,10 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/4.1/howto/static-files/
 
 STATIC_URL = 'static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+if DEBUG == False:
+    STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+else:
+    STATIC_ROOT = 'static/'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
@@ -145,7 +149,16 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 # https://docs.djangoproject.com/en/4.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-LOGIN_REDIRECT_URL = reverse_lazy("home")
-LOGOUT_REDIRECT_URL = reverse_lazy("login")
+LOGIN_REDIRECT_URL = reverse_lazy("redirect_on_login")
+LOGOUT_REDIRECT_URL = reverse_lazy("index")
 LOGIN_URL = reverse_lazy("login")
 MESSAGE_STORAGE = 'django.contrib.messages.storage.session.SessionStorage'
+EMAIL_USE_TLS = True
+EMAIL_HOST = 'cuentasmexico.mx'
+EMAIL_PORT = 465
+EMAIL_HOST_USER = 'contacto@cuentasmexico.mx'
+EMAIL_HOST_PASSWORD = 'Tarkan11.-!!'
+# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_BACKEND = 'django_smtp_ssl.SSLEmailBackend'
+
+DATE_INPUT_FORMATS = ('%d-%m-%Y')

@@ -1,0 +1,41 @@
+:root{
+    --black:#010000;
+    --white:#fafafa;
+    --green:#326f57;
+    --red:#c51f2b;
+}
+
+html {
+margin: 0;
+padding: 0;
+font-size: 75.5%;
+box-sizing: border-box;
+}
+
+main{
+    padding-top: 1.9rem!important;
+    padding-left: 15rem;
+}
+
+.btn-cm{
+    background-color: var(--green)!important;
+    color:white!important;
+}
+
+.btn-cm-cancel{
+    background-color: var(--red)!important;
+    color:white!important;
+}
+.t-img{
+    vertical-align: middle!important;
+}
+p.details{
+    color: var(--green);
+}
+.not-visible{
+    display: none!important;
+}
+.cm{
+    color: var(--green)!important;
+    text-decoration: none!important;
+}

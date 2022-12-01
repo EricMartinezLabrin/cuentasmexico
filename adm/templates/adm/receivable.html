@@ -1,0 +1,67 @@
+{% extends 'adm/base/base.html' %}
+{% block title %}Por Cobrar{% endblock title %}
+{% block body %}
+<h1>Quedan {{left}} cuenta{{left|pluralize:",s"}} por liberar</h1>
+<div class="d-flex">
+    <form method="GET" class="d-flex me-2">
+        <label for="date" class="me-2">Fecha de vencimiento </label>
+        <input type="date" name="date" id="date" class="form-control me-2">
+        <button type="submit" class="btn btn-cm">Buscar</button>
+    </form>
+    <form method="get">
+        <input type="hidden" name="date" value="{{tomorrow|date:"Y-m-d"}}">
+        <button type="submit" class="btn btn-primary me-2" style="padding:0.65rem">Vence Mañana</button>
+    </form>
+    <button class="btn btn-secondary me-2">Tercer Boton</button>    
+</div>
+
+<table class="table table-hover mt-3">
+    <thead>
+        <th></th>
+        <th></th>
+        <th>Cliente</th>
+        <th>Email</th>
+        <th>Vencimiento Cliente</th>
+        <th>Vencimiento Cuenta</th>
+        <th>Acciones</th>
+
+    </thead>
+    <tbody>
+        {% for rece in object_list %}
+            <tr class="t-img text-center">
+                <td>
+                    <img src="/media/{{rece.account.account_name.logo}}" alt="{{rece.account.account_name.name}}" width="30">
+                </td>
+                <td>
+                    {% if rece.account.renovable == True %}
+                        <i class="bi bi-star-fill" style='color:orange'></i>
+                    {% endif %}  
+                </td>
+                <td>
+                    {{rece.customer.username}}
+                </td>
+                <td>
+                    {{rece.account.email}}
+                </td>
+                <td>
+                    {{rece.expiration_date|date:'d-m-Y'}}
+                </td>
+                <td>
+                    {{rece.account.expiration_date|date:'d-m-Y'}}
+                </td>
+                <td>
+                    <a href="{% url 'adm:release' rece.id %}" class="cm">
+                        <i class="bi bi-check-circle"></i>
+                    </a>
+
+                    <a href="{% url 'adm:receivable_copy' rece.id %}" class="cm">
+                        <i class="bi bi-clipboard"></i>
+                    </a>
+                </td>
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+{% include 'adm/base/paginator.html' %}
+{% endblock body %}

@@ -1,0 +1,24 @@
+{% extends 'adm/base/base.html' %}
+{% block title %}Status{% endblock title %}
+{% block body %}
+<h1>Status</h1>
+<a href="{% url 'adm:status_create' %}" class="btn btn-cm">Crear Nuevo</a>
+
+<table class="table t-img mt-4">
+    <thead>
+        <th>Status</th>
+        <th>Acciones</th>
+    </thead>
+    <tbody>
+        {% for data in object_list %}
+            <tr>
+                <td>{{data.description}}</td>
+                <td>
+                    <a href="{% url 'adm:status_update' data.id %}"><i class="bi bi-pencil-square"></i></a>
+                    <a href="{% url 'adm:status_delete' data.id %}"><i class="bi bi-trash"></i></a>
+                </td>
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock body %}

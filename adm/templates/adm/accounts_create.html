@@ -1,0 +1,53 @@
+{% extends 'adm/base/base.html' %}
+{% block title %}Cuentas{% endblock title %}
+{% block body %}
+<h1>Cuentas</h1>
+<form method="POST">
+    {% csrf_token %}
+    <div class="d-flex w-100">
+        <div class="w-100">
+            <p>
+                {{form.supplier.label}}
+                {{form.supplier}}                
+            </p>
+            <p>
+                {{form.account_name.label}}
+                {{form.account_name}}              
+            </p>
+            <p>
+                {{form.expiration_date.label}}
+                {% comment %} {{form.expiration_date}}             {% endcomment %}
+                <input type="date" name="{{form.expiration_date.name}}" value="{{form.expiration_date.value|date:"Y-m-d"}}" class="form-control">
+            </p>
+
+        </div>
+        <div class="w-100 ms-3">
+            <p>
+                {{form.email.label}}
+                {{form.email}}                
+            </p>
+            <p>
+                {{form.password.label}}
+                {{form.password}}                
+            </p>
+            <p>
+                {{form.comments.label}}
+                {{form.comments}}                
+            </p>
+
+            <p>
+                {{form.renovable.label}}
+                {{form.renovable}}   
+            </p>
+        </div>
+
+
+    </div>
+    {{form.business}}
+    <input type="hidden" name="{{form.created_by.name}}" value="{{request.user.id}}">
+    <input type="hidden" name="{{form.modified_by.name}}" value="{{request.user.id}}">
+    <input type="submit" value="Terminar" class="btn btn-cm">
+    <a href="{% url 'adm:accounts' %}" class="btn btn-cm-cancel">Cancelar</a>
+</form>
+
+{% endblock body %}

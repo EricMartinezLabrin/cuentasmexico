@@ -1,0 +1,40 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Iniciar Sesión</title>
+    <link rel="stylesheet" href="{% static 'index/css/login.css' %}">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.3/font/bootstrap-icons.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0-beta1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-0evHe/X+R7YkIZDRvuzKMRqM+OrBnVFBL6DOitfPri4tjfHxaWutUpFmBp4vmVor" crossorigin="anonymous">
+</head>
+<body>
+    <main>
+        <div>
+            <div class="box-login">
+                <h1 class="text-center">Iniciar Sesión</h1>
+                <p class="text-center fs-6 a-grey">Ingresar Usuario y Contraseña</p>
+                <div class="inputs">
+                    <br>
+                    <form method="post">
+                        {% csrf_token %}
+                        <input type="text" name="{{form.username.name}}" placeholder="Usuario" autofocus>
+                        <input type="password" name="{{form.password.name}}" placeholder="Contraseña">
+                        <a href="{% url 'password_reset' %}" class="text-center a-grey">¿Olvidaste la Contraseña?</a>
+                        <input type="submit" value="Iniciar Sesión"> 
+                    </form>
+                </div>
+            </div>
+            <div class="bg-enfasis">
+                <div class="right">
+                    <h2 class="t-white">¿Aún no tienes cuenta?</h2>
+                    <a href="{% url 'register' %}" class="t-white">Registrarse -</a> 
+                    <a href="{% url 'index' %}" class="t-white">Volver a la tienda</a>
+                </div>
+            </div>
+        </div>
+    </main>
+</body>
+</html>
