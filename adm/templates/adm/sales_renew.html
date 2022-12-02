@@ -2,11 +2,12 @@
 {% load static %}
 {% block title %}Renovar Cuenta{% endblock title %}
 {% block body %}
+
 <h1>Renovar a {{object.customer.userdetail.phone_number}}</h1>
 <form method="post">
     {% csrf_token %}
     <div class="w-100 d-flex">
-        <input type="hidden" name="customer" value="{{object.customer.userdetail.id}}">
+        <input type="hidden" name="customer" value="{{object.customer.id}}">
         <div class="me-4">
             <p>
                 <label for="email">Cuenta:</label>
@@ -71,7 +72,7 @@
         </div>
         <div class="me-4">
             <label for="ticket">Comprobante</label>
-            <input type="text" class="form-control" name="comp" required>
+            <input type="text" class="form-control" id="comp" name="comp" required>
         </div>
         
     </div>

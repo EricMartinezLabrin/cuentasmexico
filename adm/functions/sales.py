@@ -157,8 +157,9 @@ class Sales():
             exp_date = old_sale.expiration_date.date() + relativedelta(months=duration)
         else:
             exp_date = datetime.now() + relativedelta(months=duration)
+        
         #create sale
-        Sale.objects.create(
+        new_sale = Sale.objects.create(
             business = request.user.userdetail.business,
             user_seller = request.user,
             bank = bank_selected,
@@ -175,19 +176,7 @@ class Sales():
         acc.modified_by=request.user
         acc.save()
 
-        new_sale_id = Sale.objects.get(
-            business = request.user.userdetail.business,
-            user_seller = request.user,
-            bank = bank_selected,
-            customer = customer,
-            account = acc,
-            status = True,
-            payment_method = payment_used,
-            expiration_date = exp_date,
-            payment_amount = price,
-            invoice =ticket,
-            old_acc=old            
-        ).id
+        new_sale_id = new_sale.id
 
         #deprecate old sale
         old_sale.status = False
@@ -218,7 +207,7 @@ class Sales():
 
         acc = Account.objects.get(pk=service)
         #create sale
-        Sale.objects.create(
+        new_sale = Sale.objects.create(
             business = request.user.userdetail.business,
             user_seller = request.user,
             customer = old_sale.customer,
@@ -229,21 +218,11 @@ class Sales():
             payment_amount = price,
             invoice =ticket
         )
-        new_sale_id = Sale.objects.get(
-            business = request.user.userdetail.business,
-            user_seller = request.user,
-            customer = old_sale.customer,
-            account = acc,
-            status = True,
-            payment_method = payment_used,
-            expiration_date = old_sale.expiration_date,
-            payment_amount = price,
-            invoice =ticket
-        ).id
+        new_sale_id = new_sale.id
         old_sale.old_acc = new_sale_id
         old_sale.save()
         #update account
-        acc.customer=old_sale.customer.id
+        acc.customer=old_sale.customer
         acc.modified_by=request.user
         acc.save()
 
