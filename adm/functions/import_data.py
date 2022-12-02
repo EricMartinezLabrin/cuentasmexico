@@ -24,8 +24,8 @@ class ImportData():
 
     def services():
         print('Comenzamos importacion de Servicios')
-        serv_csv = csv.reader(open('media/modificar/cuentas.csv'))
-        contador = int(len(pd.read_csv('media/modificar/cuentas.csv')))
+        serv_csv = csv.reader(open('media/modificar/cuentas.csv',encoding='utf-8'))
+        contador = int(len(pd.read_csv('media/modificar/cuentas.csv',encoding='utf-8')))
         
 
         for s in serv_csv:
@@ -41,12 +41,12 @@ class ImportData():
                     status = Active_Inactive.a_or_i(str(s[3]))
                 )
             contador -= 1
-        print('Terminamos importación de servicios')
+        print('Terminamos importacion de servicios')
 
     def customers():
         print('Comenzamos importacion de Clientes')
-        customer_csv = csv.reader(open('media/modificar/clientes.csv'))
-        contador = int(len(pd.read_csv('media/modificar/clientes.csv')))
+        customer_csv = csv.reader(open('media/modificar/clientes.csv',encoding='utf-8'))
+        contador = int(len(pd.read_csv('media/modificar/clientes.csv',encoding='utf-8')))
 
         for c in customer_csv:
             print(f'quedan {contador} clientes por importar')
@@ -116,6 +116,8 @@ class ImportData():
                         country = c[5],
                         free_days = 0
                     )
+				#except IntegrityError:
+					#continue
             elif email:
                 try:
                     user = User.objects.get(email=email)
@@ -138,9 +140,9 @@ class ImportData():
 
     def accounts(request):
         print('Comenzamos importacion de Acuentas')
-        accounts_csv = csv.reader(open('media/modificar/adm_cta.csv'))
-        serv_csv = csv.reader(open('media/modificar/cuentas.csv'))
-        contador = int(len(pd.read_csv('media/modificar/adm_cta.csv')))
+        accounts_csv = csv.reader(open('media/modificar/adm_cta.csv',encoding='utf-8'))
+        serv_csv = csv.reader(open('media/modificar/cuentas.csv',encoding='utf-8'))
+        contador = int(len(pd.read_csv('media/modificar/adm_cta.csv',encoding='utf-8')))
         business = Business.objects.get(pk=1)
         customer_number = None
         customer_email = None
@@ -177,7 +179,7 @@ class ImportData():
                     profile = a[7]
 
                 service = Service.objects.get(old_id=ss)
-                acc = Account.objects.get(account_name=service,email=a[5],password=a[6],profile=profile)
+                acc = Account.objects.get(account_name=service,email=str(a[5]).replace('\xa0',''),password=a[6],profile=profile)
                 print(f'EL servicio {acc.email} ya existe')
                 contador -=1
                 continue
@@ -202,7 +204,7 @@ class ImportData():
                     account_name = Service.objects.get(old_id=a[10]),
                     created_at = datetime.now(),
                     expiration_date = expiration,
-                    email = a[5],
+                    email = str(a[5]).replace('\xa0',''),
                     password = a[6],
                     pin = None,
                     comments = a[3] + ' - ' + a[4],
@@ -216,8 +218,8 @@ class ImportData():
 
     def sales(request):
         print('Comenzamos importacion de Ventas')
-        ventas_csv = csv.reader(open('media/modificar/ventas.csv'))
-        contador = int(len(pd.read_csv('media/modificar/ventas.csv'))) 
+        ventas_csv = csv.reader(open('media/modificar/ventas.csv',encoding='utf-8'))
+        contador = int(len(pd.read_csv('media/modificar/ventas.csv',encoding='utf-8'))) 
 
         #bank
         try:
@@ -362,15 +364,15 @@ class ImportData():
                     account.customer = new_customer
                     account.modified_by = request.user
                     account.save()
-                print(f'Creando venta a la cuenta {sale.account.email}')
+                #print(f'Creando venta a la cuenta {sale.account.email.replace('\xa0','')}')
 
             contador -=1
         print('Ventas Terminadas')
 
     def bank():
         print('Comenzamos importacion de Cuentas Bancarias')
-        bank_csv = csv.reader(open('media/modificar/tarjetas.csv'))
-        contador = int(len(pd.read_csv('media/modificar/tarjetas.csv')))
+        bank_csv = csv.reader(open('media/modificar/tarjetas.csv',encoding='utf-8'))
+        contador = int(len(pd.read_csv('media/modificar/tarjetas.csv',encoding='utf-8')))
 
         for b in bank_csv:
             print(f'Quedan {contador} cuentas por terminar')
@@ -393,8 +395,8 @@ class ImportData():
 
     def invoices():
         print('Comenzamos importacion de Pagos')
-        invo_csv = csv.reader(open('media/modificar/movimientos.csv'))
-        contador = int(len(pd.read_csv('media/modificar/movimientos.csv')))
+        invo_csv = csv.reader(open('media/modificar/movimientos.csv',encoding='utf-8'))
+        contador = int(len(pd.read_csv('media/modificar/movimientos.csv',encoding='utf-8')))
 
         try:
             transfer = PaymentMethod.objects.get(description = 'Transferencia')
@@ -450,8 +452,8 @@ class ImportData():
 
     def update_country():
         print('Comenzamos importacion de Clientes')
-        customer_csv = csv.reader(open('media/modificar/clientes.csv'))
-        contador = int(len(pd.read_csv('media/modificar/clientes.csv')))
+        customer_csv = csv.reader(open('media/modificar/clientes.csv',encoding='utf-8'))
+        contador = int(len(pd.read_csv('media/modificar/clientes.csv',encoding='utf-8')))
 
         for c in customer_csv:
             print(contador)
@@ -476,14 +478,14 @@ class ImportData():
 
     def shop():
         print('Comenzamos importacion de Tiendas')
-        shop_csv = csv.reader(open('media/modificar/tiendas.csv'))
-        contador = int(len(pd.read_csv('media/modificar/tiendas.csv')))
+        shop_csv = csv.reader(open('media/modificar/tiendas.csv',encoding='utf-8'))
+        contador = int(len(pd.read_csv('media/modificar/tiendas.csv',encoding='utf-8')))
         
         for s in shop_csv:
             print(f'Quedan {contador} tiendas por crear')
             try:
                 Shop.objects.get(name=s[2])
-                print(f'Tienda {s[2]} ya existe')
+                #print(f'Tienda {s[2]} ya existe')
                 contador -=1
                 continue
             except Shop.DoesNotExist:
@@ -502,13 +504,13 @@ class ImportData():
                     confirmation=True,
                     comision=True
                 )
-                print(f'Tienda {s[2]} creada')
+                #print(f'Tienda {s[2]} creada')
                 contador -=1
 
     def cupon():
         print('Comenzamos importacion de Cupones')
-        cupon_csv = csv.reader(open('media/modificar/cupon.csv'))
-        contador = int(len(pd.read_csv('media/modificar/cupon.csv')))       
+        cupon_csv = csv.reader(open('media/modificar/cupon.csv',encoding='utf-8'))
+        contador = int(len(pd.read_csv('media/modificar/cupon.csv',encoding='utf-8')))       
         
         for c in cupon_csv:
             print(f'Quedan {contador} cupones por crear')

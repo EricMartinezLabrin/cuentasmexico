@@ -15,6 +15,7 @@ from django.http import JsonResponse
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 import pyperclip as clipboard
+import pandas as pd
 
 #Local
 from .models import Business, PaymentMethod, Sale,UserDetail,Service, Account, Bank, Status, Supplier
@@ -675,7 +676,9 @@ def SalesCopyPass(request,sale_id):
 
     message = f'*E-Mail:* {sale.account.email} \n*Clave:* {sale.account.password}  {pin} \n*Perfil:* {sale.account.profile} \n\n💎 Esta es su cuenta *{sale.account.account_name.description}* para *1 Dispositivo*. Inicie sesión con el *EMAIL* y *CLAVE* recibida \n💎 Usar *SOLO EL PERFIL ASIGNADO* \n💎 *NO* puedes cambiar las claves. Gracias por tu preferencia, Recuerde que los unicos canales oficiales de atecion son: Whats App y Telegram al número 833 535 5863.'
 
-    clipboard.copy(message)
+    clipboard.copy("message")
+    #df=pd.DataFrame([message])
+    #df.to_clipboard(index=False,header=False)
 
     return Sales.render_view(request,sale.customer)
 
@@ -980,13 +983,13 @@ def ReleaseAccounts(request,pk):
 
 @permission_required('is_staff','adm:no-permission')
 def ImportView(request):
-    ImportData.services()
-    ImportData.customers()
-    ImportData.accounts(request)
-    ImportData.sales(request)
-    ImportData.bank()
-    ImportData.invoices()
-    ImportData.update_country()
+    #ImportData.services()
+    #ImportData.customers()
+    #ImportData.accounts(request)
+    #ImportData.sales(request)
+    #ImportData.bank()
+    #ImportData.invoices()
+    #ImportData.update_country()
     ImportData.shop()
     ImportData.cupon()
     return redirect(reverse('adm:index'))
