@@ -87,6 +87,15 @@
                         {% if a.account.renovable %}
                             <i class="bi bi-star-fill" style="color:orange"></i>
                         {% endif %}
+                          <!--Copiado-->
+                        <textarea id="{{a.id}}" style="border:none;background-color:transparent;overflow: hidden;resize: none;" rows="1" cols="1" readonly>
+                            *E-Mail:* {{a.account.email}} 
+                            *Clave:* {{a.account.password}}  {{a.account.pin}} 
+                            *Perfil:* {{a.account.profile}} 
+                            💎 Esta es su cuenta *{{a.account.account_name.description}}* para *1 Dispositivo*. Inicie sesión con el *EMAIL* y *CLAVE* recibida 
+                            💎 Usar *SOLO EL PERFIL ASIGNADO* 
+                            💎 *NO* puedes cambiar las claves. Gracias por tu preferencia, Recuerde que los unicos canales oficiales de atecion son: Whats App y Telegram al número 833 535 5863.
+                        </textarea>
                     </td>
                     <td>{{a.account.email}}</td>
                     <td>{{a.account.password}}</td>
@@ -106,7 +115,7 @@
                         <a href="{% url 'adm:sales_change' a.id %}" title="Cambiar" class="cm">
                             <i class="bi bi-shuffle"></i>
                         </a>
-                        <a href="{% url 'adm:sales_copy' a.id %}" title="Copiar Claves" class="cm">
+                        <a href="#" onclick="copyAcc('{{a.id}}')" title="Copiar Claves" class="cm">
                             <i class="bi bi-clipboard"></i>
                         </a>
                         {% if customer.userdetail.free_days > 0 %}
@@ -195,4 +204,17 @@
       </div>
     </div>
   </div>
+
 {% endblock body %}
+{% block extrajs %}
+<script>
+    
+    //const btn = document.getElementById('clip');
+    function copyAcc(copyId){
+        const codigoACopiar = document.getElementById(copyId);
+        codigoACopiar.select();
+        document.execCommand('copy');
+    }
+</script>
+{% endblock extrajs %}
+

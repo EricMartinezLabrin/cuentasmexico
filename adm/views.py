@@ -676,11 +676,11 @@ def SalesCopyPass(request,sale_id):
 
     message = f'*E-Mail:* {sale.account.email} \n*Clave:* {sale.account.password}  {pin} \n*Perfil:* {sale.account.profile} \n\n💎 Esta es su cuenta *{sale.account.account_name.description}* para *1 Dispositivo*. Inicie sesión con el *EMAIL* y *CLAVE* recibida \n💎 Usar *SOLO EL PERFIL ASIGNADO* \n💎 *NO* puedes cambiar las claves. Gracias por tu preferencia, Recuerde que los unicos canales oficiales de atecion son: Whats App y Telegram al número 833 535 5863.'
 
-    clipboard.copy("message")
+    # clipboard.copy("message")
     #df=pd.DataFrame([message])
     #df.to_clipboard(index=False,header=False)
 
-    return Sales.render_view(request,sale.customer)
+    return Sales.render_view(request,customer=sale.customer,copy=message)
 
 def OldAccView(request,sale):
     template_name = 'adm/archive.html'

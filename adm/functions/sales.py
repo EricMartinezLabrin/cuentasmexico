@@ -263,7 +263,7 @@ class Sales():
         )
         return inactive
 
-    def render_view(request,customer=None,message=None):
+    def render_view(request,customer=None,message=None,copy=None):
         
         if customer == None:
             my_dict = {
@@ -281,6 +281,8 @@ class Sales():
             my_dict = {
                     'availables': Sales.availables()[0],
                     'customer':customer,
+                    'message':message,
+                    'copy':copy,
                     'active':Sales.customer_sales_active(customer),
                     'inactive':Sales.customer_sales_inactive(customer)
             }
