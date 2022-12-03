@@ -5,13 +5,14 @@ from adm.models import UserDetail, Account,Service
 #Python
 from datetime import datetime,timedelta
 import pandas as pd
+from calendar import monthrange
 #Local
 from adm.models import Sale
 
 class Dashboard():
 
     def sales_per_country_day():
-        today = datetime.now() - timedelta(days=1)
+        today = datetime.now()
         sales_country = {}
         countries = Sale.objects.values('customer__userdetail__country').order_by('customer__userdetail__country').distinct()
         for country in countries:
@@ -24,8 +25,11 @@ class Dashboard():
         return sales_country
 
     def sales_per_country_month():
-        start = '2022-12-01 00:00:00'
-        end = '2022-12-30 23:59:59'
+        month = datetime.now().month
+        year = datetime.now().year
+        last_day = monthrange(year,month)[1]
+        start = f'{year}-{month}-01 00:00:00'
+        end = f'{year}-{month}-{last_day} 23:59:59'
         
         sales_country = {}
         countries = Sale.objects.values('customer__userdetail__country').order_by('customer__userdetail__country').distinct()
