@@ -1,4 +1,5 @@
 {% extends 'adm/base/base.html' %}
+{% load static %}
 {% block title %}Ventas{% endblock title %}
 {% block body %}
 {% if customer.username %}
@@ -207,14 +208,6 @@
 
 {% endblock body %}
 {% block extrajs %}
-<script>
-    
-    //const btn = document.getElementById('clip');
-    function copyAcc(copyId){
-        const codigoACopiar = document.getElementById(copyId);
-        codigoACopiar.select();
-        document.execCommand('copy');
-    }
-</script>
+<script src="{% static 'adm/js/copy.js' %}"></script>
 {% endblock extrajs %}
 

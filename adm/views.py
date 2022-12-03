@@ -38,10 +38,15 @@ def index(request):
     """
     Main Admin Page
     """
-    # sales = Dashboard.sales_per_country()
+    sales_day = Dashboard.sales_per_country_day()
+    sales_month = Dashboard.sales_per_country_month()
+    sales_acc = Dashboard.sales_per_account()
     template_name="adm/index.html"
     return render(request,template_name,{
-        # 'sales':sales
+        'sales_day':sales_day,
+        'sales_month':sales_month,
+        'acc_name':sales_acc[0],
+        'acc_total':sales_acc[1]
     })
 
 class NoPermissionView(TemplateView):
@@ -902,7 +907,6 @@ def ReceivableCopyPass(request,sale_id):
     message = f'Buenas tardes amig@, le recuerdo que su cuenta  {sale.account.account_name} ya venció, para seguir utilizándola debe renovar. Por ser cliente frecuente tendrás un 10% de descuento si renuevas por 3 meses o más el día de hoy.'
 
     clipboard.copy(message)
-
     return redirect(reverse('adm:receivable'))
 
 @permission_required('is_staff','adm:no-permission')

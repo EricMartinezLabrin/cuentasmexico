@@ -1,4 +1,5 @@
 {% extends 'adm/base/base.html' %}
+{% load static %}
 {% block title %}Por Cobrar{% endblock title %}
 {% block body %}
 <h1>Quedan {{left}} cuenta{{left|pluralize:",s"}} por liberar</h1>
@@ -58,9 +59,13 @@
                         <i class="bi bi-check-circle"></i>
                     </a>
 
-                    <a href="{% url 'adm:receivable_copy' rece.id %}" class="cm">
+                    <a href="#" onclick="copyAcc('{{rece.id}}')" class="cm">
                         <i class="bi bi-clipboard"></i>
                     </a>
+                    <!--Copiado-->
+                    <textarea id="{{rece.id}}" style="border:none;background-color:transparent;overflow: hidden;resize: none;" rows="1" cols="1" readonly>
+                        Buenas tardes amig@, le recuerdo que su cuenta  {{rece.account.account_name}} ya venció, para seguir utilizándola debe renovar. Por ser cliente frecuente tendrás un 10% de descuento si renuevas por 3 meses o más el día de hoy.
+                    </textarea>
                 </td>
             </tr>
         {% endfor %}
@@ -69,3 +74,12 @@
 
 {% include 'adm/base/paginator.html' %}
 {% endblock body %}
+{% block extrajs %}
+<script>
+    function copyAcc(copyId){
+        const codigoACopiar = document.getElementById(copyId);
+        codigoACopiar.select();
+        document.execCommand('copy');
+    }
+</script>
+{% endblock extrajs %}

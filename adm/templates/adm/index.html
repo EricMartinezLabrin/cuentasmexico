@@ -1,10 +1,85 @@
 {% extends 'adm/base/base.html' %}
+{% load static %}
+{% load humanize %}
 {% block title %}Dashboard{% endblock title %}
 {% block body %}
-<h1>Admin</h1>
+<h1>Dashboard</h1>
 
-{{sales}}
-{% for s in sales %}
-{{s.customer.userdetail.country}}
-{% endfor %}
+<div class="d-flex">
+        <table class="table table-hover me-3">
+            <thead>
+                <th colspan="2">Ventas del día</th>
+            </thead>
+            {% for key,value in sales_day.items %}
+                <tr>
+                    <td>{{key}}</td>
+                    {% for key,value in value.items %}
+                        {% if not value %}
+                            <td>$0</td>
+                        {% else %}
+                            <td>${{value|intcomma}}</td>
+                        {% endif %}
+                        
+                    {% endfor %}
+                </tr>
+            {% endfor %}    
+        </table>
+
+        <table class="table table-hover ms-3">
+            <thead>
+                <th colspan="2">Ventas del Mes</th>
+            </thead>
+            {% for key,value in sales_month.items %}
+                <tr style="height:10px">
+                    <td>{{key}}</td>
+                    {% for key,value in value.items %}
+                        {% if not value %}
+                            <td>$0</td>
+                        {% else %}
+                            <td>${{value|intcomma}}</td>
+                        {% endif %}
+                    {% endfor %}
+                </tr>
+            {% endfor %}    
+        </table>   
+
+</div>
+    <div style="width:200px">
+        <canvas id="myChart" class="lex-shrink-0"></canvas>
+    </div>
 {% endblock body  %}
+
+{% block extrajs %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        const ctx = document.getElementById('myChart');
+        const data = {
+            labels: {{acc_name|safe}},
+            datasets: [{
+            label: 'Total',
+            data: {{acc_total|safe}},
+            backgroundColor: [
+                'rgb(255, 99, 132)',
+                'rgb(54, 162, 235)',
+                'rgb(255, 205, 86)'
+            ],
+            hoverOffset: 40
+            }]
+        };
+        const options = {
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Cuentas Vendidas en el Mes'
+                }
+            }
+        }
+        const config = {
+        type: 'doughnut',
+        data: data,
+        options: options
+        };
+
+        new Chart(ctx, config);
+    </script>
+{% endblock extrajs %}
