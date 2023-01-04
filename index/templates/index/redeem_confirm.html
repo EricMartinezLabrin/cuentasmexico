@@ -1,0 +1,30 @@
+<div class="modal-dialog" role="document">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h5 class="modal-title">Ya casi terminas!</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          {% if not error %}
+            {% if account.description %}
+              <div class="modal-body">
+                <p>¿Estás seguro que deseas canjear el código "{{code.name}}"" por <b>{{code.long}} me{{code.long|pluralize:"s,ses"}} de {{account.description}}</b>?</p>
+              </div>
+            {% else %}
+              <div class="modal-body">
+                <p>¿Estás seguro que deseas canjear el código "{{code.name}}"" por <b>{{code.long}} me{{code.long|pluralize:"s,ses"}} del {{account.account_name.description}} {{account.email}}</b>?</p>
+              </div>
+            {% endif %}  
+            <div class="modal-footer">
+              <button type="button" class="btn btn-cm-cancel" data-bs-dismiss="modal">Cancelar</button>
+              <a href="{% url 'redeem_done_renew' %}?name={{code.name}}&service={{account.id}}" class="btn btn-cm">Canjear</a>
+            </div>
+          {% else %}
+            <div class="modal-body">
+              {{error}}
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-cm-cancel" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+          {% endif %}
+    </div>
+  </div>

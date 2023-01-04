@@ -1,0 +1,127 @@
+{% extends 'index/base/base.html' %}
+{% block title %}Carrito{% endblock title %}
+{% block body %}
+<nav style="--bs-breadcrumb-divider: '>';" aria-label="breadcrumb">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'index' %}" class="cm">Inicio</a></li>
+      <li class="breadcrumb-item cm"><a href="#" class="cm">Tienda</a></li>
+      <li class="breadcrumb-item active cm" aria-current="page">Carrito</li>
+    </ol>
+  </nav>
+<h1>Carrito</h1>
+<div class="mb-lg-14 mb-8 mt-8">
+    <div class="row">
+        <div class="col-lg-8 col-md-7">
+            <div class="py-3">
+                <ul class="list-group list-group-flush">
+                    <!-- list group -->
+                    <li class="list-group-item py-3 py-lg-0 px-0 border-top">
+                    <!-- row -->
+                    {% if request.session.cart_number.items %}
+                    {% for key, value in request.session.cart_number.items %}
+                        <div class="row align-items-center">
+                            <div class="col-3 col-md-2">
+                            <!-- img --> <img src="{{value.image}}" alt="Ecommerce" class="img-fluid"></div>
+                            <div class="col-4 col-md-5">
+                            <!-- title -->
+                            <h6 class="mb-0 cm">{{value.name}}</h6>
+                            <span><small class="text-muted">{{value.profiles}} Dispositivo{{value.profiles|pluralize}} </small></span>
+                            <!-- text -->
+                            <div class="mt-2 small lh-1"> <a href="{% url 'removeCart' value.product_id %}" class="text-decoration-none text-inherit"> <span class="me-1 align-text-bottom">
+                                <i class="bi bi-trash3 cm"></i></span><span class="text-muted">Remove</span></a></div>
+                            </div>
+                            <!-- input group -->
+                            <div class="col-3 col-md-3 col-lg-3">
+                                <!-- input -->
+                                <div class="input-group mb-3">
+                                    <a href="{% url 'decrementCart' value.product_id %}" class="btn btn-outline-secondary" id="button-addon1">-</a>
+                                    <input type="number" class="form-control no-arrow" id="month" placeholder="{{value.quantity}} me{{value.quantity|pluralize:"s,ses"}}" aria-label="Example text with button addon" aria-describedby="button-addon1" readonly>
+                                    <a href="{% url 'addCart' value.product_id %}" class="btn btn-outline-secondary" id="button-addon1">+</a>
+                                </div>
+                            </div>
+                            <!-- price -->
+                            <div class="col-2 text-lg-end text-start text-md-end col-md-2">
+                            <span class="fw-bold">${{value.price}}</span>
+                            </div>
+                        </div>
+                    </li>
+                    {% endfor %}
+                    {% else %}
+                    <tr>
+                        <td colspan="5">
+                               <div class="alert alert-danger" role="alert">
+                        No hay productos en el carrito
+                      </div> 
+                        </td>
+                      </tr>
+                      {% endif %}
+                
+            </div>
+        </div>
+        <div class="col-12 col-lg-4 col-md-5">
+            <!-- card -->
+            <div class="mb-5 card mt-6">
+            <div class="card-body p-6">
+                <!-- heading -->
+                <h2 class="h5 mb-4">Resumen</h2>
+                <div class="card mb-2">
+                <!-- list group -->
+                <ul class="list-group list-group-flush">
+                    <!-- list group item -->
+                    <li class="list-group-item d-flex justify-content-between align-items-start">
+                    <div class="me-auto">
+                        <div>Subtotal</div>
+
+                    </div>
+                    <span>{{request.session.cart_total}}</span>
+                    </li>
+
+                    <!-- list group item -->
+                    <li class="list-group-item d-flex justify-content-between align-items-start">
+                    <div class="me-auto">
+                        <div>Comision</div>
+
+                    </div>
+                    <span>$0</span>
+                    </li>
+                    <!-- list group item -->
+                    <li class="list-group-item d-flex justify-content-between align-items-start">
+                    <div class="me-auto">
+                        <div class="fw-bold">Total</div>
+
+                    </div>
+                    <span class="fw-bold">${{request.session.cart_total}}</span>
+                    </li>
+                </ul>
+
+                </div>
+                <div class="d-grid mb-1 mt-4">
+                <!-- btn -->
+                <button class="btn btn-cm btn-lg d-flex justify-content-between align-items-center" type="submit">
+                    Comprar <span class="fw-bold">${{request.session.cart_total}}</span></button>
+                </div>
+                <!-- text -->
+                <p><small>Al completar la orden aceptas los <a href="#!">Terminos y Condiciones</a>
+                    and <a href="#!">Politica de privacidad</a> de Cuentas México </small></p>
+
+                <!-- heading -->
+                <div class="mt-8">
+                <h2 class="h5 mb-3">Código de descuento</h2>
+                <form>
+                    <div class="mb-2">
+                    <!-- input -->
+                    <label for="giftcard" class="form-label sr-only">Código de descuento</label>
+                    <input type="text" class="form-control" id="giftcard" placeholder="Escribe tu código o cupón">
+
+                    </div>
+                    <!-- btn -->
+                    <div class="d-grid"><button type="submit" class="btn btn-outline-dark mb-1">Canjear</button></div>
+                    <p class="text-muted mb-0"> <small>Aplican terminos y codiciones</small></p>
+                </form>
+                </div>
+            </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock body %}
