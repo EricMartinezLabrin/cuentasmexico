@@ -2,7 +2,7 @@
 
 <div class="d-flex flex-nowrap position-fixed">
   <div class="d-flex flex-column flex-shrink-0 p-3 text-bg-dark">
-    <a href="{% url 'adm:index' %}" class="d-flex align-items-center ms-4 mb-3 mb-md-0 me-md-auto text-white text-decoration-none">
+    <a href="{% url 'index' %}" class="d-flex align-items-center ms-4 mb-3 mb-md-0 me-md-auto text-white text-decoration-none">
       <img src="/media/{{user.userdetail.business.logo}}" alt="{{user.userdetail.business}} Logo" width="100">
     </a>
     <hr>
@@ -86,7 +86,12 @@
         {% if user.first_name %}
         <strong>{{user.first_name}}</strong>
         {% else %}
-        <strong>{{user.username}}</strong>
+        <div class="row">
+          <div class="col-0 text-truncate">
+            <strong>{{user.username}}</strong>
+          </div>
+        </div>
+        
         {% endif %}
       </a>
       <ul class="dropdown-menu dropdown-menu-dark text-small shadow">

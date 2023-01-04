@@ -1,5 +1,4 @@
 #Django
-import profile
 from django.shortcuts import render
 from django.http import HttpResponse,HttpRequest
 from django.views.generic import DetailView, CreateView, UpdateView, TemplateView, ListView, DeleteView
@@ -411,8 +410,6 @@ def AccountsExpiredView(request):
 
 @permission_required('is_staff','adm:no-permission')
 def ActiveInactiveAccount(request,status,pk):
-    active = Status.objects.get(description='Activo')
-    inactive = Status.objects.get(description='Inactivo')
     account = Account.objects.get(pk=pk)
     account.status = Active_Inactive.active_inactive(status)
     account.save()

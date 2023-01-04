@@ -25,6 +25,8 @@ class Service(models.Model):
     status = models.BooleanField(default=True)
     logo = models.FileField(upload_to="settings/", null=True, blank=True)
     old_id = models.IntegerField(blank=True,null=True)
+    price = models.IntegerField(default=85)
+    regular_price = models.IntegerField(default=100)
 
     def __str__(self):
         return self.description

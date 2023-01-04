@@ -16,6 +16,8 @@ class Shop(models.Model):
     confirmation_date = models.DateTimeField(blank=True,null=True)
     comision_date = models.DateTimeField(blank=True,null=True)
     seller = models.ForeignKey(User,on_delete=models.CASCADE)
+    status = models.BooleanField(default=True)
+    image = models.FileField(upload_to="shop/", null=True, blank=True)
 
 class Cupon(models.Model):
     name = models.CharField(max_length=30, unique=True)
