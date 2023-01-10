@@ -56,7 +56,7 @@
         <li>
           <a href="{% url 'adm:supplier' %}" class="nav-link text-white">
             <i class="bi bi-shop"></i>
-            Supplier
+            Proveedores
           </a>
         </li>
         <li>
@@ -71,12 +71,18 @@
           Ventas  
         </a>
       </li>     
-    <li>
-      <a href="{% url 'adm:user' %}" class="nav-link text-white">
-        <i class="bi bi-person-circle"></i>
-        Users
-      </a>
-  </li>
+      <li>
+        <a href="{% url 'adm:user' %}" class="nav-link text-white">
+          <i class="bi bi-person-circle"></i>
+          Usuarios
+        </a>
+      </li>
+      <li>
+        <a href="{% url 'adm:credit_list' %}" class="nav-link text-white">
+          <i class="bi bi-coin"></i>
+          Creditos
+        </a>
+      </li>
       {% endif %}
     </ul>
     <hr>

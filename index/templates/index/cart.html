@@ -34,7 +34,7 @@
                             <div class="col-3 col-md-3 col-lg-3">
                                 <!-- input -->
                                 <div class="input-group mb-3">
-                                    <a href="{% url 'decrementCart' value.product_id %}" class="btn btn-outline-secondary" id="button-addon1">-</a>
+                                    <a href="{% url 'decrementCart' value.product_id value.unitPrice %}" class="btn btn-outline-secondary" id="button-addon1">-</a>
                                     <input type="number" class="form-control no-arrow" id="month" placeholder="{{value.quantity}} me{{value.quantity|pluralize:"s,ses"}}" aria-label="Example text with button addon" aria-describedby="button-addon1" readonly>
                                     <a href="{% url 'addCart' value.product_id %}" class="btn btn-outline-secondary" id="button-addon1">+</a>
                                 </div>
@@ -49,12 +49,13 @@
                     {% else %}
                     <tr>
                         <td colspan="5">
-                               <div class="alert alert-danger" role="alert">
-                        No hay productos en el carrito
-                      </div> 
+                            <div class="alert alert-danger" role="alert">
+                                No hay productos en el carrito
+                            </div> 
                         </td>
-                      </tr>
+                    </tr>
                       {% endif %}
+                      <div id="error"></div>
                 
             </div>
         </div>
@@ -97,7 +98,7 @@
                 </div>
                 <div class="d-grid mb-1 mt-4">
                 <!-- btn -->
-                <button class="btn btn-cm btn-lg d-flex justify-content-between align-items-center" type="submit">
+                <button id="buy" class="btn btn-cm btn-lg d-flex justify-content-between align-items-center" type="submit">
                     Comprar <span class="fw-bold">${{request.session.cart_total}}</span></button>
                 </div>
                 <!-- text -->
@@ -110,7 +111,8 @@
                 <form>
                     <div class="mb-2">
                     <!-- input -->
-                    <label for="giftcard" class="form-label sr-only">Código de descuento</label>
+                    <label for="giftcard" class="form-label sr-only">Código de descuento</label><br>
+                    <small>No válidos cupones de tiendas. Si tienes uno puedes canjearlo <a href="{% url 'redeem' %}">aquí</a></small>
                     <input type="text" class="form-control" id="giftcard" placeholder="Escribe tu código o cupón">
 
                     </div>
@@ -125,3 +127,32 @@
     </div>
 </div>
 {% endblock body %}
+{% block extrajs %}
+<script>
+    const level = "{{request.user.userdetail.level.name}}";
+    
+    if (level==="Revendedor"){
+        insuficient_credits()
+    }
+
+    function insuficient_credits(){
+        var credits = {{credits}};
+        var bill = {{request.session.cart_total}};
+        const buy = document.getElementById('buy');
+        const error = document.getElementById('error')
+        if (credits < bill){
+            buy.disabled = true;
+            error.innerHTML = `
+            <br>
+            <tr>
+                <td colspan="5">
+                    <div class="alert alert-danger" role="alert">
+                        No tienes creditos suficientes. Tienes <b>${credits}</b> y necesitas <b>${bill}</b>, para continuar debes recargar.
+                    </div> 
+                </td>
+            </tr>
+            `
+        }
+    }
+</script>
+{% endblock extrajs %}

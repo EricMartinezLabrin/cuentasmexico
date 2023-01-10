@@ -9,15 +9,20 @@
               <div class="modal-body">
                 <p>¿Estás seguro que deseas canjear el código "{{code.name}}"" por <b>{{code.long}} me{{code.long|pluralize:"s,ses"}} de {{account.description}}</b>?</p>
               </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-cm-cancel" data-bs-dismiss="modal">Cancelar</button>
+                <a href="{% url 'redeem_done' %}?name={{code.name}}&service={{account.id}}" class="btn btn-cm">Canjear</a>
+              </div>
             {% else %}
               <div class="modal-body">
                 <p>¿Estás seguro que deseas canjear el código "{{code.name}}"" por <b>{{code.long}} me{{code.long|pluralize:"s,ses"}} del {{account.account_name.description}} {{account.email}}</b>?</p>
               </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-cm-cancel" data-bs-dismiss="modal">Cancelar</button>
+                <a href="{% url 'redeem_done_renew' %}?name={{code.name}}&service={{account.id}}" class="btn btn-cm">Canjear</a>
+              </div>
             {% endif %}  
-            <div class="modal-footer">
-              <button type="button" class="btn btn-cm-cancel" data-bs-dismiss="modal">Cancelar</button>
-              <a href="{% url 'redeem_done_renew' %}?name={{code.name}}&service={{account.id}}" class="btn btn-cm">Canjear</a>
-            </div>
+
           {% else %}
             <div class="modal-body">
               {{error}}

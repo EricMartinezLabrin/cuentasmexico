@@ -7,6 +7,7 @@ from django.shortcuts import render,redirect
 from django.urls import reverse,reverse_lazy
 from django.db import IntegrityError
 from django.http import HttpResponseRedirect
+from adm.functions.send_email import Email
 
 
 class Sales():
@@ -69,7 +70,7 @@ class Sales():
             acc = Account.objects.get(pk=s)
             if acc.customer == None:
                 #create sale
-                Sale.objects.create(
+                sale = Sale.objects.create(
                     business = request.user.userdetail.business,
                     user_seller = request.user,
                     bank = bank_selected,
@@ -85,6 +86,10 @@ class Sales():
                 acc.customer=User.objects.get(pk=customer.id)
                 acc.modified_by=request.user
                 acc.save()
+
+                if customer.email:
+                    print(customer.email)
+                    Email.email_passwords(request,customer.email,(sale,))
             else:
                 continue
         return True
@@ -142,6 +147,9 @@ class Sales():
             cupon.status = False
             cupon.save()
 
+            if customer.email:
+                Email.email_passwords(request,customer.email,(sale,))
+
         return True
 
     def renew_sale(request,old):
@@ -183,6 +191,9 @@ class Sales():
         old_sale.status = False
         old_sale.old_sale = new_sale_id
         old_sale.save()
+
+        if customer.email:
+            Email.email_passwords(request,customer.email,(new_sale,))
 
         return True
 
@@ -226,6 +237,9 @@ class Sales():
         acc.customer=old_sale.customer
         acc.modified_by=request.user
         acc.save()
+
+        if old_sale.customer.email:
+            Email.email_passwords(request,old_sale.customer.email,(new_sale,))
 
         return True
 
@@ -317,7 +331,7 @@ class Sales():
         else:
             return False, "El código ya fue utilizado, si no lo canjeó usted contacte a su vendedor y pidale uno nuevo."
 
-    def redeem(acc,code,customer_id):
+    def redeem(request,acc,code,customer_id):
         cupon = Cupon.objects.get(name=code)
         service = acc
         price = cupon.price
@@ -369,9 +383,12 @@ class Sales():
             cupon.status = False
             cupon.save()
 
+            if customer.email:
+                Email.email_passwords(request,customer.email,(sale,))
+
         return True
 
-    def redeem_renew(acc,code,customer_id):
+    def redeem_renew(request,acc,code,customer_id):
         cupon = Cupon.objects.get(name=code)
         if cupon.status == True:
             price = cupon.price
@@ -432,6 +449,9 @@ class Sales():
             cupon.status_sale = True
             cupon.status = False
             cupon.save()
+
+            if customer.email:
+                Email.email_passwords(request,customer.email,(new_sale,))
 
             return True, acc
         else:

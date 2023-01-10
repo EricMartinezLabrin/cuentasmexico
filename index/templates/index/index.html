@@ -1,4 +1,7 @@
 {% extends 'index/base/base.html' %}
+
+{% load price %}
+{% load humanize %}
 {% block title %}Inicio{% endblock title %}
 {% block body %}
     <div id="carouselExampleControls" class="carousel slide m-2" data-bs-ride="carousel">
@@ -53,7 +56,13 @@
                                 (5)
                             </p>
                             <div class="d-flex justify-content-between align-items-center mt-3">
-                                <span class="text-dark">${{s.price}}</span>
+                                <span id="price" class="text-dark">$
+                                    {% if user.userdetail.level.discount %}
+                                        {{s.price|new_price:user.userdetail.level.discount|new_currency:1|intcomma}}
+                                    {% else %}
+                                        {{s.price}}
+                                    {% endif %}
+                                </span>
                                 <span class="text-decoration-line-through text-muted">${{s.regular_price}}</span>
                                 <div>
                                     <a href="{% url 'addCart' s.id %}" class="btn btn-cm btn-sm">

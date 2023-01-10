@@ -17,7 +17,7 @@ class CartProcessor:
             self.carrito_total = carrito_total
             self.carrito_cantidad = carrito_cantidad
 
-    def add(self,product,quantity,profiles):
+    def add(self,product,quantity,profiles,price):
         id = str(product.id)
         if id not in self.carrito.keys():
             self.carrito[id]={
@@ -25,11 +25,12 @@ class CartProcessor:
                 'name': product.description,
                 'quantity': quantity,
                 'profiles': profiles,
-                'price': int(product.price)*quantity*profiles,
+                'price': int(price)*quantity*profiles,
                 'image':product.logo.url,
-                'description': product.description
+                'description': product.description,
+                'unitPrice':int(price)
             }
-            self.carrito_total= int(self.carrito_total) + int(product.price)*quantity*profiles
+            self.carrito_total= int(self.carrito_total) + int(price)*quantity*profiles
             self.carrito_cantidad=int(self.carrito_cantidad)+1
         else:
             for key, value in self.carrito.items():
@@ -62,12 +63,12 @@ class CartProcessor:
             del self.carrito[product_id]
             self.save()
 
-    def decrement(self,product):
+    def decrement(self,product,unitPrice):
         for key, value in self.carrito.items():
             if key == str(product.id):
                 self.carrito_total = self.carrito_total-value['price']
                 value['quantity'] = value['quantity']-1
-                value['price'] = int(product.price*value['quantity']*value['profiles'])
+                value['price'] = int(unitPrice*value['quantity']*value['profiles'])
                 self.carrito_total = self.carrito_total + value['price']
                 self.carrito_cantidad = self.carrito_cantidad -1
                 if value['quantity']<1:

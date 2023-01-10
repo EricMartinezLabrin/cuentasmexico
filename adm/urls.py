@@ -64,5 +64,8 @@ urlpatterns = [
     path('receivable/',login_required(views.ReceivableView.as_view()),name='receivable'),
     path('receivable/<int:sale_id>',login_required(views.ReceivableCopyPass),name='receivable_copy'),
     path('release/update/<int:pk>',login_required(views.ReleaseAccounts),name='release'),
+    path('credits/<int:pk>',login_required(views.credits),name='credits'),
+    path('credits/customer/list/<int:pk>',login_required(views.CreditCustomerListView.as_view()),name='credits_customer_list'),
+    path('credits/list',login_required(views.CreditsView),name='credit_list'),
     path('import',login_required(views.ImportView),name='import')
 ]

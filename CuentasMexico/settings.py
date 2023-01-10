@@ -43,10 +43,13 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.humanize',
+    'django.contrib.sites',
     'adm',
     'index',
     'cupon',
 ]
+INSTALLED_APPS += ('naomi',)
+SITE_ID = 1
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -149,3 +152,6 @@ EMAIL_HOST_PASSWORD = 'Tarkan11.-!!'
 EMAIL_BACKEND = 'django_smtp_ssl.SSLEmailBackend'
 
 DATE_INPUT_FORMATS = ('%d-%m-%Y')
+
+# EMAIL_BACKEND = "naomi.mail.backends.naomi.NaomiBackend"
+# EMAIL_FILE_PATH = "/Users/luinmack/Documents/Proyectos/CuentasMexico/tmp"

@@ -1,3 +1,6 @@
+{% load price %}
+{% load humanize %}
+
 <div class="modal-dialog modal-lg" role="document">
     <div class="modal-content">
       <div class="modal-header">
@@ -61,6 +64,7 @@
                 </div>
                 <form action="{% url 'addCart' object.pk %}" method="POST">
                     {% csrf_token %}
+                    <input type="hidden" name="price" id="correct-price" value="{{object.price|new_price:user.userdetail.level.discount|new_currency:1|intcomma}}">
                     <input type="hidden" name="quantity" id="quantity">
                     <input type="hidden" name="profiles" id="profiles">
                     <div class="p-3 border-bottom">
@@ -88,8 +92,9 @@
     const btnminus = document.getElementById('btnminus');
     const quantityForm = document.getElementById('quantity');
     const profilesForm = document.getElementById('profiles');
+    const correctPrice = parseInt(document.getElementById('correct-price').value);
     
-    var price = {{object.price}};
+    var price = correctPrice;
     var regularPrice = {{object.regular_price}};
     var off = 100-((price*100)/regularPrice);
     var prof = 1;
@@ -101,7 +106,7 @@
     quantityForm.value = 1;
 
     function prices(){
-        var price = {{object.price}}*monthsDisplay.value*prof;
+        var price = correctPrice*monthsDisplay.value*prof;
         var regularPrice = {{object.regular_price}}*monthsDisplay.value*prof;
         var off = 100-((price*100)/regularPrice);
 

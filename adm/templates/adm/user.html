@@ -35,9 +35,9 @@
                 <a href="{% url 'adm:user_mainupdate' user.id %}" class="pyc-color" title="Editar">
                     <i class="bi bi-pencil"></i>
                 </a>
-                <a href="{% url 'adm:user_update' user.userdetail.id %}" class="pyc-color" title="Cambiar Telefono">
+                {% comment %} <a href="{% url 'adm:user_update' user.userdetail.id %}" class="pyc-color" title="Cambiar Telefono">
                     <i class="bi bi-telephone"></i>
-                </a> 
+                </a>  {% endcomment %}
                 <a href="#" class="pyc-color" title="Eliminar">
                     <i class="bi bi-trash3"></i>
                 </a>

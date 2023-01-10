@@ -29,10 +29,11 @@ from dateutil import relativedelta
 def index(request):
     template_name="index/index.html"
     services = Service.objects.filter(status=True)
-    Email.email_passwords('contacto@cuentasmexico.mx')
+
     return render(request,template_name,{
         'business':BusinessInfo.data(),
-        'services': services
+        'credits': BusinessInfo.credits(request),
+        'services': services,
     })
 
 class CartView(TemplateView):
@@ -41,6 +42,7 @@ class CartView(TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["business"] =  BusinessInfo.data()
+        context["credits"] = BusinessInfo.credits(self.request)
         return context
     
 class CheckOutView(TemplateView):
@@ -49,6 +51,7 @@ class CheckOutView(TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["business"] =  BusinessInfo.data()
+        context["credits"] = BusinessInfo.credits(self.request)
         return context
 
 class ServiceDetailView(DetailView):
@@ -67,6 +70,7 @@ class ShopListView(ListView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["business"] =  BusinessInfo.data()
+        context["credits"] = BusinessInfo.credits(self.request)
         return context
     
     def get_queryset(self):
@@ -111,6 +115,7 @@ class RedeemView(UserAccessMixin,FormView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["business"] =  BusinessInfo.data()
+        context["credits"] = BusinessInfo.credits(self.request)
         context["error"] = self.get_error()
         context["code"] = self.get_code()
         context["customer_data"] = self.get_active_acc()
@@ -134,6 +139,7 @@ class SelectAccView(TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["business"] =  BusinessInfo.data()
+        context["credits"] = BusinessInfo.credits(self.request)
         context["error"] = self.error
         context["code"] = self.get_code()
         context["available"] = self.get_availables()
@@ -179,7 +185,7 @@ class RedeemRenewDoneView(TemplateView):
         service = Account.objects.get(pk = service_id)
         customer = self.request.user.id
         
-        renew = Sales.redeem_renew(service,code,customer)
+        renew = Sales.redeem_renew(self.request,service,code,customer)
 
         return renew
     
@@ -195,6 +201,7 @@ class RedeemRenewDoneView(TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["business"] =  BusinessInfo.data()
+        context["credits"] = BusinessInfo.credits(self.request)
         context["account"] =  self.complete_redeem()
         context["code"] = self.get_code()
         return context
@@ -218,7 +225,7 @@ class RedeemDoneView(TemplateView):
                 account = (False,"Error. El código ya fue utilizado, si no lo canjeó usted contacte a su vendedor y pidale uno nuevo.")
 
             if account[0] == True:
-                Sales.redeem(account[1],code,customer)
+                Sales.redeem(self.request,account[1],code,customer)
             return account
         except Cupon.DoesNotExist:
             return False,"El código no existe, porfavor contacte a su vendedor y pidale uno nuevo."
@@ -236,6 +243,7 @@ class RedeemDoneView(TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["business"] =  BusinessInfo.data()
+        context["credits"] = BusinessInfo.credits(self.request)
         context["account"] =  self.complete_redeem()
         context["code"] = self.get_code()
         return context
@@ -248,7 +256,8 @@ def addCart(request,product_id):
     if request.method == 'POST':
         quantity = int(request.POST.get('quantity'))
         profiles = int(request.POST.get('profiles'))
-        cart.add(product=service,quantity=quantity,profiles=profiles)
+        price = int(request.POST.get('price'))
+        cart.add(product=service,quantity=quantity,profiles=profiles,price=price)
         return HttpResponseRedirect(reverse("cart"))
     cart.add(service,1,1)  
     return HttpResponseRedirect(reverse("cart"))
@@ -259,10 +268,10 @@ def removeCart(request,product_id):
     cart.remove(service)  
     return HttpResponseRedirect(reverse("cart"))
 
-def decrementCart(request,product_id):
+def decrementCart(request,product_id, unitPrice):
     cart = CartProcessor(request)
     service = Service.objects.get(pk=product_id)
-    cart.decrement(service)  
+    cart.decrement(service,unitPrice)  
     return HttpResponseRedirect(reverse("cart"))
 
 
@@ -277,6 +286,7 @@ class LoginPageView(LoginView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["business"] =  BusinessInfo.data()
+        context["credits"] = BusinessInfo.credits(self.request)
         return context
 
 class LogoutPageView(LogoutView):
@@ -297,6 +307,7 @@ class RegisterCustomerView(CreateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["business"] =  BusinessInfo.data()
+        context["credits"] = BusinessInfo.credits(self.request)
         return context
 
 class PassResetView(PasswordResetView):
@@ -305,6 +316,7 @@ class PassResetView(PasswordResetView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["business"] =  BusinessInfo.data()
+        context["credits"] = BusinessInfo.credits(self.request)
         return context
 
 class PassResetDoneView(PasswordResetDoneView):
@@ -312,6 +324,7 @@ class PassResetDoneView(PasswordResetDoneView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["business"] =  BusinessInfo.data()
+        context["credits"] = BusinessInfo.credits(self.request)
         return context
 
 class PassResetConfirmView(PasswordResetConfirmView):
@@ -319,6 +332,7 @@ class PassResetConfirmView(PasswordResetConfirmView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["business"] =  BusinessInfo.data()
+        context["credits"] = BusinessInfo.credits(self.request)
         return context
 
 class PassResetPasswordCompleteView(PasswordResetCompleteView):
@@ -329,6 +343,7 @@ class PassResetPasswordCompleteView(PasswordResetCompleteView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["business"] =  BusinessInfo.data()
+        context["credits"] = BusinessInfo.credits(self.request)
         return context
 
 def RedirectOnLogin(request):
@@ -367,5 +382,15 @@ class NoPermissionView(TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["business"] =  BusinessInfo.data()
+        context["credits"] = BusinessInfo.credits(self.request)
         return context
 
+
+def SendEmail(request):
+    template_name = "index/email.html"
+    acc = Sale.objects.filter(pk__lte=3)
+
+    if request.method == 'POST':
+        Email.email_passwords(request,'contacto@cuentasmexico.mx',acc)
+
+    return render(request,template_name,{})

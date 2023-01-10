@@ -6,6 +6,13 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.core.validators import RegexValidator
 
+class Level(models.Model):
+    name = models.CharField(max_length=100)
+    discount = models.IntegerField()
+
+    def __str__(self):
+        return self.name
+
 class Business(models.Model):
     name = models.CharField(max_length=50)
     email = models.EmailField(max_length=30)
@@ -66,6 +73,7 @@ class UserDetail(models.Model):
     reference = models.IntegerField(null=True,blank=True)
     reference_used = models.BooleanField(default=False)
     free_days = models.IntegerField(default=0)
+    level = models.ForeignKey(Level,on_delete=models.CASCADE, blank=True, null=True)
 
     def __str__(self):
         return self.user.username
@@ -118,3 +126,12 @@ class Sale(models.Model):
 
     def __str__(self):
         return self.customer.userdetail.phone_number
+
+class Credits(models.Model):
+    customer = models.ForeignKey(User, on_delete=models.CASCADE)
+    date = models.DateTimeField(auto_now=True)
+    credits = models.IntegerField(default=0)
+    detail = models.CharField(max_length=255, blank=True, null=True)
+
+
+
