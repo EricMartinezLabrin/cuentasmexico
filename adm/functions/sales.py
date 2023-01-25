@@ -282,8 +282,8 @@ class Sales():
             }
             return render(request,'adm/sale.html',my_dict)
 
-    def search_better_acc(service_id,exp, code):
-        if not Cupon.objects.get(name=code).customer:
+    def search_better_acc(service_id,exp, code=None):
+        if not Cupon.objects.get(name=code).customer or code == None:
             print(Cupon.objects.get(name=code).customer)
             try:
                 service = Service.objects.get(pk=service_id)

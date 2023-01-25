@@ -65,7 +65,7 @@
                                 </span>
                                 <span class="text-decoration-line-through text-muted">${{s.regular_price}}</span>
                                 <div>
-                                    <a href="{% url 'addCart' s.id %}" class="btn btn-cm btn-sm">
+                                    <a href="{% url 'addCart' s.id s.price|new_price:user.userdetail.level.discount|new_currency:1 %}" class="btn btn-cm btn-sm">
                                         <i class="bi bi-plus-lg"></i> 
                                         Agregar
                                     </a>

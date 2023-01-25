@@ -37,7 +37,7 @@ class CartProcessor:
                 if key == str(product.id):
                     self.carrito_total = self.carrito_total-value['price']
                     value['quantity'] = value['quantity']+1
-                    value['price'] = product.price*value['quantity']*value['profiles']
+                    value['price'] = price*value['quantity']*value['profiles']
                     self.carrito_total=int(self.carrito_total) + int(value['price'])
                     self.carrito_cantidad=int(self.carrito_cantidad)+1
                     self.save()

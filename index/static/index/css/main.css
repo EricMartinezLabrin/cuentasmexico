@@ -71,3 +71,8 @@ html {
     background-color: var(--red)!important;
     color:white!important;
 }
+
+.disabled { 
+    pointer-events: none; 
+    cursor: default; 
+}

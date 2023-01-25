@@ -250,16 +250,16 @@ class RedeemDoneView(TemplateView):
 
 
 #Cart
-def addCart(request,product_id):
+def addCart(request,product_id,price):
     cart = CartProcessor(request)
     service = Service.objects.get(pk=product_id)
     if request.method == 'POST':
         quantity = int(request.POST.get('quantity'))
         profiles = int(request.POST.get('profiles'))
-        price = int(request.POST.get('price'))
-        cart.add(product=service,quantity=quantity,profiles=profiles,price=price)
+        price_unit = int(request.POST.get('price'))
+        cart.add(product=service,quantity=quantity,profiles=profiles,price=price_unit)
         return HttpResponseRedirect(reverse("cart"))
-    cart.add(service,1,1)  
+    cart.add(service,1,1,price)  
     return HttpResponseRedirect(reverse("cart"))
 
 def removeCart(request,product_id):
@@ -394,3 +394,16 @@ def SendEmail(request):
         Email.email_passwords(request,'contacto@cuentasmexico.mx',acc)
 
     return render(request,template_name,{})
+
+def DistributorSale(request):
+    cart = request.session.get('cart_number')
+    total = request.session.get('cart_total')
+    credits_availables = BusinessInfo.credits(request)
+    #check if enoght credits
+    if credits_availables < total:
+        return HttpResponse("Error, no cuentas con creditos suficientes")
+
+    for key,values in cart.items():
+        print(values)
+    return HttpResponse("Todo Bien")
+    

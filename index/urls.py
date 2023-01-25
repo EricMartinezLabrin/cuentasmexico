@@ -19,7 +19,7 @@ urlpatterns = [
     path('redeem/done/renew',login_required(views.RedeemRenewDoneView.as_view()),name='redeem_done_renew'),
     path('select',login_required(views.SelectAccView.as_view()),name='select_acc'),
     path('checkout/<int:product_id>',views.CheckOutView.as_view(),name='checkout'),
-    path('addCart/<int:product_id>',views.addCart,name='addCart'),
+    path('addCart/<int:product_id>/<int:price>',views.addCart,name='addCart'),
     path('removeCart/<int:product_id>',views.removeCart,name='removeCart'),
     path('decrementCart/<int:product_id>/<int:unitPrice>',views.decrementCart,name='decrementCart'),
     path('login',views.LoginPageView.as_view(redirect_authenticated_user=True),name='login'),
@@ -31,4 +31,5 @@ urlpatterns = [
     path('reset/<uidb64>/<token>/',views.PassResetConfirmView.as_view(),name='password_reset_confirm'),
     path('reset/done',views.PassResetPasswordCompleteView.as_view(),name='password_reset_complete'),
     path('email',views.SendEmail,name='email'),
+    path('checkout/distributor',views.DistributorSale,name='checkout_distributor'),
 ]
