@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Bank, PaymentMethod, Status, UserDetail, Account, Sale, Supplier, Business, Level
+from .models import Bank, PaymentMethod, Status, UserDetail, Account, Sale, Supplier, Business, Level, Credits
 
 class ParteAdmin(admin.ModelAdmin):
     # con esto muestras los campos que deses al mostrar la lista en admin
@@ -19,4 +19,5 @@ admin.site.register(Account)
 admin.site.register(Sale)
 admin.site.register(Business)
 admin.site.register(Level)
+admin.site.register(Credits)
 
