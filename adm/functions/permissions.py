@@ -15,5 +15,8 @@ class UserAccessMixin(PermissionRequiredMixin):
             self.get_login_url(),self.get_redirect_field_name())
 
         if not self.has_permission():
-            return redirect('adm:no-permission')
+            if request.user.is_staff:
+                return redirect('adm:no-permission')
+            else:
+                return redirect('no-permission')
         return super(UserAccessMixin, self).dispatch(request,*args,*kwargs)

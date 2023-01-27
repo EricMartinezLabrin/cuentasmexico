@@ -9,6 +9,19 @@ from . import views
 
 urlpatterns = [
     path('',views.index,name='index'),
+    path('no-permission',views.NoPermissionView.as_view(),name='no-permission'),
+    path('detail/<int:pk>',views.ServiceDetailView.as_view(),name='service_detail'),
+    path('cart',views.CartView.as_view(),name='cart'),
+    path('shop',views.ShopListView.as_view(),name='shop'),
+    path('redeem',login_required(views.RedeemView.as_view()),name='redeem'),
+    path('redeem/confirm',login_required(views.RedeemConfirmView.as_view()),name='redeem_confirm'),
+    path('redeem/done',login_required(views.RedeemDoneView.as_view()),name='redeem_done'),
+    path('redeem/done/renew',login_required(views.RedeemRenewDoneView.as_view()),name='redeem_done_renew'),
+    path('select',login_required(views.SelectAccView.as_view()),name='select_acc'),
+    path('checkout/<int:product_id>',views.CheckOutView.as_view(),name='checkout'),
+    path('addCart/<int:product_id>/<int:price>',views.addCart,name='addCart'),
+    path('removeCart/<int:product_id>',views.removeCart,name='removeCart'),
+    path('decrementCart/<int:product_id>/<int:unitPrice>',views.decrementCart,name='decrementCart'),
     path('login',views.LoginPageView.as_view(redirect_authenticated_user=True),name='login'),
     path('logout',views.LogoutPageView.as_view(),name='logout'),
     path('register',views.RegisterCustomerView.as_view(),name='register'),
@@ -17,4 +30,6 @@ urlpatterns = [
     path('reset/password_reset_done',views.PassResetDoneView.as_view(),name='password_reset_done'),
     path('reset/<uidb64>/<token>/',views.PassResetConfirmView.as_view(),name='password_reset_confirm'),
     path('reset/done',views.PassResetPasswordCompleteView.as_view(),name='password_reset_complete'),
+    path('email',views.SendEmail,name='email'),
+    path('checkout/distributor',views.DistributorSale,name='checkout_distributor'),
 ]

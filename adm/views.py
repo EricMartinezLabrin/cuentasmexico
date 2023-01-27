@@ -1,5 +1,4 @@
 #Django
-import profile
 from django.shortcuts import render
 from django.http import HttpResponse,HttpRequest
 from django.views.generic import DetailView, CreateView, UpdateView, TemplateView, ListView, DeleteView
@@ -9,6 +8,7 @@ from django.contrib.auth.models import User
 from django.shortcuts import redirect
 from django.core.paginator import Paginator
 from django.http import JsonResponse
+from django.db.models import Sum
 
 
 #Python
@@ -18,7 +18,7 @@ import pyperclip as clipboard
 import pandas as pd
 
 #Local
-from .models import Business, PaymentMethod, Sale,UserDetail,Service, Account, Bank, Status, Supplier
+from .models import Business, PaymentMethod, Sale,UserDetail,Service, Account, Bank, Status, Supplier, Credits
 from cupon.models import Cupon
 from .functions.alerts import Alerts
 from .functions.forms import AccountsForm, BankForm, PaymentMethodForm, ServicesForm, SettingsForm, UserDetailForm, UserForm, FilterAccountForm, StatusForm, SupplierForm, CustomerUpdateForm,UserMainForm
@@ -155,6 +155,7 @@ class UserView(UserAccessMixin, ListView):
     model = User
     template_name = 'adm/user.html'
     permission_required = 'is_superuser'
+    paginate_by = 30
 
 class ServiceView(UserAccessMixin,ListView):
     """
@@ -411,8 +412,6 @@ def AccountsExpiredView(request):
 
 @permission_required('is_staff','adm:no-permission')
 def ActiveInactiveAccount(request,status,pk):
-    active = Status.objects.get(description='Activo')
-    inactive = Status.objects.get(description='Inactivo')
     account = Account.objects.get(pk=pk)
     account.status = Active_Inactive.active_inactive(status)
     account.save()
@@ -963,6 +962,48 @@ def ReleaseAccounts(request,pk):
     })
 
 
+
+@permission_required('is_staff','adm:no-permission')
+def credits(request,pk):
+    template_name='adm/credits.html'
+    customer = User.objects.get(pk=pk)
+    success_url = reverse_lazy('adm:credit_list')
+
+    if request.method == 'POST':
+        credits = int(request.POST.get('credits'))
+        if credits > 0:
+            detail = "Recarga creditos"
+        elif credits < 0:
+            detail = "Ajuste manual de creditos"
+        else:
+            detail = "No hay cambios"
+        op = Credits.objects.create(customer=customer,credits=credits,detail=detail)
+
+        return redirect(success_url)
+
+    return render(request,template_name,{
+        'customer' : customer
+    })
+
+@permission_required('is_staff','adm:no-permission')
+def CreditsView(request):
+    template_name = "adm/credits_list.html"
+    customer = Credits.objects.values('customer__username','customer').annotate(suma=Sum('credits'))
+
+    return render(request,template_name,{
+    'object_list':customer})
+
+class CreditCustomerListView(UserAccessMixin,ListView):
+    permission_required='is_staff'
+    model = Credits
+    template_name = "adm/credit_customer_list.html"
+    paginate_by = 10
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['customer'] = User.objects.get(pk=self.kwargs.get('pk'))
+        return context
+    
 
 @permission_required('is_staff','adm:no-permission')
 def ImportView(request):

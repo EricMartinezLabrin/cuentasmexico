@@ -1,0 +1,118 @@
+{% extends 'index/base/base.html' %}
+{% block title %}Canjear Cupón{% endblock title %}
+{% block body %}
+<div class="mt-4">
+    <div class="container">
+       <!-- row -->
+       <div class="row ">
+         <!-- col -->
+         <div class="col-12">
+            <!-- breadcrumb -->
+           <nav aria-label="breadcrumb">
+             <ol class="breadcrumb mb-0">
+               <li class="breadcrumb-item"><a href="{% url 'index' %}" class="cm">Inicio</a></li>
+               <li class="breadcrumb-item"><a href="{% url 'shop' %}" class="cm">Tiendas</a></li>
+               <li class="breadcrumb-item active" aria-current="page"><a href="{% url 'shop' %}" class="cm">Canjear</a></li>
+             </ol>
+           </nav>
+         </div>
+       </div>
+     </div>
+   </div>
+<section class="mt-4">
+    <!-- container -->
+    <div class="container">
+      <!-- row -->
+      <div class="row ">
+        <div class="col-12 ">
+          <!-- heading -->
+          <div class="bg-light rounded-3 d-flex justify-content-between ps-md-10 ps-3">
+            <div class="d-flex align-items-center">
+              <h1 class="mb-0 fw-bold p-5">Canjear Código</h1>
+
+            </div>
+            <div class="py-6">
+              <!-- img -->
+              <!-- img -->
+              <img src="https://freshcart.codescandy.com/assets/images/svg-graphics/store-graphics.svg" alt="" class="img-fluid"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+</section>
+<section class="mt-4">
+    {% if error %}
+        <div class="alert alert-danger m-3" role="alert">
+          <i class="bi bi-exclamation-triangle-fill"></i> {{error}}
+        </div>   
+    {% else %}
+      {% if not code %}
+        <!-- heading -->
+        <div class="p-3">
+            <form method="get" class="col-12">
+                <label for="code" class="m-1">Ingresa el Codigo Obtenido en la Tienda:</label>
+                <div class="input-group mb-3">
+                    <input type="text" class="form-control" name="{{form.name.name}}" id="code" placeholder="Ingresa el Codigo Obtenido en la Tienda" aria-label="Ingresa el Codigo Obtenido en la Tienda" aria-describedby="button-addon2">
+                    <button class="btn bg-white border" type="button" id=""><i class="bi bi-search"></i></button>
+                </div>
+            </form>
+        </div>
+      {% elif customer_data %}
+        <div class="col-12">
+          <h1>Cuentas Disponibles Para Renovar</h1>
+
+          <div class="row row-cols-lg-4 row-cols-md-3 g-4 g-lg-4">
+                {% for data in customer_data %}
+                  <div class="col">
+                    <!-- card -->
+                    <div class="card p-3 card-product">
+                            <div> 
+                            <!-- img -->
+                              <img src="/media/{{data.account.account_name.logo}}" alt="{{data.account.account_name}}" width="150" class="rounded-circle icon-shape icon-xl">
+                            </div>
+                            <div class="mt-4">
+                                <!-- content -->
+                                <h2 class="mb-1 h5 cm">{{data.account.email}}</h2>
+                                <div class="small text-muted">
+                                    <span class="me-2">Password: {{data.account.password}}</span>
+                                    <span class="me-2">Perfil: {{data.account.profile}}</span>
+                                </div>
+                                <br>
+                                <div>
+                                    <!-- badge --> 
+                                    <a href="#!" onclick="abrir_modal_edicion('{% url 'redeem_confirm' %}?name={{code.name}}&service={{data.account.id}}')" class="btn btn-cm">Renovar {{code.long}} me{{code.long|pluralize:"s,ses"}}</a>
+                            </div>
+                        </div>
+                    </div>
+                  </div>
+                {% endfor %}
+                <div class="col">
+                  <!-- card -->
+                  <div class="card p-3 card-product">
+                          <div> 
+                          <!-- img -->
+                            <img src="https://numismaticamartell.com/wp-content/uploads/2016/12/nuevo.png" alt="Crear cuenta Nueva" width="150" class="rounded-circle icon-shape icon-xl">
+                          </div>
+                          <div class="mt-4">
+                              <!-- content -->
+                              <h2 class="mb-1 h5 cm">Crea una cuenta nueva</h2>
+                              <div class="small text-muted">
+                                  <span class="me-2">Cualquier servicio</span>
+                                  <span class="me-2">Duración {{code.long}} me{{code.long|pluralize:"s,ses"}}</span>
+                              </div>
+                              <br>
+                              <div>
+                                  <!-- badge --> 
+                                  <a href="{% url 'select_acc' %}?name={{code.name}}" class="btn btn-cm">Crear cuenta de {{code.long}} me{{code.long|pluralize:"s,ses"}}</a>
+                          </div>
+                      </div>
+                  </div>
+              </tbody>
+            </table>
+          </div>  
+        </div>
+      {% endif %} 
+    {% endif %}
+</section>
+
+{% endblock body %}

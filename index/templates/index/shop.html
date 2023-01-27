@@ -1,0 +1,114 @@
+{% extends 'index/base/base.html' %}
+{% block title %}Tiendas Disponibles{% endblock title %}
+{% block body %}
+<div class="mt-4">
+    <div class="container">
+       <!-- row -->
+       <div class="row ">
+         <!-- col -->
+         <div class="col-12">
+            <!-- breadcrumb -->
+           <nav aria-label="breadcrumb">
+             <ol class="breadcrumb mb-0">
+               <li class="breadcrumb-item"><a href="{% url 'index' %}" class="cm">Inicio</a></li>
+               <li class="breadcrumb-item active" aria-current="page"><a href="{% url 'shop' %}" class="cm">Tiendas</a></li>
+             </ol>
+           </nav>
+         </div>
+       </div>
+     </div>
+   </div>
+<section class="mt-4">
+    <!-- container -->
+    <div class="container">
+      <!-- row -->
+      <div class="row ">
+        <div class="col-12 ">
+          <!-- heading -->
+          <div class="bg-light rounded-3 d-flex justify-content-between ps-md-10 ps-6">
+            <div class="d-flex align-items-center">
+              <h1 class="mb-0 fw-bold p-5">Tiendas</h1>
+
+            </div>
+            <div class="py-6">
+              <!-- img -->
+              <!-- img -->
+              <img src="https://freshcart.codescandy.com/assets/images/svg-graphics/store-graphics.svg" alt="" class="img-fluid"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+</section>
+<section class="mt-5 mb-lg-14 mb-8">
+    <div class="container">
+        <!-- row -->
+        <div class="d-flex row">
+        <!-- col -->
+            <div class="col-6">
+                <div class="mb-3">
+                    <!-- text -->
+                    <h6>Existen <span class="cm">{{object_list.count}}</span> tiendas distribuyendo nuestros productos</h6>
+                    
+                </div>
+            </div>
+            <form method="get" class="search align-right">
+                <div class="search align-right">
+                    <div class="input-group mb-3 ">
+                            <input type="text" class="form-control" name="city" placeholder="Selecciona tu ciudad" aria-label="Selecciona tu ciudad" aria-describedby="button-addon2">
+                            <button class="btn bg-white border" type="submit" id=""><i class="bi bi-search"></i></button>
+                    </div>                
+                </div>
+            </form>
+        </div>
+        <div class="row row-cols-lg-4 row-cols-md-3 g-4 g-lg-4">
+            {% if object_list.count == 0 %}
+                <div class="alert alert-danger m-3" role="alert">
+                    No hay tiendas disponibles en tu ciudad.
+                </div>
+            {% endif %}
+            <!-- col -->
+            {% for shop in object_list %}
+                {% if shop.address %}
+                    <div class="col">
+                    <!-- card -->
+                    <div class="card p-3 card-product">
+                            <div> 
+                            <!-- img -->
+                            {% if shop.image %}
+                                <img src="{{shop.image}}" alt="{{shop.name}}" width="150" class="rounded-circle icon-shape icon-xl">
+                            
+                            {% else %}
+                                <img src="data:image/png;base64,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" width="150" alt="Tienda" class="rounded-circle icon-shape icon-xl">
+                            {% endif %}
+                            </div>
+                            <div class="mt-4">
+                                <!-- content -->
+                                <h2 class="mb-1 h5 cm">{{shop.name|title}}</h2>
+                                <div class="small text-muted">
+                                    <span class="me-2">{{shop.giro|title}}</span>
+                                </div>
+                                <div class="py-3">
+                                    <ul class="list-unstyled mb-0 small">
+                                        <li>{{shop.address}}</li>
+                                        <li>{{shop.city}}</li>
+                                        {% if cp %}
+                                            <li>{{shop.cp}}</li>
+                                        {% endif %}
+                                    </ul>
+                                </div>
+                                <div>
+                                    <!-- badge --> 
+                                    <div class="badge text-bg-success border">Acepta pagos en efectivo</div>
+                                    <div class="badge text-bg-light border">Entrega Inmediata (codigo de canje)</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div> 
+                {% endif %}    
+            {% endfor %}       
+        </div>
+            
+    </div>
+</section>
+
+{% endblock body %}

@@ -10,6 +10,10 @@ class Active_Inactive():
             return False
         elif status == 'False':
             return True
+        elif status == True:
+            return False
+        elif status == False:
+            return True
 
     def a_or_i(status):
         if status == 'A':
