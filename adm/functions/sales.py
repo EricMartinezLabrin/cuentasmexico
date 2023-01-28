@@ -87,7 +87,7 @@ class Sales():
                 acc.modified_by=request.user
                 acc.save()
 
-                if customer.email:
+                if customer.email != 'example@example.com':
                     print(customer.email)
                     Email.email_passwords(request,customer.email,(sale,))
             else:
@@ -147,7 +147,7 @@ class Sales():
             cupon.status = False
             cupon.save()
 
-            if customer.email:
+            if customer.email != 'example@example.com':
                 Email.email_passwords(request,customer.email,(sale,))
 
         return True
@@ -192,7 +192,7 @@ class Sales():
         old_sale.old_sale = new_sale_id
         old_sale.save()
 
-        if customer.email:
+        if customer.email != 'example@example.com':
             Email.email_passwords(request,customer.email,(new_sale,))
 
         return True
@@ -383,7 +383,7 @@ class Sales():
             cupon.status = False
             cupon.save()
 
-            if customer.email:
+            if customer.email != 'example@example.com':
                 Email.email_passwords(request,customer.email,(sale,))
 
         return True
@@ -450,7 +450,7 @@ class Sales():
             cupon.status = False
             cupon.save()
 
-            if customer.email:
+            if customer.email != 'example@example.com':
                 Email.email_passwords(request,customer.email,(new_sale,))
 
             return True, acc
