@@ -88,7 +88,6 @@ class Sales():
                 acc.save()
 
                 if customer.email != 'example@example.com':
-                    print(customer.email)
                     Email.email_passwords(request,customer.email,(sale,))
             else:
                 continue
@@ -214,6 +213,7 @@ class Sales():
 
         #suspend old acc
         old_acc = Account.objects.get(pk=old_sale.account.id)
+        old_acc.customer=None
         old_acc.status = False
         old_acc.save()
 
@@ -238,7 +238,7 @@ class Sales():
         acc.modified_by=request.user
         acc.save()
 
-        if old_sale.customer.email:
+        if old_sale.customer.email != 'example@example.com':
             Email.email_passwords(request,old_sale.customer.email,(new_sale,))
 
         return True
