@@ -26,6 +26,11 @@
             </div>
 
             <div class="price m-2">
+                <label for="created_at">Fecha Venta</label>
+                <input type="date" class="form-control" name="created_at" id="created_at" value="{{created_at|date:"Y-m-d"}}">
+            </div>
+
+            <div class="price m-2">
                 <label for="price">Precio:</label>
                 <input type="number" name="price" id="price" class="form-control" required>
             </div>

@@ -58,6 +58,7 @@ urlpatterns = [
     path('sales/change/<int:pk>',login_required(views.SalesChangeView),name='sales_change'),
     path('sales/old/<int:sale>',login_required(views.OldAccView),name='sales_old'),
     path('sales/FreeDays/<int:pk>,/<int:days>',login_required(views.SalesAddFreeDaysView),name='sales_add_free_days'),
+    path('sales/key_adjust/<int:pk>',login_required(views.key_adjust),name='key_adjust'),
     path('cupon/',login_required(views.CuponView.as_view()),name='cupon'),
     path('cupon/redeem',login_required(views.CuponRedeemView),name='cupon_redeem'),
     path('cupon/redeem/end',login_required(views.CuponRedeemEndView),name='cupon_redeem_end'),
