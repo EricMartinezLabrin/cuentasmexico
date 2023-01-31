@@ -92,7 +92,7 @@ class Sales():
                 sale.created_at = created_at
                 sale.save()
 
-                if customer.email != 'example@example.com':
+                if not customer.email == 'example@example.com':
                     Email.email_passwords(request,customer.email,(sale,))
             else:
                 continue
