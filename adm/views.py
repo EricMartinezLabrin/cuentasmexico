@@ -9,6 +9,7 @@ from django.shortcuts import redirect
 from django.core.paginator import Paginator
 from django.http import JsonResponse
 from django.db.models import Sum
+from django.utils import timezone
 
 
 #Python
@@ -213,29 +214,29 @@ def AccountsView(request):
                 accounts = Account.objects.filter(
                 business= business_id,
                 account_name=account_name
-                )
+                ).order_by('-created_at','profile')
             else:
                 accounts = Account.objects.filter(
                 business= business_id,
                 account_name=account_name,
                 status=status
-                )
+                ).order_by('-created_at','profile')
         else:
             if not status:
                 accounts = Account.objects.filter(
                     business= business_id,
                     account_name=account_name,
                     email=email,
-                    )  
+                    ).order_by('-created_at','profile')
             else:
                 accounts = Account.objects.filter(
                     business= business_id,
                     account_name=account_name,
                     email=email,
                     status=status
-                    )
+                    ).order_by('profile','-created_at')
             #Set Up Pagination
-        p =Paginator(accounts, 10000)
+        p =Paginator(accounts, 10)
         page = request.GET.get('page')
         venues = p.get_page(page)
         return render(request, template_name,{
@@ -246,7 +247,7 @@ def AccountsView(request):
         })
     else:
         active = 1
-        accounts = Account.objects.filter(status=active, business= business_id, customer= None).order_by('account_name','email','profile','expiration_date')
+        accounts = Account.objects.filter(status=active, business= business_id, customer= None).order_by('-created_at','profile','account_name','email','profile','expiration_date')
             #Set Up Pagination
         p =Paginator(accounts, 7)
         page = request.GET.get('page')
@@ -882,19 +883,19 @@ class ReceivableView(UserAccessMixin,ListView):
             return Sale.objects.filter(
             expiration_date = self.request.GET.get('date'), 
             status=True
-        ).order_by('account')
+        ).order_by('-expiration_date','account')
 
         else:
             return Sale.objects.filter(
-                expiration_date = '2022-11-30', 
+                expiration_date__lte = timezone.now(), 
                 status=True
-            ).order_by('account')
+            ).order_by('-expiration_date','account')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['tomorrow'] = datetime.now().date() + timedelta(days=1)
+        context['tomorrow'] = timezone.now().date() + timedelta(days=1)
         context['left'] = Sale.objects.filter(
-            expiration_date = '2022-11-30',
+            expiration_date__lte = timezone.now(),
             status=True
         ).count()
         return context

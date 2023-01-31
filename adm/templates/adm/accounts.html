@@ -38,7 +38,7 @@
             <label class="visually-hidden" for="inlineFormInputGroupUsername">{{form.email.label}}</label>
             <div class="input-group">
                 <div class="input-group-text">{{form.email.label }}</div>
-                <input type="text" name="{{form.email.name}}">
+                <input type="text" id="email" name="{{form.email.name}}">
                 
             </div>
         </div>
@@ -99,7 +99,11 @@
             <td>
                 {{active.email}}
                 {% if active.renovable == True %}
-                <i class="bi bi-star-fill"></i>
+                <i class="bi bi-star-fill" style="color:gold"></i>
+                {% endif %}
+
+                {% if active.status == False %}
+                <i class="bi bi-x-circle-fill" style="color:red"></i>
                 {% endif %}
             </td>
             <td>{{active.password}}</td>
@@ -239,5 +243,10 @@
 {% endblock body %}
 
 {% block extrajs %}
-
+<script>
+    const email = document.getElementById("email")
+    email.addEventListener("change",()=>{
+       email.value = email.value.trim();
+    });
+</script>
 {% endblock extrajs %}
