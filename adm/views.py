@@ -537,7 +537,7 @@ def SalesCreateView(request,pk):
 def SalesUpdateStatusView(request,pk,customer,status):
     sale = Sale.objects.get(pk=pk)
     sale.status = Active_Inactive.active_inactive(status)
-    sale.expiration_date = datetime.now()
+    sale.expiration_date = timezone.now()
     sale.save()
     acc = sale.account
     acc.customer = None
@@ -889,12 +889,18 @@ class ReceivableView(UserAccessMixin,ListView):
             expiration_date = self.request.GET.get('date'), 
             status=True
         ).order_by('-expiration_date','account')
-
+        elif self.request.GET.get('email'):
+            email = self.request.GET.get('email')
+            return Sale.objects.filter(
+                account__email=email,
+                expiration_date__lte = timezone.now(), 
+                status=True
+            ).order_by('-expiration_date','account__email')
         else:
             return Sale.objects.filter(
                 expiration_date__lte = timezone.now(), 
                 status=True
-            ).order_by('-expiration_date','account')
+            ).order_by('-expiration_date','account__email')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
