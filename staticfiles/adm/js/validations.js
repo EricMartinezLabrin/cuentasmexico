@@ -8,10 +8,6 @@ const modalTitle = document.getElementById('modal-title')
 const modalButtons = document.getElementById('modal-footer')
 const paymentMethod = document.getElementById('method')
 const listPaymentMethod = document.getElementById('paymentlist')
-const ticket = document.getElementById('comp')
-const csrf = document.getElementsByName('csrfmiddlewaretoken')[0].value;
-
-
 
 duration.addEventListener('change',()=>{
     if(duration.value != 'None'){
@@ -90,35 +86,3 @@ function changeMethod(){
     paymentMethod.value="";
     $('#modal').modal('hide');
   }
-
-ticket.addEventListener('change',()=>{
-    $.ajax({
-        type: 'POST',
-        url: '/adm/sales/check/ticket',
-        data:{
-        'csrfmiddlewaretoken': csrf,
-        'data':ticket.value
-        },
-        success: (data)=>{
-        const res = data.data
-        console.log(res)
-        if(Array.isArray(res)){
-            modalTitle.innerHTML = `El comprobante ${res[0].ticket} ya fue utilizado`
-            modalContent.innerHTML = ""
-            res.forEach(res=>{
-            modalContent.innerHTML+=`
-                <p>
-                <b>E-Mail: </b> ${res.email} - <b>Cliente: </b> ${res.customer} - <b>Fecha: </b> ${res.date}
-                </p>
-                `
-                modalButtons.innerHTML = `
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Utilizar de todas formas</button>
-                <button class="btn btn-primary" onclick="changeTicket()">Cambiar Comprobante</button>
-                `;
-            })
-            $('#modal').modal('show');
-            }
-            
-        }
-    })
-}); 
