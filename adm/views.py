@@ -466,6 +466,10 @@ def SalesView(request):
             'availables': Sales.availables()[0]
         })
 
+def key_adjust(request,pk):
+    template_name = 'adm/key_adjust.html'
+    return render(request,template_name,{})
+
 def SalesAddFreeDaysView(request,pk,days):
     sale = Sale.objects.get(pk=pk)
     new_expiration = sale.expiration_date + timedelta(days=days)
@@ -525,7 +529,8 @@ def SalesCreateView(request,pk):
         'services': Sales.availables()[1],
         'bank':bank,
         'payment':payment,
-        'availables': Sales.availables()[0]
+        'availables': Sales.availables()[0],
+        'created_at':timezone.now()
     })
 
 @permission_required('is_staff','adm:no-permission')

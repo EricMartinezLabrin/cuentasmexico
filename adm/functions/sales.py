@@ -64,6 +64,7 @@ class Sales():
         bank_selected = Bank.objects.get(pk=request.POST.get('bank'))
         payment_used = PaymentMethod.objects.get(pk=request.POST.get('method'))
         customer = User.objects.get(pk=request.POST.get('customer'))
+        created_at = request.POST.get('created_at')
         how_many_acc = len(service)
         price_each = int(int(price) / how_many_acc)
         for s in service:
@@ -87,7 +88,11 @@ class Sales():
                 acc.modified_by=request.user
                 acc.save()
 
-                if customer.email != 'example@example.com':
+                #update date
+                sale.created_at = created_at
+                sale.save()
+
+                if not customer.email == 'example@example.com':
                     Email.email_passwords(request,customer.email,(sale,))
             else:
                 continue
