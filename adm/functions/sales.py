@@ -66,7 +66,10 @@ class Sales():
         customer = User.objects.get(pk=request.POST.get('customer'))
         created_at = request.POST.get('created_at')
         how_many_acc = len(service)
-        price_each = int(int(price) / how_many_acc)
+        if int(price)==0:
+            price_each = 0
+        else:   
+            price_each = int(int(price) / how_many_acc)
         for s in service:
             acc = Account.objects.get(pk=s)
             if acc.customer == None:

@@ -13,7 +13,7 @@
         <input type="hidden" name="date" value="{{tomorrow|date:"Y-m-d"}}">
         <button type="submit" class="btn btn-primary me-2" style="padding:0.65rem">Vence Mañana</button>
     </form>
-    <button class="btn btn-secondary me-2">Tercer Boton</button>    
+    <a href="{% url 'adm:receivable' %}" class="btn btn-cm-cancel me-2">Limpiar Filtro</a>    
 </div>
 
 <table class="table table-hover mt-3">
@@ -61,6 +61,10 @@
 
                     <a href="#" onclick="copyAcc('{{rece.id}}')" class="cm">
                         <i class="bi bi-clipboard"></i>
+                    </a>
+
+                    <a href="{% url 'adm:receivable' %}?email={{rece.account.email}}" class="cm">
+                        <i class="bi bi-eye"></i>
                     </a>
                     <!--Copiado-->
                     <textarea id="{{rece.id}}" style="border:none;background-color:transparent;overflow: hidden;resize: none;" rows="1" cols="1" readonly>
