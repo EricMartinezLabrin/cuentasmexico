@@ -116,9 +116,9 @@
                         <a href="{% url 'adm:sales_change' a.id %}" title="Cambiar" class="cm">
                             <i class="bi bi-shuffle"></i>
                         </a>
-                        {% comment %} <a href="#" onclick="abrir_modal_edicion('{% url 'adm:key_adjust' a.id  %}')" title="Ajustar Vencimiento" class="cm">
+                        <a href="#" onclick="abrir_modal_edicion('{% url 'adm:key_adjust' a.id  %}')" title="Ajustar Vencimiento" class="cm">
                             <i class="bi bi-calendar-event"></i>
-                        </a> {% endcomment %}
+                        </a>
                         <a href="#" onclick="copyAcc('{{a.id}}')" title="Copiar Claves" class="cm">
                             <i class="bi bi-clipboard"></i>
                         </a>

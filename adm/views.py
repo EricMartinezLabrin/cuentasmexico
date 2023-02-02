@@ -468,7 +468,21 @@ def SalesView(request):
 
 def key_adjust(request,pk):
     template_name = 'adm/key_adjust.html'
-    return render(request,template_name,{})
+    
+    if request.method == 'POST':
+        days = int(request.POST.get('days'))
+        sale = Sale.objects.get(pk=pk)
+        expiration_date = sale.expiration_date
+        new_date = expiration_date + timedelta(days=days)
+        sale.expiration_date = new_date
+        sale.save()
+
+        return redirect(reverse_lazy('adm:sales'))
+        
+
+    return render(request,template_name,{
+        'pk': pk
+    })
 
 def SalesAddFreeDaysView(request,pk,days):
     sale = Sale.objects.get(pk=pk)
