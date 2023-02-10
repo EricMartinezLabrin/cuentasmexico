@@ -12,18 +12,20 @@ from django.contrib.auth.decorators import permission_required
 from django.utils import timezone
 
 #local
-from .forms import RegisterUserForm, RedeemForm
-from adm.models import UserDetail, Business, Service,Sale, Account
+from .forms import RegisterUserForm, RedeemForm, MpPaymentForm
+from adm.models import UserDetail, Business, Service,Sale, Account, Credits
 from adm.functions.business import BusinessInfo
 from .cart import CartProcessor
 from cupon.models import Shop, Cupon
 from adm.functions.permissions import UserAccessMixin
 from adm.functions.sales import Sales
 from adm.functions.send_email import Email
+from CuentasMexico import settings
 
 #Python
 from datetime import datetime, timedelta
 from dateutil import relativedelta
+import mercadopago
 
 #Index
 def index(request):
@@ -395,15 +397,98 @@ def SendEmail(request):
 
     return render(request,template_name,{})
 
+class NoCreditsView(TemplateView):
+    template_name = "index/no_credits.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["business"] =  BusinessInfo.data()
+        context["credits"] = BusinessInfo.credits(self.request)
+        return context
+
+
 def DistributorSale(request):
+    customer = request.user
     cart = request.session.get('cart_number')
     total = request.session.get('cart_total')
     credits_availables = BusinessInfo.credits(request)
+    no_credits = "index/no_credits.html"
+    template_name = "index/sale.html"
     #check if enoght credits
     if credits_availables < total:
-        return HttpResponse("Error, no cuentas con creditos suficientes")
+        return redirect(request,no_credits)
+    
+
+    cartEnd = []
 
     for key,values in cart.items():
-        print(values)
-    return HttpResponse("Todo Bien")
+        for i in range(values['profiles']):
+            expiration_date = timezone.now() + timedelta(days=30*values['quantity'])
+            new_acc = Sales.search_better_acc(values['product_id'],expiration_date,None)
+            quantity = values['quantity']
+            service_name = values['name']
+            price = (int(values['unitPrice'])*int(values['quantity']))*-1
+            
+            print(new_acc)
+            if new_acc == None:
+                return HttpResponse('Tenemos problemas para completar tu orden, porfavor contactate con atencion al cliente.')
+            
+            elif new_acc[0] == False:
+                return HttpResponse(new_acc[1])
+            else:
+                sale = Sales.web_sale(request,new_acc[1],values['unitPrice'],values['quantity'])
+                sale_id = sale['id']
+                Sales.credits_modify(customer,price,f'Orden {sale_id}: {quantity} meses de {service_name}.')
+                cartEnd.append(sale)
+                
+
     
+    cartprocesor = CartProcessor(request)
+    cartprocesor.clear()
+    print(cartEnd)
+    
+    return render(request,template_name,{
+        "account": cartEnd,
+        "business": BusinessInfo.data(),
+        "credits": BusinessInfo.credits(request),
+
+    })
+    # {'product_id': 1, 'name': 'Netflix', 'quantity': 1, 'profiles': 1, 'price': 60, 'image': '/media/settings/netflix.png', 'description': 'Netflix', 'unitPrice': 60}
+
+    #{'product_id': 2, 'name': 'Spotify', 'quantity': 2, 'profiles': 1, 'price': 120, 'image': '/media/settings/spotify.png', 'description': 'Spotify', 'unitPrice': 60}
+
+# def Mp_ExpressCheckout(request):
+#     # business_data = Business.objects.get(pk=1)
+#     # cliente_id = business_data.mp_customer_key
+#     # client_secret =  business_data.mp_secret_key
+#     cart = request.session.get('cart_number')
+
+#     new_cart = []
+#     for items in cart.items:
+#         cart_items = {
+#             "title": items.name,
+#             "quantity": items.quantity,
+#             "currency_id": "MXN",
+#             "unit_price": items.price
+#         }
+#         new_cart.append(cart_items)
+
+#     # Inicializa Mercado Pago
+#     mp = mercadopago.MP("TEST-168801736002262-091119-b7147315b4f642c60178483421325c24-571215114")
+
+#     # Crea un objeto preference
+#     preference = {
+#         "items": new_cart
+#     }
+#     # Crea el checkout en Mercado Pago
+#     checkout = mp.create_preference(preference)
+
+#     # Redirige al usuario al checkout de Mercado Pago
+#     return redirect(checkout['response']['init_point'])
+
+
+
+
+
+
+

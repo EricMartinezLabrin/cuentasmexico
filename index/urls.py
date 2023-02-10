@@ -32,4 +32,7 @@ urlpatterns = [
     path('reset/done',views.PassResetPasswordCompleteView.as_view(),name='password_reset_complete'),
     path('email',views.SendEmail,name='email'),
     path('checkout/distributor',views.DistributorSale,name='checkout_distributor'),
+    path('no_credits',views.NoCreditsView.as_view(),name='no_credits'),
+    # path('express-checkout/', views.Mp_ExpressCheckout, name='Mp_ExpressCheckout'),
+    
 ]

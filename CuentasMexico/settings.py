@@ -17,6 +17,17 @@ from django.urls import reverse_lazy
 from pathlib import Path
 import os
 
+#Local
+# from adm.models import Business
+# import mercadopago
+
+# business_data = Business.objects.get(pk=1)
+# cliente_id = business_data.mp_customer_key
+# client_secret =  business_data.mp_secret_key
+
+# MERCADOPAGO_CLIENT_ID = os.environ.get("cliente_id")
+# MERCADOPAGO_CLIENT_SECRET = os.environ.get("client_secret")
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -147,7 +158,7 @@ EMAIL_USE_TLS = True
 EMAIL_HOST = 'cuentasmexico.mx'
 EMAIL_PORT = 465
 EMAIL_HOST_USER = 'contacto@cuentasmexico.mx'
-EMAIL_HOST_PASSWORD = 'Tarkan11.-!!'
+EMAIL_HOST_PASSWORD = 'Tarkan11.-'
 # EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_BACKEND = 'django_smtp_ssl.SSLEmailBackend'
 

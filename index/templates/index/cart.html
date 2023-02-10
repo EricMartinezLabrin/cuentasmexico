@@ -99,11 +99,12 @@
                 <div class="d-grid mb-1 mt-4">
                 <!-- btn -->
                 {% if request.user.userdetail.level == 'Revendedor' %}
-                <button id="buy" class="btn btn-cm btn-lg d-flex justify-content-between align-items-center" type="submit">
-                    Comprar <span class="fw-bold">${{request.session.cart_total}}</span></button>
+                <button id="btn-buy" class="btn btn-cm btn-lg d-flex justify-content-between align-items-center" type="submit">
+                    Comprar <span class="fw-bold">${{request.session.cart_total}}</span>
+                </button>
                 </div>
                 {% else %}
-                    <a href="{% url 'checkout_distributor' %}" id="buy" class="btn btn-cm btn-lg d-flex justify-content-between align-items-center" type="submit">
+                    <a href="#" id="buy" class="btn btn-cm btn-lg d-flex justify-content-between align-items-center" type="submit">
                         Comprar <span class="fw-bold">se decontarán {{request.session.cart_total}} Créditos</span></button>
                     </a>
                 {% endif %}
@@ -137,7 +138,7 @@
 <script>
     const level = "{{request.user.userdetail.level.name}}";
     
-    if (level==="Revendedor"){
+    if (level==="Distribuidor"){
         insuficient_credits()
     }
 
@@ -147,6 +148,7 @@
         const buy = document.getElementById('buy');
         const error = document.getElementById('error')
         if (credits < bill){
+            console.log('no alcanza')
             buy.className += ' disabled';
             error.innerHTML = `
             <br>

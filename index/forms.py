@@ -20,3 +20,7 @@ class RegisterUserForm(UserCreationForm):
 
 class RedeemForm(forms.Form):
         name = forms.CharField()
+
+class MpPaymentForm(forms.Form):
+    amount = forms.FloatField(label='Cantidad')
+    description = forms.CharField(label='Descripción')
