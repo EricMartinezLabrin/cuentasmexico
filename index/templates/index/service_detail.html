@@ -64,7 +64,11 @@
                 </div>
                 <form action="{% url 'addCart' object.pk object.price %}" method="POST">
                     {% csrf_token %}
+                    {% if user.userdetail.level.discount %}
                     <input type="hidden" name="price" id="correct-price" value="{{object.price|new_price:user.userdetail.level.discount|new_currency:1|intcomma}}">
+                    {% else %}
+                    <input type="hidden" name="price" id="correct-price" value="{{object.price|new_currency:1|intcomma}}">
+                    {% endif %}
                     <input type="hidden" name="quantity" id="quantity">
                     <input type="hidden" name="profiles" id="profiles">
                     <div class="p-3 border-bottom">

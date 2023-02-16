@@ -10,32 +10,36 @@ from django.views.generic.edit import FormView
 from django.http import HttpResponseRedirect
 from django.contrib.auth.decorators import permission_required
 from django.utils import timezone
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
 
 #local
 from .forms import RegisterUserForm, RedeemForm, MpPaymentForm
 from adm.models import UserDetail, Business, Service,Sale, Account, Credits
 from adm.functions.business import BusinessInfo
-from .cart import CartProcessor
+from .cart import CartProcessor, CartDb
 from cupon.models import Shop, Cupon
 from adm.functions.permissions import UserAccessMixin
 from adm.functions.sales import Sales
 from adm.functions.send_email import Email
 from CuentasMexico import settings
+from index.payment_methods.MercagoPago import MercadoPago
+from .models import Cart, CartDetail
 
 #Python
 from datetime import datetime, timedelta
 from dateutil import relativedelta
 import mercadopago
 
+
 #Index
 def index(request):
     template_name="index/index.html"
-    services = Service.objects.filter(status=True)
 
     return render(request,template_name,{
         'business':BusinessInfo.data(),
         'credits': BusinessInfo.credits(request),
-        'services': services,
+        'services': Service.objects.filter(status=True),
     })
 
 class CartView(TemplateView):
@@ -45,15 +49,41 @@ class CartView(TemplateView):
         context = super().get_context_data(**kwargs)
         context["business"] =  BusinessInfo.data()
         context["credits"] = BusinessInfo.credits(self.request)
+        context['services']= Service.objects.filter(status=True)
+
+        
         return context
     
 class CheckOutView(TemplateView):
     template_name = "index/checkout.html"
+
     
     def get_context_data(self, **kwargs):
+        preference_id = None
+        cart_data = None
+
+
+        if not self.request.user == "AnonymousUser":
+            cart_detail = CartDb.CartAll(self,self.request)
+            if cart_detail:
+                cart = Cart.objects.get(pk=cart_detail.cart.id)
+                cart_data = CartDetail.objects.filter(cart=cart)
+                cart_id = cart_detail.cart.id
+                preference_id = MercadoPago.Mp_ExpressCheckout(self.request,cart_id)
+
+        
+
+        procesor = CartProcessor(self.request)
+        procesor.clear()
+    
         context = super().get_context_data(**kwargs)
         context["business"] =  BusinessInfo.data()
         context["credits"] = BusinessInfo.credits(self.request)
+        context["preference_id"] = preference_id
+        context["cart_detail"] = cart_data
+        if not cart_data:
+            context["error_message"] = "No se encontró ningún detalle de carro."
+        
         return context
 
 class ServiceDetailView(DetailView):
@@ -73,6 +103,7 @@ class ShopListView(ListView):
         context = super().get_context_data(**kwargs)
         context["business"] =  BusinessInfo.data()
         context["credits"] = BusinessInfo.credits(self.request)
+        context['services']= Service.objects.filter(status=True)
         return context
     
     def get_queryset(self):
@@ -453,42 +484,51 @@ def DistributorSale(request):
         "credits": BusinessInfo.credits(request),
 
     })
-    # {'product_id': 1, 'name': 'Netflix', 'quantity': 1, 'profiles': 1, 'price': 60, 'image': '/media/settings/netflix.png', 'description': 'Netflix', 'unitPrice': 60}
 
-    #{'product_id': 2, 'name': 'Spotify', 'quantity': 2, 'profiles': 1, 'price': 120, 'image': '/media/settings/spotify.png', 'description': 'Spotify', 'unitPrice': 60}
-
-# def Mp_ExpressCheckout(request):
-#     # business_data = Business.objects.get(pk=1)
-#     # cliente_id = business_data.mp_customer_key
-#     # client_secret =  business_data.mp_secret_key
-#     cart = request.session.get('cart_number')
-
-#     new_cart = []
-#     for items in cart.items:
-#         cart_items = {
-#             "title": items.name,
-#             "quantity": items.quantity,
-#             "currency_id": "MXN",
-#             "unit_price": items.price
-#         }
-#         new_cart.append(cart_items)
-
-#     # Inicializa Mercado Pago
-#     mp = mercadopago.MP("TEST-168801736002262-091119-b7147315b4f642c60178483421325c24-571215114")
-
-#     # Crea un objeto preference
-#     preference = {
-#         "items": new_cart
-#     }
-#     # Crea el checkout en Mercado Pago
-#     checkout = mp.create_preference(preference)
-
-#     # Redirige al usuario al checkout de Mercado Pago
-#     return redirect(checkout['response']['init_point'])
-
-
-
-
-
-
+@csrf_exempt
+def mercadopago_webhook(request):
+    # Verificar si la petición es un POST
+    if request.method == 'POST':
+        # Recibir el JSON de la petición
+        event_json = request.body.decode('utf-8')
+        
+        # Procesar el evento
+        # {
+        #     "id": 12345,
+        #     "live_mode": true,
+        #     "type": "payment",
+        #     "date_created": "2015-03-25T10:04:58.396-04:00",
+        #     "user_id": 44444,
+        #     "api_version": "v1",
+        #     "action": "payment.created",
+        #     "data": {
+        #         "id": "999999999"
+        #     }
+        # }
+        
+        if event_json["live_mode"] == 'true':
+            if event_json["type"] == 'payment':
+                if event_json["action"] == "payment.updated":
+                    data = MercadoPago.search_payments(event_json['data']['id'])
+                    cart = Cart.objects.get(pk=data['external_reference'])
+                    # cart.payment_id = data[""]
+                    cart.date_created = data["date_created"]
+                    cart.date_approved = data["date_approved"]
+                    cart.date_last_updated = data["date_last_updated"]
+                    cart.money_release_date = data["money_release_date"]
+                    cart.payment_type_id = data["payment_type_id"]
+                    cart.status_detail = data["status_detail"]
+                    cart.currency_id = data["currency_id"]
+                    cart.description = data["description"]
+                    cart.transaction_amount = data["transaction_amount"]
+                    cart.transaction_amount_refunded = data["transaction_amount_refunded"]
+                    cart.coupon_amount = data["coupon_amount"]
+                    cart.save()
+                    
+        
+        # Devolver una respuesta 200 OK
+        return JsonResponse({'status': 'ok'})
+    else:
+        # Devolver una respuesta 400 Bad Request en caso de no ser una petición POST
+        return JsonResponse({'status': 'error'}, status=400)
 

@@ -97,17 +97,20 @@
 
                 </div>
                 <div class="d-grid mb-1 mt-4">
-                <!-- btn -->
-                {% if request.user.userdetail.level == 'Revendedor' %}
-                <button id="btn-buy" class="btn btn-cm btn-lg d-flex justify-content-between align-items-center" type="submit">
-                    Comprar <span class="fw-bold">${{request.session.cart_total}}</span>
-                </button>
+                    <!-- btn -->
+                    {% if request.user.userdetail.level.name == "Distribuidor" %}
+
+                        <button id="btn-buy" class="btn btn-cm btn-lg d-flex justify-content-between align-items-center" type="submit">
+                            Comprar <span class="fw-bold">${{request.session.cart_total}}</span>
+                        </button>
+                    
+                    {% else %}
+
+                        <a href="{% url 'checkout' %}"  id="buy" class="btn btn-cm btn-lg d-flex justify-content-between align-items-center" type="submit">
+                            Confirmar y proceder con el pago
+                        </a>
+                    {% endif %}
                 </div>
-                {% else %}
-                    <a href="#" id="buy" class="btn btn-cm btn-lg d-flex justify-content-between align-items-center" type="submit">
-                        Comprar <span class="fw-bold">se decontarán {{request.session.cart_total}} Créditos</span></button>
-                    </a>
-                {% endif %}
                 <!-- text -->
                 <p><small>Al completar la orden aceptas los <a href="#!">Terminos y Condiciones</a>
                     and <a href="#!">Politica de privacidad</a> de Cuentas México </small></p>
@@ -133,6 +136,13 @@
         </div>
     </div>
 </div>
+
+{% comment %} <div class="cho-container">
+    <li>
+      <label for="radio">Botão open-radio: </label>
+      <input type="radio" id="checkout-open-radio" >
+    </li>
+</div> {% endcomment %}
 {% endblock body %}
 {% block extrajs %}
 <script>
@@ -163,4 +173,5 @@
         }
     }
 </script>
+
 {% endblock extrajs %}

@@ -18,7 +18,7 @@ urlpatterns = [
     path('redeem/done',login_required(views.RedeemDoneView.as_view()),name='redeem_done'),
     path('redeem/done/renew',login_required(views.RedeemRenewDoneView.as_view()),name='redeem_done_renew'),
     path('select',login_required(views.SelectAccView.as_view()),name='select_acc'),
-    path('checkout/<int:product_id>',views.CheckOutView.as_view(),name='checkout'),
+    path('checkout',views.CheckOutView.as_view(),name='checkout'),
     path('addCart/<int:product_id>/<int:price>',views.addCart,name='addCart'),
     path('removeCart/<int:product_id>',views.removeCart,name='removeCart'),
     path('decrementCart/<int:product_id>/<int:unitPrice>',views.decrementCart,name='decrementCart'),
@@ -33,6 +33,7 @@ urlpatterns = [
     path('email',views.SendEmail,name='email'),
     path('checkout/distributor',views.DistributorSale,name='checkout_distributor'),
     path('no_credits',views.NoCreditsView.as_view(),name='no_credits'),
+    path('wh',views.mercadopago_webhook,name='wh'),
     # path('express-checkout/', views.Mp_ExpressCheckout, name='Mp_ExpressCheckout'),
     
 ]
