@@ -320,8 +320,8 @@ class Sales():
             my_dict = {
                     'availables': Sales.availables()[0],
                     'customer':customer,
-                    'message':message,
-                    'copy':copy,
+                    'message':None,
+                    'copy':None,
                     'active':Sales.customer_sales_active(customer),
                     'inactive':Sales.customer_sales_inactive(customer)
             }
