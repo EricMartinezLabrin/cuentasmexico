@@ -4,13 +4,16 @@
             <h5 class="modal-title">Agregar / Quitar Días</h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
-        <form action="" method="post">
+        <form action="{% url 'adm:key_adjust' pk %}" method="POST">
+            {% csrf_token %}
             <div class="modal-body">
-                <p>Modal body text goes here.</p>
+                <p>Para quitar dias debe poner numeros negativos</p>
+                
+                <input type="number" name="days" class="form-control" placeholder="Ingresa aqui cuantos dias deseas agregar/quitar" required>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                <button type="button" class="btn btn-primary">Save changes</button>
+                <button type="button" class="btn btn-cm-cancel" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-cm">Terminar</button>
             </div>
         </form>
     </div>

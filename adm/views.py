@@ -468,7 +468,21 @@ def SalesView(request):
 
 def key_adjust(request,pk):
     template_name = 'adm/key_adjust.html'
-    return render(request,template_name,{})
+    
+    if request.method == 'POST':
+        days = int(request.POST.get('days'))
+        sale = Sale.objects.get(pk=pk)
+        expiration_date = sale.expiration_date
+        new_date = expiration_date + timedelta(days=days)
+        sale.expiration_date = new_date
+        sale.save()
+
+        return redirect(reverse_lazy('adm:sales'))
+        
+
+    return render(request,template_name,{
+        'pk': pk
+    })
 
 def SalesAddFreeDaysView(request,pk,days):
     sale = Sale.objects.get(pk=pk)
@@ -881,12 +895,13 @@ class ReceivableView(UserAccessMixin,ListView):
     permission_required='is_staff'
     model = Sale
     template_name = "adm/receivable.html"
-    paginate_by = 10
+    paginate_by = 1000
     
     def get_queryset(self):
         if self.request.GET.get('date') is not None:
             return Sale.objects.filter(
-            expiration_date = self.request.GET.get('date'), 
+            expiration_date__lte = f"{self.request.GET.get('date')} 23:59:59", 
+            expiration_date__gte = f"{self.request.GET.get('date')} 00:00:00", 
             status=True
         ).order_by('-expiration_date','account')
         elif self.request.GET.get('email'):
@@ -898,7 +913,7 @@ class ReceivableView(UserAccessMixin,ListView):
             ).order_by('-expiration_date','account__email')
         else:
             return Sale.objects.filter(
-                expiration_date__lte = timezone.now(), 
+                expiration_date__lte = f'{timezone.now().date()} 23:59:59', 
                 status=True
             ).order_by('-expiration_date','account__email')
 
@@ -906,7 +921,7 @@ class ReceivableView(UserAccessMixin,ListView):
         context = super().get_context_data(**kwargs)
         context['tomorrow'] = timezone.now().date() + timedelta(days=1)
         context['left'] = Sale.objects.filter(
-            expiration_date__lte = timezone.now(),
+            expiration_date__lte = f'{timezone.now().date()} 23:59:59',
             status=True
         ).count()
         return context
