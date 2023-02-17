@@ -468,7 +468,16 @@ def DistributorSale(request):
 
     #{'product_id': 2, 'name': 'Spotify', 'quantity': 2, 'profiles': 1, 'price': 120, 'image': '/media/settings/spotify.png', 'description': 'Spotify', 'unitPrice': 60}
 
-
+def MpWebhookUpdater(request):
+    if request.method == 'POST':
+        if request.POST.get('type') == 'payment':
+            id = request.POST.get('id')
+            wh_obj = MercadoPago.search_payments(id)
+    if wh_obj: 
+        response = MercadoPago.webhook_updater(wh_obj)
+        return response
+    else:
+        return "404"
 
 
 

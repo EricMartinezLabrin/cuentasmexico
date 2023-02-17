@@ -8,6 +8,7 @@ import requests
 
 #Local
 from adm.models import Business
+from index.models import IndexCart
 
 
 
@@ -55,7 +56,7 @@ class MercadoPago():
         preference = preference_response["response"]
         return preference['init_point']
     
-    def search_payments(self,id):
+    def search_payments(id):
         url = "https://api.mercadopago.com/v1/payments/"+ id
         headers = {
             "Accept": "application/json",
@@ -73,7 +74,23 @@ class MercadoPago():
         else:
             return None
 
-            170
-            1700
-            85
-            1955
+    def webhook_updater(data):
+        try:
+            cart = IndexCart.objects.get(pk=data['external_reference'])
+            cart.payment_id = data['payment_id']
+            cart.date_created = data['date_created']
+            cart.date_approved = data['date_approved']
+            cart.date_last_updated = data['date_last_updated']
+            cart.money_release_date = data['money_release_date']
+            cart.payment_type_id = data['payment_type_id']
+            cart.status_detail = data['status_detail']
+            cart.currency_id = data['currency_id']
+            cart.description = data['description']
+            cart.transaction_amount = data['transaction_amount']
+            cart.transaction_amount_refunded = data['transaction_amount_refunded']
+            cart.customer_id = data['customer_id']
+            cart.coupon_amount = data['coupon_amount']
+            cart.save()
+            return "200"
+        except:
+            return "404"
