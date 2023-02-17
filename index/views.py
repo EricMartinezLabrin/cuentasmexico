@@ -11,11 +11,13 @@ from django.http import HttpResponseRedirect
 from django.contrib.auth.decorators import permission_required
 from django.utils import timezone
 
+from index.payment_methods.MercagoPago import MercadoPago
+
 #local
 from .forms import RegisterUserForm, RedeemForm, MpPaymentForm
 from adm.models import UserDetail, Business, Service,Sale, Account, Credits
 from adm.functions.business import BusinessInfo
-from .cart import CartProcessor
+from .cart import CartProcessor, CartDb
 from cupon.models import Shop, Cupon
 from adm.functions.permissions import UserAccessMixin
 from adm.functions.sales import Sales
@@ -30,21 +32,30 @@ import mercadopago
 #Index
 def index(request):
     template_name="index/index.html"
-    services = Service.objects.filter(status=True)
 
     return render(request,template_name,{
         'business':BusinessInfo.data(),
         'credits': BusinessInfo.credits(request),
-        'services': services,
+        'services': Service.objects.filter(status=True),
     })
 
 class CartView(TemplateView):
     template_name = "index/cart.html"
 
+    def set_cart(self):
+        if CartDb.create_full_cart(self):
+            cart = CartDb.create_full_cart(self).id
+            return MercadoPago.Mp_ExpressCheckout(self,cart)
+        else:
+            return None
+        
     def get_context_data(self, **kwargs):
+        
         context = super().get_context_data(**kwargs)
         context["business"] =  BusinessInfo.data()
         context["credits"] = BusinessInfo.credits(self.request)
+        context['services']= Service.objects.filter(status=True)
+        context["init_point"] = self.set_cart()
         return context
     
 class CheckOutView(TemplateView):
@@ -457,34 +468,6 @@ def DistributorSale(request):
 
     #{'product_id': 2, 'name': 'Spotify', 'quantity': 2, 'profiles': 1, 'price': 120, 'image': '/media/settings/spotify.png', 'description': 'Spotify', 'unitPrice': 60}
 
-# def Mp_ExpressCheckout(request):
-#     # business_data = Business.objects.get(pk=1)
-#     # cliente_id = business_data.mp_customer_key
-#     # client_secret =  business_data.mp_secret_key
-#     cart = request.session.get('cart_number')
-
-#     new_cart = []
-#     for items in cart.items:
-#         cart_items = {
-#             "title": items.name,
-#             "quantity": items.quantity,
-#             "currency_id": "MXN",
-#             "unit_price": items.price
-#         }
-#         new_cart.append(cart_items)
-
-#     # Inicializa Mercado Pago
-#     mp = mercadopago.MP("TEST-168801736002262-091119-b7147315b4f642c60178483421325c24-571215114")
-
-#     # Crea un objeto preference
-#     preference = {
-#         "items": new_cart
-#     }
-#     # Crea el checkout en Mercado Pago
-#     checkout = mp.create_preference(preference)
-
-#     # Redirige al usuario al checkout de Mercado Pago
-#     return redirect(checkout['response']['init_point'])
 
 
 
