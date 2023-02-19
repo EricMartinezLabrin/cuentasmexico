@@ -17,16 +17,6 @@ from django.urls import reverse_lazy
 from pathlib import Path
 import os
 
-#Local
-# from adm.models import Business
-# import mercadopago
-
-# business_data = Business.objects.get(pk=1)
-# cliente_id = business_data.mp_customer_key
-# client_secret =  business_data.mp_secret_key
-
-# MERCADOPAGO_CLIENT_ID = os.environ.get("cliente_id")
-# MERCADOPAGO_CLIENT_SECRET = os.environ.get("client_secret")
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -129,7 +119,7 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/4.1/topics/i18n/
 
-LANGUAGE_CODE = 'es-es'
+LANGUAGE_CODE = 'es-mx'
 
 TIME_ZONE = 'America/Mexico_City'
 
