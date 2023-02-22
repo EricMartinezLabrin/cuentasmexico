@@ -5,28 +5,37 @@
     {% if account.0 == True %}
         <h1>Ya terminaste</h1>
         <p>A cotinuación encontraras los datos de acceso a tu cuenta:</p>
+        
         <div class="row row-cols-lg-2 row-cols-md-3 g-2 g-lg-2">
-            <div class="col">
-                <!-- card -->
-                <div class="d-flex p-3 card-product">
-                    <div> 
-                    <!-- img -->
-                        <img src="/media/{{account.1.account_name.logo}}" alt="{{account.1.account_name}}" width="150" class="rounded-circle icon-shape icon-xl">
+            {% for account in account %}
+                {% if forloop.counter0 != 0 %}
+                    <div class="col">
+                        <!-- card -->
+                        <div class="d-flex p-3 card-product">
+                            <div> 
+                            <!-- img -->
+                                <img src="/media/{{account.1.account_name.logo}}" alt="{{account.1.account_name}}" width="150" class="rounded-circle icon-shape icon-xl">
+                            </div>
+                            <div class="m-4">
+                                <!-- content -->
+                                <h2 class="mb-1 h5 cm">Esta es tu cuenta {{account.1.account_name}} 
+                                    {% if code %}
+                                    de {{code.long}} me{{code.long|pluralize:"s,ses"}}
+                                    {% endif %}
+                                </h2>
+                                <h5>Email: {{account.1.email}}</h5>
+                                <h5>Password: {{account.1.password}}</h5>
+                                <h5>Perfil: {{account.1.profile}}</h5>
+                                {% if account.1.pin %}
+                                    <h5>PIN: {{account.1.pin}}</h5>
+                                {% endif %}
+                                <h5>Vencimiento: {{account.1.expiration_date}}</h5>
+                                <br>
+                            </div>
+                        </div>
                     </div>
-                    <div class="m-4">
-                        <!-- content -->
-                        <h2 class="mb-1 h5 cm">Esta es tu cuenta {{account.1.account_name}} de {{code.long}} me{{code.long|pluralize:"s,ses"}}</h2>
-                        <h5>Email: {{account.1.email}}</h5>
-                        <h5>Password: {{account.1.password}}</h5>
-                        <h5>Perfil: {{account.1.profile}}</h5>
-                        {% if account.1.pin %}
-                            <h5>PIN: {{account.1.pin}}</h5>
-                        {% endif %}
-                        <h5>Vencimiento: {{account.1.expiration_date}}</h5>
-                        <br>
-                    </div>
-                </div>
-            </div>
+                {% endif %}
+            {% endfor %}
             <div>
                 <h3><i class="bi bi-exclamation-triangle-fill"></i>LEER LAS NORMAS DE USO <i class="bi bi-exclamation-triangle-fill"></i></h3>
                 <p> ➡️ Usar solo el perfil con su nombre en un solo y único dispositivo.</p>

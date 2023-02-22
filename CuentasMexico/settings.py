@@ -17,6 +17,7 @@ from django.urls import reverse_lazy
 from pathlib import Path
 import os
 
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -118,7 +119,7 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/4.1/topics/i18n/
 
-LANGUAGE_CODE = 'es-es'
+LANGUAGE_CODE = 'es-mx'
 
 TIME_ZONE = 'America/Mexico_City'
 
@@ -147,7 +148,7 @@ EMAIL_USE_TLS = True
 EMAIL_HOST = 'cuentasmexico.mx'
 EMAIL_PORT = 465
 EMAIL_HOST_USER = 'contacto@cuentasmexico.mx'
-EMAIL_HOST_PASSWORD = 'Tarkan11.-!!'
+EMAIL_HOST_PASSWORD = 'Tarkan11.-'
 # EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_BACKEND = 'django_smtp_ssl.SSLEmailBackend'
 

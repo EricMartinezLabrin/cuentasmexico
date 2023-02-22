@@ -11,7 +11,6 @@ from django.http import JsonResponse
 from django.db.models import Sum
 from django.utils import timezone
 
-
 #Python
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
@@ -906,11 +905,13 @@ class ReceivableView(UserAccessMixin,ListView):
         ).order_by('-expiration_date','account')
         elif self.request.GET.get('email'):
             email = self.request.GET.get('email')
-            return Sale.objects.filter(
-                account__email=email,
-                expiration_date__lte = timezone.now(), 
+            if self.request.GET.get('date') is not None:
+                exp_date = self.request.GET.get('date')
+                return Sale.objects.filter(
+                expiration_date__gte = f'{exp_date} 00:00:00', 
+                expiration_date__lte = f'{exp_date} 23:59:59',
                 status=True
-            ).order_by('-expiration_date','account__email')
+        ).order_by('-expiration_date','account')
         else:
             return Sale.objects.filter(
                 expiration_date__lte = f'{timezone.now().date()} 23:59:59', 
@@ -1025,6 +1026,7 @@ class CreditCustomerListView(UserAccessMixin,ListView):
     model = Credits
     template_name = "adm/credit_customer_list.html"
     paginate_by = 10
+    ordering = ['-id']
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)

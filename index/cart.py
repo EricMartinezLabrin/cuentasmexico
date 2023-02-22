@@ -1,3 +1,6 @@
+from adm.models import Service
+from .models import IndexCart, IndexCartdetail
+
 class CartProcessor:
     def __init__(self,request):
         self.request = request
@@ -84,3 +87,69 @@ class CartProcessor:
         self.session['cart_total'] = 0
         self.session['cart_quantity'] = 0
         self.session.modified=True
+
+class CartDb:
+    def create_cart(
+        payment_id = None,
+        date_created = None,
+        date_approved = None,
+        date_last_updated = None,
+        money_release_date = None,
+        payment_type_id = None,
+        status_detail = None,
+        currency_id = None,
+        description = None,
+        transaction_amount = None,
+        transaction_amount_refunded = None,
+        coupon_amount = None,
+        customer = None,
+    ):
+        cart = IndexCart.objects.create(
+        payment_id=payment_id,
+        date_created=date_created,
+        date_approved=date_approved,
+        date_last_updated=date_last_updated,
+        money_release_date=money_release_date,
+        payment_type_id=payment_type_id,
+        status_detail=status_detail,
+        currency_id=currency_id,
+        description=description,
+        transaction_amount=transaction_amount,
+        transaction_amount_refunded=transaction_amount_refunded,
+        coupon_amount=coupon_amount,
+        customer=customer,
+)
+        return cart
+    def create_cart_details(
+        duration,
+        quantity,
+        price,
+        cart,
+        service,
+    ):
+        cart_detail = IndexCartdetail.objects.create(
+        long = duration,
+        quantity = quantity,
+        price = price,
+        cart = cart,
+        service = service,
+)
+
+        return cart_detail
+
+    def create_full_cart(self):
+        cart_data = self.request.session.get('cart_number')
+        cart = CartDb.create_cart(customer=self.request.user)
+        for item in cart_data.items():
+            service = Service.objects.get(description=item[1]['name'])
+            CartDb.create_cart_details(
+                item[1]['quantity'],
+                item[1]['profiles'],
+                item[1]['unitPrice'],
+                cart,
+                service
+                )
+        
+        
+
+        return cart

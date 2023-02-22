@@ -1,4 +1,4 @@
-from adm.models import Account, Service, UserDetail,Bank,PaymentMethod,Sale,Status, Business
+from adm.models import Account, Service, UserDetail,Bank,PaymentMethod,Sale,Status, Business, Credits
 from cupon.models import Cupon
 from django.contrib.auth.models import User
 from datetime import datetime, date
@@ -8,6 +8,8 @@ from django.urls import reverse,reverse_lazy
 from django.db import IntegrityError
 from django.http import HttpResponseRedirect
 from adm.functions.send_email import Email
+from django.utils import timezone
+from datetime import timedelta
 
 
 class Sales():
@@ -101,31 +103,75 @@ class Sales():
                 continue
         return True
 
-    def cupon_sale(request):
-        c=request.POST.get('code').lower()
-        cupon = Cupon.objects.get(name=request.POST.get('code').lower())
-        service = Account.objects.get(pk=request.POST.get('serv'))
-        price = cupon.price
-        duration = cupon.long
-        ticket = cupon.name
-        customer = User.objects.get(pk=request.POST.get('customer'))   
+    def cupon_sale(request,service=None,price=None,duration=None,ticket=None,bank_name='Web',payment_used="Saldo Distribuidor"):
+        c=request.POST.get('code')
+
+        if c:
+            cupon = Cupon.objects.get(name=request.POST.get('code').lower())
+            service = Account.objects.get(pk=request.POST.get('serv'))
+            price = cupon.price
+            duration = cupon.long
+            ticket = cupon.name
+            bank_name = 'Shops'
+            payment_used = 'Codigo'
+
+            #Update Cupon
+            cupon.used_at = timezone.now()
+            cupon.customer = customer
+            cupon.seller = request.user
+            cupon.order = sale
+            cupon.status_sale = True
+            cupon.status = False
+            cupon.save()
+
+        if request.POST.get('customer'):
+            customer = User.objects.get(pk=request.POST.get('customer')) 
+        else:
+            customer = User.objects.get(pk=request.user.id)
+
         try:
-            bank_selected = Bank.objects.get(bank_name='Shops')
+            bank_selected = Bank.objects.get(bank_name=bank_name)
         except Bank.DoesNotExist:
             bank_selected = Bank.objects.create(
                 business = Business.objects.get(pk=1),
-                bank_name = 'Shops',
+                bank_name = bank_name,
                 headline = 'Cuentas Mexico',
                 card_number = '0',
                 clabe = '0',
             )
         try:
-            payment_used = PaymentMethod.objects.get(description='Codigo')
+            payment_used = PaymentMethod.objects.get(description=payment_used)
         except PaymentMethod.DoesNotExist:
-            payment_used = PaymentMethod.objects.create(description='Codigo')
+            payment_used = PaymentMethod.objects.create(description=payment_used)
 
         try:
             sale = Sale.objects.get(invoice=ticket)
+            if ticket == 'Web':
+                raise Sale.DoesNotExist
+        except Sale.MultipleObjectsReturned:
+            if ticket == 'Web':
+                #create sale
+                sale = Sale.objects.create(
+                    business = request.user.userdetail.business,
+                    user_seller = request.user,
+                    bank = bank_selected,
+                    customer = customer,
+                    account = service,
+                    status = True,
+                    payment_method = payment_used,
+                    expiration_date = timezone.now() + timedelta(days= 30*duration),
+                    payment_amount = price,
+                    invoice = ticket
+                )
+                #update account
+                service.customer=customer
+                service.modified_by=request.user
+                service.save()
+
+                if customer.email != 'example@example.com':
+                    Email.email_passwords(request,customer.email,(sale,))
+
+            return True, sale
         except Sale.DoesNotExist:
             #create sale
             sale = Sale.objects.create(
@@ -136,7 +182,7 @@ class Sales():
                 account = service,
                 status = True,
                 payment_method = payment_used,
-                expiration_date = datetime.now() + relativedelta(months=duration),
+                expiration_date = timezone.now() + timedelta(days= 30*duration),
                 payment_amount = price,
                 invoice = ticket
             )
@@ -145,19 +191,10 @@ class Sales():
             service.modified_by=request.user
             service.save()
 
-            #Update Cupon
-            cupon.used_at = datetime.now()
-            cupon.customer = customer
-            cupon.seller = request.user
-            cupon.order = sale
-            cupon.status_sale = True
-            cupon.status = False
-            cupon.save()
-
             if customer.email != 'example@example.com':
                 Email.email_passwords(request,customer.email,(sale,))
 
-        return True
+        return True, sale
 
     def renew_sale(request,old):
         service = request.POST.get('serv')
@@ -291,27 +328,38 @@ class Sales():
             return render(request,'adm/sale.html',my_dict)
 
     def search_better_acc(service_id,exp, code=None):
-        if not Cupon.objects.get(name=code).customer or code == None:
-            print(Cupon.objects.get(name=code).customer)
+        # Si no hay codigo o hay pero esta libre
+        if code == None or not Cupon.objects.get(name=code).customer :
             try:
+                # Busca el objeto con el id del servicio
                 service = Service.objects.get(pk=service_id)
             except Service.DoesNotExist:
+                # Si no existe arroja error
                 return False , "La cuenta seleccionada no existe. Porfavor contactarse al whats app +521 833 535 5863."
+            
+            # Declaramos la fecha de vencimiento
             esta = None
             exp1 = f'{exp.date()} 00:00:00'
             exp2 = f'{exp.date()} 23:59:59'
             try:
+                # Buscamos todas las ventas que venzan el dia exacto buscado 
                 account = Sale.objects.filter(account__account_name=service,expiration_date__gte=exp1,expiration_date__lte=exp2,status=True).order_by('expiration_date')
                 if account.count() == 0:
+                    # Si no existe elevamos error de que no hay fechas exactas para buscar aproximados
+                    
                     raise Sale.DoesNotExist
                 else:
                     for a in account:
+                        # Busca cuentas libres con relacion a la busqueda anterior
                         selected = Account.objects.filter(account_name=service,email=a.account.email,status=True, customer=None)
                         if selected.count() > 0:
-                            return selected[0]
+                            # si existe una retorna el resultado
+                            return True,selected[0]
                         else:
+                            # si no existen cuentas disponibles sigue buscando
                             raise Sale.DoesNotExist
             except Sale.DoesNotExist:
+                
                 #find empty accounts
                 empty = Account.objects.filter(account_name=service, status=True, customer=None)
                 if empty.count()==0:
@@ -319,19 +367,18 @@ class Sales():
                 for e in empty:
                     q = Account.objects.filter(email = e.email, account_name = service, status=True, customer=None)
                     if q.count() == service.perfil_quantity:
+                        
                         return True,q[0]
                 if not esta:
+                    
                     account = Sale.objects.filter(account__account_name=service,expiration_date__gte=exp1,status=True).order_by('expiration_date')
                     if account.count() > 0:
                         for a in account:
                             acc = Account.objects.filter(email=a.account.email,password=a.account.password,account_name=a.account.account_name,customer=None,status=True)
                             if acc.count() > 0:
                                 return True,acc[0]
-                    elif account.count() < 0:
-                        account = Sale.objects.filter(account__account_name=service,expiration_date__lte=exp1,status=True).order_by('-expiration_date')
-                        if account.count() > 0:
-                            for a in account:
-                                acc = Account.objects.filter(email=a.account.email,password=a.account.password,account_name=a.account.account_name,customer=None,status=True)
+                            else:
+                                acc = Account.objects.filter(account_name=service,customer=None,status=True,renovable=True)
                                 if acc.count() > 0:
                                     return True,acc[0]
                     else:
@@ -465,7 +512,26 @@ class Sales():
         else:
             return False, "El código ya fue utilizado, si no lo canjeó usted contacte a su vendedor y pidale uno nuevo."
 
+    def credits_modify(customer,credits, comments):
+        Credits.objects.create(
+            customer = customer,
+            credits = credits,
+            detail = comments
+        )
 
+    def web_sale(request,acc,unit_price,months):
+        sale = Sales.cupon_sale(request,acc,unit_price,months,'Web')
+        dict_sale = {
+            'id':sale[1].id,
+            'logo':sale[1].account.account_name.logo,
+            'account_name':sale[1].account.account_name.description,
+            'email':sale[1].account.email,
+            'password':sale[1].account.password,
+            'profile':sale[1].account.profile,
+            'pin':sale[1].account.pin,
+            'expiration_date':sale[1].expiration_date
+        }
+        return dict_sale
 
 
 
