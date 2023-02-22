@@ -57,11 +57,11 @@ class MercadoPago():
         return preference['init_point']
     
     def search_payments(id):
-        url = "https://api.mercadopago.com/v1/payments/"+ id
+        url = f'https://api.mercadopago.com/v1/payments/{id}'
         headers = {
             "Accept": "application/json",
             "Content-Type": "application/json",
-            "Authorization": "Bearer " + Business.objects.get(pk=1).mp_customer_key
+            "Authorization": "Bearer " + "TEST-168801736002262-091119-b7147315b4f642c60178483421325c24-571215114"
         }
         params = {
             "offset": 0,
@@ -77,7 +77,7 @@ class MercadoPago():
     def webhook_updater(data):
         try:
             cart = IndexCart.objects.get(pk=data['external_reference'])
-            cart.payment_id = data['payment_id']
+            cart.payment_id = data['collector_id']
             cart.date_created = data['date_created']
             cart.date_approved = data['date_approved']
             cart.date_last_updated = data['date_last_updated']
@@ -88,7 +88,6 @@ class MercadoPago():
             cart.description = data['description']
             cart.transaction_amount = data['transaction_amount']
             cart.transaction_amount_refunded = data['transaction_amount_refunded']
-            cart.customer_id = data['customer_id']
             cart.coupon_amount = data['coupon_amount']
             cart.save()
             return 200

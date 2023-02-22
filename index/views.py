@@ -503,9 +503,8 @@ def MpWebhookUpdater(request):
         body = request.body.decode('utf-8')
         data = json.loads(body)
         if data['type'] == 'payment':
-            payment_data = MercadoPago.search_payments(data['id'])
+            payment_data = MercadoPago.search_payments(data['data']['id'])
             cart_updated = MercadoPago.webhook_updater(payment_data)
-            return HttpResponse(cart_updated)
         return HttpResponse(200)
     else:
         return HttpResponse(404)
