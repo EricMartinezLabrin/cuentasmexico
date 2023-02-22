@@ -91,6 +91,6 @@ class MercadoPago():
             cart.customer_id = data['customer_id']
             cart.coupon_amount = data['coupon_amount']
             cart.save()
-            return "200"
+            return 200
         except:
-            return "404"
+            return 404
