@@ -136,7 +136,7 @@
                                 <li><hr class="dropdown-divider"></li>
                                 <li><a class="dropdown-item" href="{% url 'login' %}">Iniciar Sesión</a></li>
                               {% else %}
-                                <li><a class="dropdown-item" href="#">Mis Pedidos</a></li>
+                                <li><a class="dropdown-item" href="{% url 'my_account' %}">Mis Pedidos</a></li>
                                 <li><hr class="dropdown-divider"></li>
                                 <li><a class="dropdown-item" href="{% url 'logout' %}">Cerrar Sesión</a></li>
                               {% endif %}

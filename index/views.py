@@ -15,7 +15,7 @@ from index.payment_methods.MercagoPago import MercadoPago
 
 # local
 from .forms import RegisterUserForm, RedeemForm, MpPaymentForm
-from adm.models import UserDetail, Business, Service, Sale, Account, Credits
+from adm.models import Level, UserDetail, Business, Service, Sale, Account, Credits
 from adm.functions.business import BusinessInfo
 from .cart import CartProcessor, CartDb
 from cupon.models import Shop, Cupon
@@ -323,7 +323,6 @@ class LogoutPageView(LogoutView):
     """
     Log Out User
     """
-    pass
 
 
 class RegisterCustomerView(CreateView):
@@ -390,27 +389,27 @@ def RedirectOnLogin(request):
     """
     Verify permission and details of User and redirect to Main Page or Admin Page
     """
+    admin_list = ['superadmin', 'admin', 'supervisor', 'salesman']
     # Verify Details
     try:
-        details = UserDetail.objects.get(user_id=request.user.id)
+        user = request.user.id
+        user_details = UserDetail.objects.get(user_id=user)
+        user_level = user_details.level.name
+        if not user_level:
+            customer_level = Level.objects.get(name='Cliente')
+            user_details.level = customer_level
+            user_details.save()
+            user_level = user_details.level.name
     except UserDetail.DoesNotExist:
-        UserDetail.objects.create(
-            phone_number=0, lada=0, country="", business_id=1, user_id=request.user.id)
+        customer_level = Level.objects.get(name='Cliente')
+        user_details = UserDetail.objects.create(
+            phone_number=0, lada=0, country="", business_id=1, user_id=user, level=customer_level)
+        user_level = user_details.level.name
 
-    group = request.user.groups.all()
-    print(f'Pertenece al grupo {group}')
-    # If no have any group
-    if not request.user.groups.all():
-        # asign Customer Group
-        group = Group.objects.get(name='Customer')
-        user = User.objects.get(pk=request.user.id)
-        user.groups.add(group)
-        # Redirect to shop
+    if not user_level in admin_list:
         template_name = 'index'
-        print('Es Cliente')
     else:
         template_name = 'adm:index'
-        print('Es Trabajador')
 
     return redirect(reverse(template_name))
 
@@ -420,6 +419,12 @@ class NoPermissionView(TemplateView):
     Page where are redirected users with out permissions
     """
     template_name = "index/no_permission.html"
+
+    def not_allowed(self):
+        staff = self.request.user.is_staff
+        print(staff)
+        if not staff:
+            return redirect('index')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -508,3 +513,21 @@ def MpWebhookUpdater(request):
         return HttpResponse(200)
     else:
         return HttpResponse(404)
+
+
+def StartPayment(request):
+    cart = CartProcessor(request)
+    cart.clear()
+    init_point = request.GET.get('initpoint')
+    return redirect(init_point)
+
+
+class MyAccountView(TemplateView):
+    template_name = "index/my_account.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["business"] = BusinessInfo.data()
+        context["credits"] = BusinessInfo.credits(self.request)
+        context['services'] = Service.objects.filter(status=True)
+        return context

@@ -45,5 +45,9 @@ urlpatterns = [
          name='checkout_distributor'),
     path('no_credits', views.NoCreditsView.as_view(), name='no_credits'),
     path('express-checkout/', views.MpWebhookUpdater, name='Mp_ExpressCheckout'),
+    path('start_payment/',
+         login_required(views.StartPayment), name='start_payment'),
+    path('my_account/',
+         login_required(views.MyAccountView.as_view()), name='my_account')
 
 ]
