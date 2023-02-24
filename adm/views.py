@@ -960,14 +960,16 @@ class ReceivableView(UserAccessMixin, ListView):
     permission_required = 'is_staff'
     model = Sale
     template_name = "adm/receivable.html"
-    paginate_by = 10
-
+    paginate_by = 1000
+    
     def get_queryset(self):
         if self.request.GET.get('date') is not None:
             return Sale.objects.filter(
-                expiration_date=self.request.GET.get('date'),
-                status=True
-            ).order_by('-expiration_date', 'account')
+            expiration_date__lte = f"{self.request.GET.get('date')} 23:59:59", 
+            expiration_date__gte = f"{self.request.GET.get('date')} 00:00:00", 
+            status=True
+        ).order_by('-expiration_date','account')
+
         elif self.request.GET.get('email'):
             email = self.request.GET.get('email')
             if self.request.GET.get('date') is not None:
@@ -987,7 +989,7 @@ class ReceivableView(UserAccessMixin, ListView):
         context = super().get_context_data(**kwargs)
         context['tomorrow'] = timezone.now().date() + timedelta(days=1)
         context['left'] = Sale.objects.filter(
-            expiration_date__lte=timezone.now(),
+            expiration_date__lte = f'{timezone.now().date()} 23:59:59',
             status=True
         ).count()
         return context

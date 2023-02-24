@@ -88,9 +88,9 @@ WSGI_APPLICATION = 'CuentasMexico.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'cuentasmexico',
-        'USER': 'root',
+        'ENGINE': 'django.db.backends.mysql', 
+        'NAME': 'mercadopago',
+        'USER': 'mercadopago',
         'PASSWORD': 'Tarkan11.-',
         'HOST': 'localhost',
         'PORT': '3306',

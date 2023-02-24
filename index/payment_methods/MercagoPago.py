@@ -68,11 +68,9 @@ class MercadoPago():
             "limit": 10
         }
         response = requests.get(url, headers=headers, params=params)
-        if response.status_code == 200:
-            payments = json.loads(response.text)
-            return payments
-        else:
-            return None
+        
+        payments = json.loads(response.text)
+        return payments
 
     def webhook_updater(request, data):
         try:
