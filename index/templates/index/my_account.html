@@ -2,4 +2,75 @@
 {% block title %}Mi Cuenta{% endblock title %}
 {% block body %}
 <h1>Mi Cuenta</h1>
+<h2>Activas</h2>
+<table class="table table-hover">
+    <thead>
+        <th>Cuenta</th>
+        <th>Email</th>
+        <th>Password</th>
+        <th>Perfil</th>
+        {% if data.account.pin %}
+            <th>Pin</th>
+        {% endif %}
+        <th>Vencimiento</th>
+        {% comment %} <th>Acciones</th> {% endcomment %}
+    </thead>
+    <tbody>
+        {% for data in active %}
+            <tr>
+                <td><img src="/media/{{data.account.account_name.logo}}" alt="{{data.account.account_name.description}}" width="40"></td>
+                <td>{{data.account.email}}</td>
+                <td>{{data.account.password}}</td>
+                <td>{{data.account.profile}}</td>
+                {% if data.account.pin %}
+                    <td>{{data.account.pin}}</td>
+                {% endif %}
+        <td>{{data.account.expiration_date}}</td>
+        {% comment %} <td>
+            {% if data.account.renovable or data.account.expiration_date > now %}
+            Renovar
+            {% endif %}
+
+        </td> {% endcomment %}
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+
+{% if inactive %}
+    <h2>Inactivas</h2>
+    <small>Aqui aparecera el listado de cuentas que ta vencieron y puedes volver a comprar.</small>
+    <table class="table table-hover">
+        <thead>
+            <th>Cuenta</th>
+            <th>Email</th>
+            <th>Perfil</th>
+            {% if data.account.pin %}
+                <th>Pin</th>
+                {% endif %}
+                <th>Vencimiento</th>
+                {% comment %} <th>Acciones</th> {% endcomment %}
+            </thead>
+            <tbody>
+                {% for data in inactive %}
+                <tr>
+                    <td><img src="/media/{{data.account.account_name.logo}}" alt="{{data.account.account_name.description}}" width="40"></td>
+                    <td>{{data.account.email}}</td>
+                    <td>{{data.account.profile}}</td>
+                    {% if data.account.pin %}
+                    <td>{{data.account.pin}}</td>
+                    {% endif %}
+                    <td>{{data.account.expiration_date}}</td>
+                    {% comment %} <td>
+                        {% if data.account.renovable or data.account.expiration_date > now %}
+                        Renovar
+                        {% endif %}
+                        
+                    </td> {% endcomment %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+{% endif %}
 {% endblock body %}

@@ -509,7 +509,7 @@ def MpWebhookUpdater(request):
         data = json.loads(body)
         if data['type'] == 'payment':
             payment_data = MercadoPago.search_payments(data['data']['id'])
-            cart_updated = MercadoPago.webhook_updater(payment_data)
+            cart_updated = MercadoPago.webhook_updater(request, payment_data)
         return HttpResponse(200)
     else:
         return HttpResponse(404)
@@ -525,9 +525,25 @@ def StartPayment(request):
 class MyAccountView(TemplateView):
     template_name = "index/my_account.html"
 
+    def find_renovables(self, account):
+        renovable = []
+        accounts = []
+        for data in set(account):
+            if data.status == 0 or data.account in accounts:
+                continue
+            if not data.account.customer:
+                if data.account.renovable:
+                    renovable.append(data)
+                    accounts.append(data.account)
+        return renovable
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["business"] = BusinessInfo.data()
         context["credits"] = BusinessInfo.credits(self.request)
         context['services'] = Service.objects.filter(status=True)
+        context['active'] = Sales.customer_sales_active(self.request.user)
+        context['inactive'] = self.find_renovables(Sales.customer_sales_inactive(
+            self.request.user))
+        context['now'] = timezone.now()
         return context
