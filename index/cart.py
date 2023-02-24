@@ -147,6 +147,7 @@ class CartDb:
         cart_data = self.request.session.get('cart_number')
         if cart_data:
             cart = CartDb.create_cart(customer=self.request.user)
+            print(cart.id)
             for item in cart_data.items():
                 service = Service.objects.get(description=item[1]['name'])
                 CartDb.create_cart_details(

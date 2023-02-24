@@ -11,7 +11,9 @@ from django.http import HttpResponseRedirect
 from django.contrib.auth.decorators import permission_required
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
+from index.models import IndexCartdetail
 from index.payment_methods.MercagoPago import MercadoPago
+from django.core.cache import cache
 
 # local
 from .forms import RegisterUserForm, RedeemForm, MpPaymentForm
@@ -47,11 +49,16 @@ class CartView(TemplateView):
     template_name = "index/cart.html"
 
     def set_cart(self):
-        if CartDb.create_full_cart(self):
-            cart = CartDb.create_full_cart(self).id
-            return MercadoPago.Mp_ExpressCheckout(self, cart)
-        else:
+        cart = cache.get('cart')
+        if cart is not None:
+            return cart
+        if not self.request.session.get('cart_number'):
             return None
+        cart = CartDb.create_full_cart(self).id
+        result = MercadoPago.Mp_ExpressCheckout(self, cart)
+        # Guarda el valor en caché durante 24 horas
+        cache.set('cart', result, timeout=60*60*24)
+        return result
 
     def get_context_data(self, **kwargs):
 
@@ -518,6 +525,7 @@ def MpWebhookUpdater(request):
 def StartPayment(request):
     cart = CartProcessor(request)
     cart.clear()
+    cache.set('cart', "0", timeout=0)
     init_point = request.GET.get('initpoint')
     return redirect(init_point)
 

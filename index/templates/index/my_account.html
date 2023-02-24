@@ -16,6 +16,15 @@
         {% comment %} <th>Acciones</th> {% endcomment %}
     </thead>
     <tbody>
+        {% if not active %}
+        <tr>
+            <td colspan="5">
+                <div class="alert alert-danger" role="alert">
+                    Aún no tienes cuentas disponibles, puedes comenzar a comprar haciendo click <a href="{% url 'index' %}">aquí</a>
+                </div> 
+            </td>
+        </tr>
+        {% endif %}
         {% for data in active %}
             <tr>
                 <td><img src="/media/{{data.account.account_name.logo}}" alt="{{data.account.account_name.description}}" width="40"></td>
