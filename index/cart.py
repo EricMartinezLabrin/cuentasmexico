@@ -139,17 +139,16 @@ class CartDb:
 
     def create_full_cart(self):
         cart_data = self.request.session.get('cart_number')
-        cart = CartDb.create_cart(customer=self.request.user)
-        for item in cart_data.items():
-            service = Service.objects.get(description=item[1]['name'])
-            CartDb.create_cart_details(
-                item[1]['quantity'],
-                item[1]['profiles'],
-                item[1]['unitPrice'],
-                cart,
-                service
-                )
-        
-        
-
-        return cart
+        if cart_data:
+            cart = CartDb.create_cart(customer=self.request.user)
+            for item in cart_data.items():
+                service = Service.objects.get(description=item[1]['name'])
+                CartDb.create_cart_details(
+                    item[1]['quantity'],
+                    item[1]['profiles'],
+                    item[1]['unitPrice'],
+                    cart,
+                    service
+                 )
+            return cart
+        return None

@@ -97,13 +97,16 @@
                 </div>
                 <div class="d-grid mb-1 mt-4">
                 <!-- btn -->
-                    {% if request.user.userdetail.level.name == 'Distribuidor' %}
-                    <a href="{% url 'checkout_distributor' %}" id="btn-buy" class="btn btn-cm btn-lg d-flex justify-content-between align-items-center" type="submit">
+                {% if request.user.userdetail.level.name == 'Distribuidor' %}
+                    <a href="{% url 'checkout_distributor' %}" id="btn-buy" class="btn btn-cm btn-lg d-flex justify-content-between align-items-center" >
                         Comprar <span class="fw-bold">se decontarán {{request.session.cart_total}} Créditos</span>
                     </a>
-                    
+                {% elif not init_point %}
+                    <a href="{% url 'login' %}" class="btn btn-cm btn-lg d-flex justify-content-between align-items-center">
+                        <span class="fw-bold">Inicia sesion para continuar</span>
+                    </a>
                 {% else %}
-                    <a href="{{init_point}}" id="buy" class="btn btn-cm btn-lg d-flex justify-content-between align-items-center" type="submit">
+                    <a href="{% url 'start_payment' %}?initpoint={{init_point}}" id="buy" class="btn btn-cm btn-lg d-flex justify-content-between align-items-center" >
                        Continuar con el pago 
                     </a>
                 {% endif %}

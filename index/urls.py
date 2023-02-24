@@ -11,7 +11,7 @@ urlpatterns = [
     path('', views.index, name='index'),
     path('no-permission', views.NoPermissionView.as_view(), name='no-permission'),
     path('detail/<int:pk>', views.ServiceDetailView.as_view(), name='service_detail'),
-    path('cart', views.CartView.as_view(), name='cart'),
+    path('cart', login_required(views.CartView.as_view()), name='cart'),
     path('shop', views.ShopListView.as_view(), name='shop'),
     path('redeem', login_required(views.RedeemView.as_view()), name='redeem'),
     path('redeem/confirm', login_required(views.RedeemConfirmView.as_view()),
@@ -45,5 +45,9 @@ urlpatterns = [
          name='checkout_distributor'),
     path('no_credits', views.NoCreditsView.as_view(), name='no_credits'),
     path('express-checkout/', views.MpWebhookUpdater, name='Mp_ExpressCheckout'),
+    path('start_payment/',
+         login_required(views.StartPayment), name='start_payment'),
+    path('my_account/',
+         login_required(views.MyAccountView.as_view()), name='my_account')
 
 ]

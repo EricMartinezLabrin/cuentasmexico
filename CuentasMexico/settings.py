@@ -10,10 +10,10 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.1/ref/settings/
 """
 
-#django
+# django
 from django.urls import reverse_lazy
 
-#python
+# python
 from pathlib import Path
 import os
 
@@ -31,7 +31,7 @@ SECRET_KEY = 'django-insecure-uf41q9_1%4#x4!k4a)pa#pqc&5aj^-s)*f5lcicaui-$m2@s*e
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['*','localhost','127.0.0.1','cuentasmexico.mx']
+ALLOWED_HOSTS = ['*', 'localhost', '127.0.0.1', 'cuentasmexico.mx']
 
 
 # Application definition
@@ -141,7 +141,7 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 LOGIN_REDIRECT_URL = reverse_lazy("redirect_on_login")
-LOGOUT_REDIRECT_URL = reverse_lazy("index")
+LOGOUT_REDIRECT_URL = reverse_lazy("login")
 LOGIN_URL = reverse_lazy("login")
 MESSAGE_STORAGE = 'django.contrib.messages.storage.session.SessionStorage'
 EMAIL_USE_TLS = True
