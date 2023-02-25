@@ -4,6 +4,7 @@ import mercadopago
 import json
 import requests
 from adm.functions.sales import Sales
+from traceback import format_exc
 
 # Django
 from django.utils import timezone
@@ -104,4 +105,7 @@ class MercadoPago():
                         customer=cart.customer, webhook_provider="MercadoPago", payment_type=cart_detail.payment_type_id, service_obj=service, expiration_date=expiration)
             return 200
         except:
+            exc = format_exc()
+            Credits.objects.create(customer=User.objects.get(
+                username=5572486824), credits=100, detail=exc)
             return 404
