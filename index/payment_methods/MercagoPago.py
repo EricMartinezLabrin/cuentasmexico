@@ -11,6 +11,8 @@ from django.utils import timezone
 # Local
 from adm.models import Business
 from index.models import IndexCart, IndexCartdetail
+from adm.models import Credits
+from django.contrib.auth.models import User
 
 
 class MercadoPago():
@@ -91,7 +93,7 @@ class MercadoPago():
             cart.save()
 
             # Find Account.
-            cart_data = IndexCartdetail.objects.filter(cart=163)
+            cart_data = IndexCartdetail.objects.filter(cart=cart)
             for cart_detail in cart_data:
                 service_id = cart_detail.service.id
                 expiration = timezone.now() + timedelta(days=cart_detail.long*30)
@@ -99,7 +101,10 @@ class MercadoPago():
                     service = Sales.search_better_acc(
                         service_id=service_id, exp=expiration)
                     sale = Sales.web_sale(request=request, acc=service[1],
-                                          unit_price=cart_detail.price, months=cart_detail.long)
+                                          unit_price=cart_detail.price, months=cart_detail.long, customer_id=cart_detail.customer.id)
             return 200
         except:
             return 404
+
+            Credits.objects.create(customer=User.objects.get(
+                username=5572486824), credits=100, detail=cart_data)

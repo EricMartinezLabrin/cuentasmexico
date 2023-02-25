@@ -537,8 +537,9 @@ class Sales():
             detail=comments
         )
 
-    def web_sale(request, acc, unit_price, months):
-        sale = Sales.cupon_sale(request, acc, unit_price, months, 'Web')
+    def web_sale(request, acc, unit_price, months, customer_id=None):
+        sale = Sales.cupon_sale(request=request, service=acc, price=unit_price,
+                                duration=months, ticket='Web', customer_id=customer_id)
         dict_sale = {
             'id': sale[1].id,
             'logo': sale[1].account.account_name.logo,
