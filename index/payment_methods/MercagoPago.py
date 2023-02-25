@@ -5,6 +5,8 @@ import json
 import requests
 from adm.functions.sales import Sales
 from traceback import format_exc
+import logging
+
 
 # Django
 from django.utils import timezone
@@ -16,6 +18,7 @@ from adm.models import Credits
 from django.contrib.auth.models import User
 
 class MercadoPago():
+    # Configurar el archivo de registro
 
     def __init__(self, request):
         self.request = request
@@ -74,7 +77,8 @@ class MercadoPago():
         payments = json.loads(response.text)
         return payments
 
-    def webhook_updater(request, data):
+    def webhook_updater(data):
+        logging.basicConfig(filename='error.log', level=logging.ERROR)
         try:
             # Update Cart
             cart = IndexCart.objects.get(pk=data['external_reference'])
@@ -103,8 +107,8 @@ class MercadoPago():
                     sale = Sales.sale_ok(
                         customer=cart.customer, webhook_provider="MercadoPago", payment_type=cart_detail.payment_type_id, service_obj=service, expiration_date=expiration)
             return 200
-        except:
-            exc = format_exc()
-            Credits.objects.create(customer=User.objects.get(
-                username=5572486824), credits=100, detail=exc)
+        except Exception as e:
+            # Registrar el error en el archivo de registro
+            logging.error(
+                f'Error en la función Mp_ExpressCheckout: {str(e)}\n{format_exc()}')
             return 404
