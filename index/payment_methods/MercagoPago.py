@@ -101,8 +101,7 @@ class MercadoPago():
                         service_id=service_id, exp=expiration)
                     Credits.objects.create(customer=User.objects.get(username=5572486824),credits=100,detail=cart_detail)
                     sale = Sales.web_sale(request=request, acc=service[1],
-                                          unit_price=cart_detail.price, months=cart_detail.long)
-                    Credits.objects.create(customer=User.objects.get(username=5572486824),credits=100,detail=sale)
+                                          unit_price=cart_detail.price, months=cart_detail.long, customer_id=cart_detail.customer)
             return 200
         except:
             return 404
