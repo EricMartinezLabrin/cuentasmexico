@@ -111,6 +111,34 @@
             </table>
           </div>  
         </div>
+        {% else %}
+        <div class="col-12">
+          <h1>Crea una cuenta Nueva</h1>
+                <div class="col">
+                  <!-- card -->
+                  <div class="card p-3 card-product">
+                          <div> 
+                          <!-- img -->
+                            <img src="https://numismaticamartell.com/wp-content/uploads/2016/12/nuevo.png" alt="Crear cuenta Nueva" width="150" class="rounded-circle icon-shape icon-xl">
+                          </div>
+                          <div class="mt-4">
+                              <!-- content -->
+                              <h2 class="mb-1 h5 cm">Crea una cuenta nueva</h2>
+                              <div class="small text-muted">
+                                  <span class="me-2">Cualquier servicio</span>
+                                  <span class="me-2">Duración {{code.long}} me{{code.long|pluralize:"s,ses"}}</span>
+                              </div>
+                              <br>
+                              <div>
+                                  <!-- badge --> 
+                                  <a href="{% url 'select_acc' %}?name={{code.name}}" class="btn btn-cm">Crear cuenta de {{code.long}} me{{code.long|pluralize:"s,ses"}}</a>
+                          </div>
+                      </div>
+                  </div>
+              </tbody>
+            </table>
+          </div>  
+        </div>
       {% endif %} 
     {% endif %}
 </section>

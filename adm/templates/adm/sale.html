@@ -1,6 +1,10 @@
 {% extends 'adm/base/base.html' %}
 {% load static %}
 {% block title %}Ventas{% endblock title %}
+{% block head %}
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1307198861567997"
+     crossorigin="anonymous"></script>
+{% endblock head %}
 {% block body %}
 {% if customer.username %}
 <h1>Ventas a {{customer.username}}</h1> 
