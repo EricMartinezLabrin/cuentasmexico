@@ -10,7 +10,7 @@ from django.http import HttpResponseRedirect
 from adm.functions.send_email import Email
 from django.utils import timezone
 from datetime import timedelta
-from traceback import print_exc
+from traceback import format_exc
 
 
 class Sales():
@@ -555,43 +555,38 @@ class Sales():
 
     def sale_ok(customer, webhook_provider, payment_type, payment_id, service_obj, expiration_date, unit_price):
         try:
-            try:
-                bank_selected = Bank.objects.get(bank_name=webhook_provider)
-            except Bank.DoesNotExist:
-                bank_selected = Bank.objects.create(
-                    business=Business.objects.get(pk=1),
-                    bank_name=webhook_provider,
-                    headline=webhook_provider,
-                    card_number='0',
-                    clabe='0',
-                )
-            try:
-                payment_used = PaymentMethod.objects.get(
-                    description=payment_type)
-            except PaymentMethod.DoesNotExist:
-                payment_used = PaymentMethod.objects.create(
-                    description=payment_type)
-
-            # create sale
-            sale = Sale.objects.create(
+            bank_selected = Bank.objects.get(bank_name=webhook_provider)
+        except Bank.DoesNotExist:
+            bank_selected = Bank.objects.create(
                 business=Business.objects.get(pk=1),
-                user_seller=customer,
-                bank=bank_selected,
-                customer=customer,
-                account=service_obj,
-                status=True,
-                payment_method=payment_used,
-                expiration_date=expiration_date,
-                payment_amount=unit_price,
-                invoice=payment_id
+                bank_name=webhook_provider,
+                headline=webhook_provider,
+                card_number='0',
+                clabe='0',
             )
-            # update account
-            service_obj.customer = customer
-            service_obj.modified_by = customer
-            service_obj.save()
+        try:
+            payment_used = PaymentMethod.objects.get(
+                description=payment_type)
+        except PaymentMethod.DoesNotExist:
+            payment_used = PaymentMethod.objects.create(
+                description=payment_type)
 
-            return True, sale
-        except:
-            with open("index/logs/sale_error.log", "w") as f:
-                print_exc(file=f)
-            # Credits.objects.create(customer=User.objects.get(username=5572486824),credits=100,detail:)
+        # create sale
+        sale = Sale.objects.create(
+            business=Business.objects.get(pk=1),
+            user_seller=customer,
+            bank=bank_selected,
+            customer=customer,
+            account=service_obj,
+            status=True,
+            payment_method=payment_used,
+            expiration_date=expiration_date,
+            payment_amount=unit_price,
+            invoice=payment_id
+        )
+        # update account
+        service_obj.customer = customer
+        service_obj.modified_by = customer
+        service_obj.save()
+
+        return True, sale
