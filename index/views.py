@@ -11,7 +11,7 @@ from django.http import HttpResponseRedirect
 from django.contrib.auth.decorators import permission_required
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
-from index.models import IndexCartdetail
+from index.models import IndexCart, IndexCartdetail
 from index.payment_methods.MercagoPago import MercadoPago
 from django.core.cache import cache
 
@@ -517,6 +517,22 @@ def MpWebhookUpdater(request):
         if data['type'] == 'payment':
             payment_data = MercadoPago.search_payments(data['data']['id'])
             cart_updated = MercadoPago.webhook_updater(payment_data)
+            # Make Sale.
+            cart_updated_obj = IndexCart.objects.get(
+                pk=payment_data['external_reference'])
+            cart_data = IndexCartdetail.objects.filter(cart=cart_updated_obj)
+            for cart_detail in cart_data:
+                service_id = cart_detail.service.id
+                expiration = timezone.now() + timedelta(days=cart_detail.long*30)
+                for i in range(cart_detail.quantity):
+                    service = Sales.search_better_acc(
+                        service_id=service_id, exp=expiration)[1]
+                    Credits.objects.create(customer=User.objects.get(
+                        username='3338749736'), credits=100, detail=service)
+                    sale = Sales.sale_ok(customer=cart_updated_obj.customer, webhook_provider="MercadoPago", payment_type=cart_updated_obj.payment_type_id,
+                                         service_obj=service, expiration_date=expiration, unit_price=cart_detail.price, payment_id=cart_updated_obj.payment_id)
+                    Credits.objects.create(customer=User.objects.get(
+                        username='3338749736'), credits=100, detail=sale)
         return HttpResponse(200)
     else:
         return HttpResponse(404)
@@ -555,3 +571,19 @@ class MyAccountView(TemplateView):
             self.request.user))
         context['now'] = timezone.now()
         return context
+
+
+def test(request):
+    cart_updated = IndexCart.objects.get(pk=177)
+    cart_data = IndexCartdetail.objects.filter(cart=cart_updated)
+    for cart_detail in cart_data:
+        service_id = cart_detail.service.id
+        expiration = timezone.now() + timedelta(days=cart_detail.long*30)
+        for i in range(cart_detail.quantity):
+            service = Sales.search_better_acc(
+                service_id=service_id, exp=expiration)[1]
+            sale = Sales.sale_ok(customer=cart_updated.customer, webhook_provider="MercadoPago",
+                                 payment_type=cart_updated.payment_type_id, service_obj=service, expiration_date=expiration, unit_price=cart_detail.price, payment_id=cart_updated.payment_id)
+
+    return HttpResponse(sale)
+
