@@ -4,9 +4,6 @@ import mercadopago
 import json
 import requests
 from adm.functions.sales import Sales
-from traceback import format_exc
-import logging
-
 
 # Django
 from django.utils import timezone
@@ -19,7 +16,6 @@ from django.contrib.auth.models import User
 
 
 class MercadoPago():
-    # Configurar el archivo de registro
 
     def __init__(self, request):
         self.request = request
@@ -79,38 +75,20 @@ class MercadoPago():
         return payments
 
     def webhook_updater(data):
-        logging.basicConfig(filename='error.log', level=logging.ERROR)
-        try:
-            # Update Cart
-            cart = IndexCart.objects.get(pk=data['external_reference'])
-            cart.payment_id = data['collector_id']
-            cart.date_created = data['date_created']
-            cart.date_approved = data['date_approved']
-            cart.date_last_updated = data['date_last_updated']
-            cart.money_release_date = data['money_release_date']
-            cart.payment_type_id = data['payment_type_id']
-            cart.status_detail = data['status_detail']
-            cart.currency_id = data['currency_id']
-            cart.description = data['description']
-            cart.transaction_amount = data['transaction_amount']
-            cart.transaction_amount_refunded = data['transaction_amount_refunded']
-            cart.coupon_amount = data['coupon_amount']
-            cart.save()
+        # Update Cart
+        cart = IndexCart.objects.get(pk=data['external_reference'])
+        cart.payment_id = data['collector_id']
+        cart.date_created = data['date_created']
+        cart.date_approved = data['date_approved']
+        cart.date_last_updated = data['date_last_updated']
+        cart.money_release_date = data['money_release_date']
+        cart.payment_type_id = data['payment_type_id']
+        cart.status_detail = data['status_detail']
+        cart.currency_id = data['currency_id']
+        cart.description = data['description']
+        cart.transaction_amount = data['transaction_amount']
+        cart.transaction_amount_refunded = data['transaction_amount_refunded']
+        cart.coupon_amount = data['coupon_amount']
+        cart.save()
 
-            # Find Account.
-            cart_data = IndexCartdetail.objects.filter(cart=cart)
-            for cart_detail in cart_data:
-                service_id = cart_detail.service.id
-                expiration = timezone.now() + timedelta(days=cart_detail.long*30)
-                for i in range(cart_detail.quantity):
-                    service = Sales.search_better_acc(
-                        service_id=service_id, exp=expiration)
-                    sale = Sales.sale_ok(
-                        customer=cart.customer, webhook_provider="MercadoPago", payment_type=cart_detail.payment_type_id, service_obj=service, expiration_date=expiration)
-            return 200
-        except Exception as e:
-            # Registrar el error en el archivo de registro
-            logging.error(
-                f'Error en la función Mp_ExpressCheckout: {str(e)}\n{format_exc()}')
-            return 404
-
+        return cart

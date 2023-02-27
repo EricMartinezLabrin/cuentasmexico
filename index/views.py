@@ -5,7 +5,7 @@ from django.contrib.auth.views import LoginView, LogoutView, PasswordResetView, 
 from django.contrib.auth.models import User, Group
 from django.urls import reverse_lazy, reverse
 from django.shortcuts import redirect
-from django.views.generic import DetailView, CreateView, TemplateView, ListView
+from django.views.generic import DetailView, CreateView, TemplateView, ListView, UpdateView
 from django.views.generic.edit import FormView
 from django.http import HttpResponseRedirect
 from django.contrib.auth.decorators import permission_required
@@ -77,6 +77,7 @@ class CheckOutView(TemplateView):
         context = super().get_context_data(**kwargs)
         context["business"] = BusinessInfo.data()
         context["credits"] = BusinessInfo.credits(self.request)
+        context['services'] = Service.objects.filter(status=True)
         return context
 
 
@@ -87,6 +88,9 @@ class ServiceDetailView(DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["count"] = BusinessInfo.count_sales(self.kwargs['pk'])
+        context["business"] = BusinessInfo.data()
+        context["credits"] = BusinessInfo.credits(self.request)
+        context['services'] = Service.objects.filter(status=True)
         return context
 
 
@@ -98,6 +102,7 @@ class ShopListView(ListView):
         context = super().get_context_data(**kwargs)
         context["business"] = BusinessInfo.data()
         context["credits"] = BusinessInfo.credits(self.request)
+        context['services'] = Service.objects.filter(status=True)
         return context
 
     def get_queryset(self):
@@ -144,6 +149,7 @@ class RedeemView(UserAccessMixin, FormView):
         context = super().get_context_data(**kwargs)
         context["business"] = BusinessInfo.data()
         context["credits"] = BusinessInfo.credits(self.request)
+        context['services'] = Service.objects.filter(status=True)
         context["error"] = self.get_error()
         context["code"] = self.get_code()
         context["customer_data"] = self.get_active_acc()
@@ -169,6 +175,7 @@ class SelectAccView(TemplateView):
         context = super().get_context_data(**kwargs)
         context["business"] = BusinessInfo.data()
         context["credits"] = BusinessInfo.credits(self.request)
+        context['services'] = Service.objects.filter(status=True)
         context["error"] = self.error
         context["code"] = self.get_code()
         context["available"] = self.get_availables()
@@ -206,6 +213,9 @@ class RedeemConfirmView(TemplateView):
         context["error"] = self.get_error
         context["code"] = self.get_code()
         context["account"] = self.account()
+        context["business"] = BusinessInfo.data()
+        context["credits"] = BusinessInfo.credits(self.request)
+        context['services'] = Service.objects.filter(status=True)
         return context
 
 
@@ -235,6 +245,7 @@ class RedeemRenewDoneView(TemplateView):
         context = super().get_context_data(**kwargs)
         context["business"] = BusinessInfo.data()
         context["credits"] = BusinessInfo.credits(self.request)
+        context['services'] = Service.objects.filter(status=True)
         context["account"] = self.complete_redeem()
         context["code"] = self.get_code()
         return context
@@ -277,6 +288,7 @@ class RedeemDoneView(TemplateView):
         context = super().get_context_data(**kwargs)
         context["business"] = BusinessInfo.data()
         context["credits"] = BusinessInfo.credits(self.request)
+        context['services'] = Service.objects.filter(status=True)
         context["account"] = self.complete_redeem()
         context["code"] = self.get_code()
         return context
@@ -323,6 +335,7 @@ class LoginPageView(LoginView):
         context = super().get_context_data(**kwargs)
         context["business"] = BusinessInfo.data()
         context["credits"] = BusinessInfo.credits(self.request)
+        context['services'] = Service.objects.filter(status=True)
         return context
 
 
@@ -345,7 +358,27 @@ class RegisterCustomerView(CreateView):
         context = super().get_context_data(**kwargs)
         context["business"] = BusinessInfo.data()
         context["credits"] = BusinessInfo.credits(self.request)
+        context['services'] = Service.objects.filter(status=True)
         return context
+
+
+class ChangePasswordView(PasswordResetView):
+    template_name = 'index/registration/change_password.html'
+    email_template_name = 'index/registration/password_reset_email.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["business"] = BusinessInfo.data()
+        context["credits"] = BusinessInfo.credits(self.request)
+        context['services'] = Service.objects.filter(status=True)
+        return context
+
+
+class EmailUpdateView(UpdateView):
+    model = User
+    template_name = "index/registration/change_email.html"
+    fields = ['email']
+    success_url = reverse_lazy('my_account')
 
 
 class PassResetView(PasswordResetView):
@@ -356,6 +389,7 @@ class PassResetView(PasswordResetView):
         context = super().get_context_data(**kwargs)
         context["business"] = BusinessInfo.data()
         context["credits"] = BusinessInfo.credits(self.request)
+        context['services'] = Service.objects.filter(status=True)
         return context
 
 
@@ -366,6 +400,7 @@ class PassResetDoneView(PasswordResetDoneView):
         context = super().get_context_data(**kwargs)
         context["business"] = BusinessInfo.data()
         context["credits"] = BusinessInfo.credits(self.request)
+        context['services'] = Service.objects.filter(status=True)
         return context
 
 
@@ -376,6 +411,7 @@ class PassResetConfirmView(PasswordResetConfirmView):
         context = super().get_context_data(**kwargs)
         context["business"] = BusinessInfo.data()
         context["credits"] = BusinessInfo.credits(self.request)
+        context['services'] = Service.objects.filter(status=True)
         return context
 
 
@@ -389,6 +425,7 @@ class PassResetPasswordCompleteView(PasswordResetCompleteView):
         context = super().get_context_data(**kwargs)
         context["business"] = BusinessInfo.data()
         context["credits"] = BusinessInfo.credits(self.request)
+        context['services'] = Service.objects.filter(status=True)
         return context
 
 
@@ -401,8 +438,9 @@ def RedirectOnLogin(request):
     try:
         user = request.user.id
         user_details = UserDetail.objects.get(user_id=user)
-        user_level = user_details.level.name
-        if not user_level:
+        try:
+            user_level = user_details.level.name
+        except AttributeError:
             customer_level = Level.objects.get(name='Cliente')
             user_details.level = customer_level
             user_details.save()
@@ -437,6 +475,7 @@ class NoPermissionView(TemplateView):
         context = super().get_context_data(**kwargs)
         context["business"] = BusinessInfo.data()
         context["credits"] = BusinessInfo.credits(self.request)
+        context['services'] = Service.objects.filter(status=True)
         return context
 
 
@@ -457,6 +496,7 @@ class NoCreditsView(TemplateView):
         context = super().get_context_data(**kwargs)
         context["business"] = BusinessInfo.data()
         context["credits"] = BusinessInfo.credits(self.request)
+        context['services'] = Service.objects.filter(status=True)
         return context
 
 
@@ -503,8 +543,9 @@ def DistributorSale(request):
 
     return render(request, template_name, {
         "account": cartEnd,
-        "business": BusinessInfo.data(),
-        "credits": BusinessInfo.credits(request),
+        'business': BusinessInfo.data(),
+        'credits': BusinessInfo.credits(request),
+        'services': Service.objects.filter(status=True),
 
     })
 

@@ -2,7 +2,11 @@
 {% block title %}Mi Cuenta{% endblock title %}
 {% block body %}
 <h1>Mi Cuenta</h1>
-<h2>Activas</h2>
+<h6>Username: {{request.user.username}}</h6>
+<h6>E-Mail: {{request.user.email}}  <a href="{% url 'email_update' request.user.id %}"><small>Cambiar E-Mail...</small></a> </h6>
+<h6>Contraseña: ******** <a href="{% url 'change_password' %}"><small>Cambiar Contraseña...</small></a></h6>
+<br>
+<h2>Cuentas Activas</h2>
 <table class="table table-hover">
     <thead>
         <th>Cuenta</th>
@@ -48,7 +52,7 @@
 
 
 {% if inactive %}
-    <h2>Inactivas</h2>
+    <h2>Cuentas Inactivas que puede renovar</h2>
     <small>Aqui aparecera el listado de cuentas que ta vencieron y puedes volver a comprar.</small>
     <table class="table table-hover">
         <thead>
