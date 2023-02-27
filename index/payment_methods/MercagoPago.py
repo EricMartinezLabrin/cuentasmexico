@@ -17,6 +17,7 @@ from index.models import IndexCart, IndexCartdetail
 from adm.models import Credits
 from django.contrib.auth.models import User
 
+
 class MercadoPago():
     # Configurar el archivo de registro
 
@@ -112,3 +113,4 @@ class MercadoPago():
             logging.error(
                 f'Error en la función Mp_ExpressCheckout: {str(e)}\n{format_exc()}')
             return 404
+
