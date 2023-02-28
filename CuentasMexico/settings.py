@@ -29,7 +29,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-uf41q9_1%4#x4!k4a)pa#pqc&5aj^-s)*f5lcicaui-$m2@s*e'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 ALLOWED_HOSTS = ['*', 'localhost', '127.0.0.1', 'cuentasmexico.mx']
 
@@ -89,8 +89,8 @@ WSGI_APPLICATION = 'CuentasMexico.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'mercadopago',
-        'USER': 'mercadopago',
+        'NAME': 'cuentasmexico',
+        'USER': 'cuentasmexico',
         'PASSWORD': 'Tarkan11.-',
         'HOST': 'localhost',
         'PORT': '3306',
@@ -147,8 +147,8 @@ MESSAGE_STORAGE = 'django.contrib.messages.storage.session.SessionStorage'
 EMAIL_USE_TLS = True
 EMAIL_HOST = 'cuentasmexico.mx'
 EMAIL_PORT = 465
-EMAIL_HOST_USER = 'contacto@cuentasmexico.mx'
-EMAIL_HOST_PASSWORD = 'Tarkan11.-'
+EMAIL_HOST_USER = 'ventas@cuentasmexico.mx'
+EMAIL_HOST_PASSWORD = 'cuentas123!#'
 # EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_BACKEND = 'django_smtp_ssl.SSLEmailBackend'
 

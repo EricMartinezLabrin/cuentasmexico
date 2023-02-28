@@ -58,12 +58,12 @@ class MercadoPago():
         preference = preference_response["response"]
         return preference['init_point']
 
-    def search_payments(id):
+    def search_payments(self,id):
         url = f'https://api.mercadopago.com/v1/payments/{id}'
         headers = {
             "Accept": "application/json",
             "Content-Type": "application/json",
-            "Authorization": "Bearer " + "TEST-168801736002262-091119-b7147315b4f642c60178483421325c24-571215114"
+            "Authorization": "Bearer " + self.mp_sdk
         }
         params = {
             "offset": 0,
