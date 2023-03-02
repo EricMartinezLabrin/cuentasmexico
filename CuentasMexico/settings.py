@@ -10,23 +10,13 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.1/ref/settings/
 """
 
-#django
+# django
 from django.urls import reverse_lazy
 
-#python
+# python
 from pathlib import Path
 import os
 
-#Local
-# from adm.models import Business
-# import mercadopago
-
-# business_data = Business.objects.get(pk=1)
-# cliente_id = business_data.mp_customer_key
-# client_secret =  business_data.mp_secret_key
-
-# MERCADOPAGO_CLIENT_ID = os.environ.get("cliente_id")
-# MERCADOPAGO_CLIENT_SECRET = os.environ.get("client_secret")
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -39,9 +29,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-uf41q9_1%4#x4!k4a)pa#pqc&5aj^-s)*f5lcicaui-$m2@s*e'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
-ALLOWED_HOSTS = ['*','localhost','127.0.0.1','cuentasmexico.mx']
+ALLOWED_HOSTS = ['*', 'localhost', '127.0.0.1', 'cuentasmexico.mx']
 
 
 # Application definition
@@ -98,7 +88,7 @@ WSGI_APPLICATION = 'CuentasMexico.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.mysql', 
+        'ENGINE': 'django.db.backends.mysql',
         'NAME': 'cuentasmexico',
         'USER': 'cuentasmexico',
         'PASSWORD': 'Tarkan11.-',
@@ -129,13 +119,13 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/4.1/topics/i18n/
 
-LANGUAGE_CODE = 'es-es'
+LANGUAGE_CODE = 'es-mx'
 
 TIME_ZONE = 'America/Mexico_City'
 
 USE_I18N = True
 
-USE_TZ = True
+#USE_TZ = True
 
 
 # Static files (CSS, JavaScript, Images)
@@ -151,14 +141,14 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 LOGIN_REDIRECT_URL = reverse_lazy("redirect_on_login")
-LOGOUT_REDIRECT_URL = reverse_lazy("index")
+LOGOUT_REDIRECT_URL = reverse_lazy("login")
 LOGIN_URL = reverse_lazy("login")
 MESSAGE_STORAGE = 'django.contrib.messages.storage.session.SessionStorage'
 EMAIL_USE_TLS = True
 EMAIL_HOST = 'cuentasmexico.mx'
 EMAIL_PORT = 465
-EMAIL_HOST_USER = 'contacto@cuentasmexico.mx'
-EMAIL_HOST_PASSWORD = 'Tarkan11.-'
+EMAIL_HOST_USER = 'ventas@cuentasmexico.mx'
+EMAIL_HOST_PASSWORD = 'cuentas123!#'
 # EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_BACKEND = 'django_smtp_ssl.SSLEmailBackend'
 

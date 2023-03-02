@@ -1,16 +1,20 @@
 {% extends 'adm/base/base.html' %}
 {% load static %}
 {% block title %}Ventas{% endblock title %}
+{% block head %}
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1307198861567997"
+     crossorigin="anonymous"></script>
+{% endblock head %}
 {% block body %}
 {% if customer.username %}
 <h1>Ventas a {{customer.username}}</h1> 
-<p class="details"> <i class="bi bi-ticket-detailed-fill"></i> {{customer.email}} <i class="bi bi-telephone-fill"></i> {{customer.userdetail.phone_number}} <i class="bi bi-flag-fill"></i> {{customer.userdetail.country}} <a class="cm" href="{% url 'adm:user_update' customer.userdetail.id %}">Editar...</a> <a class="cm" href="{% url 'adm:user_mainupdate' customer.userdetail.id %}">Datos Personales...</a></p>
+<p class="details">Username:{{customer.username}} <i class="bi bi-ticket-detailed-fill"></i> {{customer.email}} <i class="bi bi-telephone-fill"></i> {{customer.userdetail.phone_number}} <i class="bi bi-flag-fill"></i> {{customer.userdetail.country}} <a class="cm" href="{% url 'adm:user_update' customer.userdetail.id %}">Editar...</a> <a class="cm" href="{% url 'adm:user_mainupdate' customer.userdetail.id %}">Datos Personales...</a></p>
 {% elif customer.email%}
     <h1>Ventas a {{customer.email}}</h1>
-    <p class="details"> <i class="bi bi-ticket-detailed-fill"></i> {{customer.email}} <i class="bi bi-telephone-fill"></i> {{customer.userdetail.phone_number}} <i class="bi bi-flag-fill"></i> {{customer.userdetail.country}}  <a class="cm" href="{% url 'adm:user_update' customer.userdetail.id %}">Editar...</a> <a class="cm" href="{% url 'adm:user_mainupdate' customer.userdetail.id %}">Datos Personales...</a></p>
+    <p class="details"> Username:{{customer.username}} <i class="bi bi-ticket-detailed-fill"></i> {{customer.email}} <i class="bi bi-telephone-fill"></i> {{customer.userdetail.phone_number}} <i class="bi bi-flag-fill"></i> {{customer.userdetail.country}}  <a class="cm" href="{% url 'adm:user_update' customer.userdetail.id %}">Editar...</a> <a class="cm" href="{% url 'adm:user_mainupdate' customer.userdetail.id %}">Datos Personales...</a></p>
 {% elif  customer.userdetail.phone_number %}
     <h1>Ventas a {{customer.userdetail.phone_number}}</h1>
-    <p class="details"> <i class="bi bi-ticket-detailed-fill"></i> {{customer.email}} <i class="bi bi-telephone-fill"></i> {{customer.userdetail.phone_number}} <i class="bi bi-flag-fill"></i> {{customer.userdetail.country}}  <a class="cm" href="{% url 'adm:user_update' customer.userdetail.id %}">Editar...</a> <a class="cm" href="{% url 'adm:user_mainupdate' customer.userdetail.id %}">Datos Personales...</a></p>
+    <p class="details"> Username:{{customer.username}} <i class="bi bi-ticket-detailed-fill"></i> {{customer.email}} <i class="bi bi-telephone-fill"></i> {{customer.userdetail.phone_number}} <i class="bi bi-flag-fill"></i> {{customer.userdetail.country}}  <a class="cm" href="{% url 'adm:user_update' customer.userdetail.id %}">Editar...</a> <a class="cm" href="{% url 'adm:user_mainupdate' customer.userdetail.id %}">Datos Personales...</a></p>
 {% elif not customer %}
     <h1>Ventas</h1>
 {% else %}
