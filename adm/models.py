@@ -4,6 +4,7 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.core.validators import RegexValidator
+from django.utils import timezone
 
 class Level(models.Model):
     name = models.CharField(max_length=100)
@@ -94,7 +95,7 @@ class Account(models.Model):
     created_by = models.ForeignKey(User, on_delete=models.DO_NOTHING, related_name = 'created_by')
     modified_by = models.ForeignKey(User, on_delete=models.DO_NOTHING, related_name='modified_by')
     account_name = models.ForeignKey(Service, on_delete=models.DO_NOTHING)
-    created_at = models.DateTimeField(auto_now=False, auto_now_add=True, null=False)
+    created_at = models.DateTimeField(default=timezone.now(), null=False)
     expiration_date = models.DateTimeField(auto_now=False, auto_now_add=False, null=False)
     email = models.EmailField(max_length=50, null=False)
     password = models.CharField(max_length=50, null=False)
