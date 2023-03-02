@@ -97,8 +97,7 @@ class Sales():
                 acc.save()
 
                 # update date
-                new_date = created_at.date() + timezone.now().time()
-                sale.created_at = new_date
+                sale.created_at = created_at
                 sale.save()
 
                 if not customer.email == 'example@example.com':

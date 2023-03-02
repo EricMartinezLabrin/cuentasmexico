@@ -42,6 +42,7 @@ def index(request):
         'business': BusinessInfo.data(),
         'credits': BusinessInfo.credits(request),
         'services': Service.objects.filter(status=True),
+		
     })
 
 
