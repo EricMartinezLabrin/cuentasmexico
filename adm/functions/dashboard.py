@@ -49,8 +49,11 @@ class Dashboard():
 
     def sales_per_account():
 
-        start = '2022-12-01 00:00:00'
-        end = '2022-12-30 23:59:59'
+        month = timezone.now().month
+        year = timezone.now().year
+        last_day = monthrange(year, month)[1]
+        start = f'{year}-{month}-01 00:00:00'
+        end = f'{year}-{month}-{last_day} 23:59:59'
         acc_name = []
         acc_total = []
         acc = Sale.objects.filter(created_at__range=(start, end)).exclude(payment_amount=0).values(

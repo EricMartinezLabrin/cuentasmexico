@@ -1,7 +1,6 @@
 from adm.models import Account, Service, UserDetail, Bank, PaymentMethod, Sale, Status, Business, Credits
 from cupon.models import Cupon
 from django.contrib.auth.models import User
-from datetime import datetime, date
 from dateutil.relativedelta import relativedelta
 from django.shortcuts import render, redirect
 from django.urls import reverse, reverse_lazy
@@ -88,7 +87,7 @@ class Sales():
                     account=acc,
                     status=True,
                     payment_method=payment_used,
-                    expiration_date=datetime.now() + relativedelta(months=duration),
+                    expiration_date=timezone.now() + relativedelta(months=duration),
                     payment_amount=price_each,
                     invoice=ticket
                 )
@@ -216,10 +215,10 @@ class Sales():
         customer = User.objects.get(pk=request.POST.get('customer'))
         old_sale = Sale.objects.get(pk=old)
         acc = Account.objects.get(pk=old_sale.account.id)
-        if Sale.objects.get(pk=old).expiration_date.date() >= datetime.now().date():
+        if Sale.objects.get(pk=old).expiration_date.date() >= timezone.now().date():
             exp_date = old_sale.expiration_date.date() + relativedelta(months=duration)
         else:
-            exp_date = datetime.now() + relativedelta(months=duration)
+            exp_date = timezone.now() + relativedelta(months=duration)
 
         # create sale
         new_sale = Sale.objects.create(
@@ -438,7 +437,7 @@ class Sales():
                 account=service,
                 status=True,
                 payment_method=payment_used,
-                expiration_date=datetime.now() + relativedelta(months=duration),
+                expiration_date=timezone.now() + relativedelta(months=duration),
                 payment_amount=price,
                 invoice=ticket
             )
@@ -448,7 +447,7 @@ class Sales():
             service.save()
 
             # Update Cupon
-            cupon.used_at = datetime.now()
+            cupon.used_at = timezone.now()
             cupon.customer = customer
             cupon.seller = User.objects.get(pk=1)
             cupon.order = sale
@@ -485,10 +484,10 @@ class Sales():
             customer = User.objects.get(pk=customer_id)
             old_sale = Sale.objects.get(account_id=acc, status=True)
             old_acc = Account.objects.get(pk=old_sale.account.id)
-            if old_sale.expiration_date.date() >= datetime.now().date():
+            if old_sale.expiration_date.date() >= timezone.now().date():
                 exp_date = old_sale.expiration_date.date() + relativedelta(months=duration)
             else:
-                exp_date = datetime.now() + relativedelta(months=duration)
+                exp_date = timezone.now() + relativedelta(months=duration)
 
             # create sale
             new_sale = Sale.objects.create(
@@ -516,7 +515,7 @@ class Sales():
             old_sale.save()
 
             # Update Cupon
-            cupon.used_at = datetime.now()
+            cupon.used_at = timezone.now()
             cupon.customer = customer
             cupon.seller = User.objects.get(pk=1)
             cupon.order = new_sale
