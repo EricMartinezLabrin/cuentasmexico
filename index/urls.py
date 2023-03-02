@@ -53,4 +53,6 @@ urlpatterns = [
          login_required(views.StartPayment), name='start_payment'),
     path('my_account/',
          login_required(views.MyAccountView.as_view()), name='my_account'),
+    path('test/', views.test, name='test'),
 ]
+

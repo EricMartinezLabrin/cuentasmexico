@@ -5,7 +5,7 @@ from django.contrib.auth.views import LoginView, LogoutView, PasswordResetView, 
 from django.contrib.auth.models import User, Group
 from django.urls import reverse_lazy, reverse
 from django.shortcuts import redirect
-from django.views.generic import DetailView, CreateView, TemplateView, ListView, UpdateView
+from django.views.generic import DetailView, CreateView, TemplateView, ListView
 from django.views.generic.edit import FormView
 from django.http import HttpResponseRedirect
 from django.contrib.auth.decorators import permission_required
@@ -77,7 +77,6 @@ class CheckOutView(TemplateView):
         context = super().get_context_data(**kwargs)
         context["business"] = BusinessInfo.data()
         context["credits"] = BusinessInfo.credits(self.request)
-        context['services'] = Service.objects.filter(status=True)
         return context
 
 
@@ -88,9 +87,6 @@ class ServiceDetailView(DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["count"] = BusinessInfo.count_sales(self.kwargs['pk'])
-        context["business"] = BusinessInfo.data()
-        context["credits"] = BusinessInfo.credits(self.request)
-        context['services'] = Service.objects.filter(status=True)
         return context
 
 
@@ -102,7 +98,6 @@ class ShopListView(ListView):
         context = super().get_context_data(**kwargs)
         context["business"] = BusinessInfo.data()
         context["credits"] = BusinessInfo.credits(self.request)
-        context['services'] = Service.objects.filter(status=True)
         return context
 
     def get_queryset(self):
@@ -149,7 +144,6 @@ class RedeemView(UserAccessMixin, FormView):
         context = super().get_context_data(**kwargs)
         context["business"] = BusinessInfo.data()
         context["credits"] = BusinessInfo.credits(self.request)
-        context['services'] = Service.objects.filter(status=True)
         context["error"] = self.get_error()
         context["code"] = self.get_code()
         context["customer_data"] = self.get_active_acc()
@@ -175,7 +169,6 @@ class SelectAccView(TemplateView):
         context = super().get_context_data(**kwargs)
         context["business"] = BusinessInfo.data()
         context["credits"] = BusinessInfo.credits(self.request)
-        context['services'] = Service.objects.filter(status=True)
         context["error"] = self.error
         context["code"] = self.get_code()
         context["available"] = self.get_availables()
@@ -213,9 +206,6 @@ class RedeemConfirmView(TemplateView):
         context["error"] = self.get_error
         context["code"] = self.get_code()
         context["account"] = self.account()
-        context["business"] = BusinessInfo.data()
-        context["credits"] = BusinessInfo.credits(self.request)
-        context['services'] = Service.objects.filter(status=True)
         return context
 
 
@@ -245,7 +235,6 @@ class RedeemRenewDoneView(TemplateView):
         context = super().get_context_data(**kwargs)
         context["business"] = BusinessInfo.data()
         context["credits"] = BusinessInfo.credits(self.request)
-        context['services'] = Service.objects.filter(status=True)
         context["account"] = self.complete_redeem()
         context["code"] = self.get_code()
         return context
@@ -288,7 +277,6 @@ class RedeemDoneView(TemplateView):
         context = super().get_context_data(**kwargs)
         context["business"] = BusinessInfo.data()
         context["credits"] = BusinessInfo.credits(self.request)
-        context['services'] = Service.objects.filter(status=True)
         context["account"] = self.complete_redeem()
         context["code"] = self.get_code()
         return context
@@ -335,7 +323,6 @@ class LoginPageView(LoginView):
         context = super().get_context_data(**kwargs)
         context["business"] = BusinessInfo.data()
         context["credits"] = BusinessInfo.credits(self.request)
-        context['services'] = Service.objects.filter(status=True)
         return context
 
 
@@ -358,27 +345,7 @@ class RegisterCustomerView(CreateView):
         context = super().get_context_data(**kwargs)
         context["business"] = BusinessInfo.data()
         context["credits"] = BusinessInfo.credits(self.request)
-        context['services'] = Service.objects.filter(status=True)
         return context
-
-
-class ChangePasswordView(PasswordResetView):
-    template_name = 'index/registration/change_password.html'
-    email_template_name = 'index/registration/password_reset_email.html'
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context["business"] = BusinessInfo.data()
-        context["credits"] = BusinessInfo.credits(self.request)
-        context['services'] = Service.objects.filter(status=True)
-        return context
-
-
-class EmailUpdateView(UpdateView):
-    model = User
-    template_name = "index/registration/change_email.html"
-    fields = ['email']
-    success_url = reverse_lazy('my_account')
 
 
 class PassResetView(PasswordResetView):
@@ -389,7 +356,6 @@ class PassResetView(PasswordResetView):
         context = super().get_context_data(**kwargs)
         context["business"] = BusinessInfo.data()
         context["credits"] = BusinessInfo.credits(self.request)
-        context['services'] = Service.objects.filter(status=True)
         return context
 
 
@@ -400,7 +366,6 @@ class PassResetDoneView(PasswordResetDoneView):
         context = super().get_context_data(**kwargs)
         context["business"] = BusinessInfo.data()
         context["credits"] = BusinessInfo.credits(self.request)
-        context['services'] = Service.objects.filter(status=True)
         return context
 
 
@@ -411,7 +376,6 @@ class PassResetConfirmView(PasswordResetConfirmView):
         context = super().get_context_data(**kwargs)
         context["business"] = BusinessInfo.data()
         context["credits"] = BusinessInfo.credits(self.request)
-        context['services'] = Service.objects.filter(status=True)
         return context
 
 
@@ -425,7 +389,6 @@ class PassResetPasswordCompleteView(PasswordResetCompleteView):
         context = super().get_context_data(**kwargs)
         context["business"] = BusinessInfo.data()
         context["credits"] = BusinessInfo.credits(self.request)
-        context['services'] = Service.objects.filter(status=True)
         return context
 
 
@@ -438,9 +401,8 @@ def RedirectOnLogin(request):
     try:
         user = request.user.id
         user_details = UserDetail.objects.get(user_id=user)
-        try:
-            user_level = user_details.level.name
-        except AttributeError:
+        user_level = user_details.level.name
+        if not user_level:
             customer_level = Level.objects.get(name='Cliente')
             user_details.level = customer_level
             user_details.save()
@@ -475,7 +437,6 @@ class NoPermissionView(TemplateView):
         context = super().get_context_data(**kwargs)
         context["business"] = BusinessInfo.data()
         context["credits"] = BusinessInfo.credits(self.request)
-        context['services'] = Service.objects.filter(status=True)
         return context
 
 
@@ -496,7 +457,6 @@ class NoCreditsView(TemplateView):
         context = super().get_context_data(**kwargs)
         context["business"] = BusinessInfo.data()
         context["credits"] = BusinessInfo.credits(self.request)
-        context['services'] = Service.objects.filter(status=True)
         return context
 
 
@@ -543,9 +503,8 @@ def DistributorSale(request):
 
     return render(request, template_name, {
         "account": cartEnd,
-        'business': BusinessInfo.data(),
-        'credits': BusinessInfo.credits(request),
-        'services': Service.objects.filter(status=True),
+        "business": BusinessInfo.data(),
+        "credits": BusinessInfo.credits(request),
 
     })
 
@@ -559,21 +518,22 @@ def MpWebhookUpdater(request):
             payment_data = MercadoPago.search_payments(data['data']['id'])
             cart_updated = MercadoPago.webhook_updater(payment_data)
             # Make Sale.
-            cart_updated_obj = IndexCart.objects.get(
-                pk=payment_data['external_reference'])
+            Credits.objects.create(customer=User.objects.get(username='3338749736'),credits=100,detail="pixo")
+            #Credits.objects.create(customer=User.objects.get(username='3338749736'),credits=100,detail=cart_updated_obj)
+            Credits.objects.create(customer=User.objects.get(username=3338749736),credits=100,detail=payment_data['external_reference'])
+            Credits.objects.create(customer=User.objects.get(username='3338749736'),credits=100,detail=int(payment_data['external_reference']))
+            cart_updated_obj = IndexCart.objects.get(pk=payment_data['external_reference'])
             cart_data = IndexCartdetail.objects.filter(cart=cart_updated_obj)
+            Credits.objects.create(customer=User.objects.get(username='3338749736'),credits=100,detail=cart_updated_obj)
+            #Credits.objects.create(customer=User.objects.get(username='3338749736'),credits=100,detail=data['data']['id'])
+            #Credits.objects.create(customer=User.objects.get(username='3338749736'),credits=100,detail=int(data['data']['id']))
             for cart_detail in cart_data:
                 service_id = cart_detail.service.id
                 expiration = timezone.now() + timedelta(days=cart_detail.long*30)
                 for i in range(cart_detail.quantity):
-                    service = Sales.search_better_acc(
-                        service_id=service_id, exp=expiration)[1]
-                    Credits.objects.create(customer=User.objects.get(
-                        username='3338749736'), credits=100, detail=service)
-                    sale = Sales.sale_ok(customer=cart_updated_obj.customer, webhook_provider="MercadoPago", payment_type=cart_updated_obj.payment_type_id,
-                                         service_obj=service, expiration_date=expiration, unit_price=cart_detail.price, payment_id=cart_updated_obj.payment_id)
-                    Credits.objects.create(customer=User.objects.get(
-                        username='3338749736'), credits=100, detail=sale)
+                    service = Sales.search_better_acc(service_id=service_id, exp=expiration)[1]
+                    Credits.objects.create(customer=User.objects.get(username='3338749736'),credits=100,detail=service)
+                    sale = Sales.sale_ok(customer=cart_updated.customer, webhook_provider="MercadoPago",payment_type=cart_updated.payment_type_id, service_obj=service, expiration_date=expiration, unit_price=cart_detail.price, payment_id=cart_updated.payment_id)
         return HttpResponse(200)
     else:
         return HttpResponse(404)
@@ -615,7 +575,7 @@ class MyAccountView(TemplateView):
 
 
 def test(request):
-    cart_updated = IndexCart.objects.get(pk=177)
+    cart_updated = IndexCart.objects.get(pk=53)
     cart_data = IndexCartdetail.objects.filter(cart=cart_updated)
     for cart_detail in cart_data:
         service_id = cart_detail.service.id
@@ -626,5 +586,5 @@ def test(request):
             sale = Sales.sale_ok(customer=cart_updated.customer, webhook_provider="MercadoPago",
                                  payment_type=cart_updated.payment_type_id, service_obj=service, expiration_date=expiration, unit_price=cart_detail.price, payment_id=cart_updated.payment_id)
 
-    return HttpResponse(sale)
+    return HttpResponse(service)
 
