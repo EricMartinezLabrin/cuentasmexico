@@ -48,7 +48,8 @@ def index(request):
         'sales_day': sales_day,
         'sales_month': sales_month,
         'acc_name': sales_acc[0],
-        'acc_total': sales_acc[1]
+        'acc_total': sales_acc[1],
+		'time':timezone.now()
     })
 
 
