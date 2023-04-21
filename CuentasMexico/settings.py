@@ -48,12 +48,15 @@ INSTALLED_APPS = [
     'adm',
     'index',
     'cupon',
+    'api',
+    'corsheaders',
 ]
 INSTALLED_APPS += ('naomi',)
 SITE_ID = 1
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -90,7 +93,7 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'cuentasmexico',
-        'USER': 'cuentasmexico',
+        'USER': 'root',
         'PASSWORD': 'Tarkan11.-',
         'HOST': 'localhost',
         'PORT': '3306',
@@ -125,7 +128,7 @@ TIME_ZONE = 'America/Mexico_City'
 
 USE_I18N = True
 
-#USE_TZ = True
+# USE_TZ = True
 
 
 # Static files (CSS, JavaScript, Images)
@@ -156,3 +159,7 @@ DATE_INPUT_FORMATS = ('%d-%m-%Y')
 
 # EMAIL_BACKEND = "naomi.mail.backends.naomi.NaomiBackend"
 # EMAIL_FILE_PATH = "/Users/luinmack/Documents/Proyectos/CuentasMexico/tmp"
+
+CORS_ORIGIN_WHITELIST = [
+    'http://192.168.100.13:19006',
+]
