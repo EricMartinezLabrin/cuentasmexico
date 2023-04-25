@@ -9,6 +9,6 @@ from . import views
 app_name="api"
 
 urlpatterns = [
-    path('login_api', views.loginApi, name='login_api'),
+    path('login_api/<str:username>/<str:password>', views.loginApi, name='login_api'),
     path('get_active_accounts', views.getActiveAccounts, name='get_active_accounts')
 ]
