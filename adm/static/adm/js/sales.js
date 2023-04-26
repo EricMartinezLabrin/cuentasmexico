@@ -118,8 +118,8 @@ function services() {
   var arr = [];
   service.forEach((e) => {
     if (e.checked == true) {
-      // console.log(e.value);
-      // console.log(duration.value);
+      console.log(e.value);
+      console.log(duration.value);
       arr.push(
         JSON.stringify({
           service: e.value,
