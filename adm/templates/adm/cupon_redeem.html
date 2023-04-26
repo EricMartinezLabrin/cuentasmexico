@@ -3,6 +3,7 @@
 {% block title %}Canjear Codigo{% endblock title %}
 {% block body %}
     <h1>Canjear Cupon {{cupon.name}}</h1>
+    <input type="hidden" name="long" id="long" value="{{months}}">
         {% if error %}
         <div class="alert alert-danger" role="alert">
             <i class="bi bi-exclamation-triangle-fill"></i> {{error}}

@@ -8,7 +8,6 @@ from django.shortcuts import redirect
 from django.views.generic import DetailView, CreateView, TemplateView, ListView, UpdateView
 from django.views.generic.edit import FormView
 from django.http import HttpResponseRedirect
-from django.contrib.auth.decorators import permission_required
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from index.models import IndexCart, IndexCartdetail
@@ -16,22 +15,19 @@ from index.payment_methods.MercagoPago import MercadoPago
 from django.core.cache import cache
 
 # local
-from .forms import RegisterUserForm, RedeemForm, MpPaymentForm
-from adm.models import Level, UserDetail, Business, Service, Sale, Account, Credits
+from .forms import RegisterUserForm, RedeemForm
+from adm.models import Level, UserDetail, Service, Sale, Account, Credits
 from adm.functions.business import BusinessInfo
 from .cart import CartProcessor, CartDb
 from cupon.models import Shop, Cupon
 from adm.functions.permissions import UserAccessMixin
 from adm.functions.sales import Sales
 from adm.functions.send_email import Email
-from CuentasMexico import settings
 from index.payment_methods.MercagoPago import MercadoPago
-from .models import Cart, CartDetail
+from .models import IndexCart, IndexCartdetail
 
 # Python
-from datetime import datetime, timedelta
-from dateutil import relativedelta
-import mercadopago
+from datetime import timedelta
 import json
 
 # Index
@@ -44,7 +40,7 @@ def index(request):
         'business': BusinessInfo.data(),
         'credits': BusinessInfo.credits(request),
         'services': Service.objects.filter(status=True),
-		
+
     })
 
 
@@ -80,20 +76,18 @@ class CheckOutView(TemplateView):
         preference_id = None
         cart_data = None
 
-
         if not self.request.user == "AnonymousUser":
-            cart_detail = CartDb.CartAll(self,self.request)
+            cart_detail = CartDb.CartAll(self, self.request)
             if cart_detail:
-                cart = Cart.objects.get(pk=cart_detail.cart.id)
-                cart_data = CartDetail.objects.filter(cart=cart)
+                cart = IndexCart.objects.get(pk=cart_detail.cart.id)
+                cart_data = IndexCartdetail.objects.filter(cart=cart)
                 cart_id = cart_detail.cart.id
-                preference_id = MercadoPago.Mp_ExpressCheckout(self.request,cart_id)
-
-        
+                preference_id = MercadoPago.Mp_ExpressCheckout(
+                    self.request, cart_id)
 
         procesor = CartProcessor(self.request)
         procesor.clear()
-    
+
         context = super().get_context_data(**kwargs)
         context["business"] = BusinessInfo.data()
         context["credits"] = BusinessInfo.credits(self.request)
@@ -647,4 +641,3 @@ def test(request):
                                  payment_type=cart_updated.payment_type_id, service_obj=service, expiration_date=expiration, unit_price=cart_detail.price, payment_id=cart_updated.payment_id)
 
     return HttpResponse(sale)
-
