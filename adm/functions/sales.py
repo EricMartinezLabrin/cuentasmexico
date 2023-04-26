@@ -355,9 +355,9 @@ class Sales():
                 # Buscamos todas las ventas que venzan el dia exacto buscado
                 account = Sale.objects.filter(account__account_name=service, expiration_date__gte=exp1,
                                               expiration_date__lte=exp2, status=True).order_by('expiration_date')
+
                 if account.count() == 0:
                     # Si no existe elevamos error de que no hay fechas exactas para buscar aproximados
-
                     raise Sale.DoesNotExist
                 else:
                     for a in account:
@@ -376,12 +376,12 @@ class Sales():
                 empty = Account.objects.filter(
                     account_name=service, status=True, customer=None)
                 if empty.count() == 0:
+                    print('entr0o aqui')
                     return False, "No hay cuentas disponibles, porfavor comunicate al whats app +521 833 535 5863"
                 for e in empty:
                     q = Account.objects.filter(
                         email=e.email, account_name=service, status=True, customer=None)
                     if q.count() == service.perfil_quantity:
-
                         return True, q[0]
                 if not esta:
 
@@ -399,6 +399,7 @@ class Sales():
                                 if acc.count() > 0:
                                     return True, acc[0]
                     else:
+                        print("o talvez aqui")
                         return False, "No hay cuentas disponibles, porfavor comunicate al whats app +521 833 535 5863"
         else:
             return False, "El código ya fue utilizado, si no lo canjeó usted contacte a su vendedor y pidale uno nuevo."

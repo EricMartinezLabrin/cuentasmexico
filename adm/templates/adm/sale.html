@@ -101,6 +101,15 @@
                             💎 Usar *SOLO EL PERFIL ASIGNADO* 
                             💎 *NO* puedes cambiar las claves. Gracias por tu preferencia, Recuerde que los unicos canales oficiales de atencion son: Whats App y Telegram al número 833 535 5863.
                         </textarea>
+                        <textarea  id="{{a.id}}2" style="border:none;background-color:transparent;overflow: hidden;resize: none;" rows="1" cols="1" readonly>
+                            *Muchas Gracias por tu compra!*
+                            Para ver tus claves siempre actualizadas descarga nuestra app *Cuentas México* desde Play store haciendo click aquí: https://play.google.com/store/apps/details?id=com.luinmack.CuentasMexicoApp
+                            También verlas desde Iphone, Ipad o PC en https://app.cuentasmexico.mx
+                            Tus usuario para la aplicación es:
+                            *{{a.customer.username}}*
+                            Pregúntame por la contraseña si no la tienes o no la recuerdas.😏
+                        </textarea>
+
                     </td>
                     <td>{{a.account.email}}</td>
                     <td>{{a.account.password}}</td>
@@ -125,6 +134,10 @@
                         </a>
                         <a href="#" onclick="copyAcc('{{a.id}}')" title="Copiar Claves" class="cm">
                             <i class="bi bi-clipboard"></i>
+                        </a>
+
+                        <a href="#" onclick="copyAcc('{{a.id}}2')" title="Entregar Links" class="cm">
+                            <i class="bi bi-clipboard2-heart"></i>
                         </a>
                         {% if customer.userdetail.free_days > 0 %}
                         <a href="{% url 'adm:sales_add_free_days' a.id customer.userdetail.free_days %}" title="Agregar {{customer.userdetail.free_days}} dias gratis" class="cm">
@@ -217,4 +230,5 @@
 {% block extrajs %}
 <script src="{% static 'adm/js/copy.js' %}"></script>
 {% endblock extrajs %}
+
 

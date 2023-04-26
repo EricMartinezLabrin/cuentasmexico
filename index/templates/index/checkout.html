@@ -8,6 +8,11 @@
       <li class="breadcrumb-item active cm" aria-current="page">Checkout</li>
     </ol>
   </nav>
+{% if error_message %}
+  <h1>Checkout</h1>
+
+  {{error_message}}
+  {% else %}
 
   <div>
     <h1>Checkout</h1>
@@ -16,7 +21,7 @@
 
     <div class="d-flex">
         <div class="col-lg-7 col-md-12">
-            <div class="mb-lg-7 p-4 mb-8 mt-8 border rounded">
+            {% comment %} <div class="mb-lg-7 p-4 mb-8 mt-8 border rounded">
                     <div class="d-flex">
                         <div class="form-check">
                             <input type="radio" class="form-check-input" name="" id="stripe">    
@@ -42,18 +47,17 @@
                     </div>                  
                 </div>
 
-            </div>
+            </div> {% endcomment %}
             <div class="mb-lg-7 p-4 mb-8 mt-8 border rounded">
                 <div>
+                  <a href="{{preference_id}}" target="_blank">
                     <div class="d-flex">
-                        <div class="form-check">
-                            <input type="radio" class="form-check-input" name="" id="">    
-                        </div>                    
                         <div>
                             <h6 class="mb-1 h6">MercadoPago</h6>
                             <small>Serás redirigido a la pagina de MercadoPago para terminar el pago</small> 
                         </div>
-                    </div>                  
+                    </div> 
+                   </a>                  
                 </div>
 
             </div>
@@ -64,105 +68,28 @@
             <h5 class="p-3 bg-transparent mb-0">Order Details</h5>
             <ul class="list-group list-group-flush">
               <!-- list group item -->
-              <li class="list-group-item px-4 py-3">
-                <div class="row align-items-center">
-                  <div class="col-2 col-md-2">
-                    <img src="../assets/images/products/product-img-1.jpg" alt="Ecommerce" class="img-fluid"></div>
-                  <div class="col-5 col-md-5">
-                    <h6 class="mb-0">Haldiram's Sev Bhujia</h6>
-                    <span><small class="text-muted">.98 / lb</small></span>
+              {% for cart in cart_detail %}
+                <li class="list-group-item px-4 py-3">
+                  <div class="row align-items-center">
+                    <div class="col-2 col-md-2">
+                      <img src="/media/{{cart.service.logo}}" alt="{{cart.service.description}}" class="img-fluid"></div>
+                    <div class="col-5 col-md-5">
+                      <h6 class="mb-0">{{cart.service.description}}</h6>
+                      <span><small class="text-muted">250g</small></span>
 
-                  </div>
-                  <div class="col-2 col-md-2 text-center text-muted">
-                    <span>1</span>
+                    </div>
+                    <div class="col-2 col-md-2 text-center text-muted">
+                      <span>{{cart.long}} Meses</span>
+                      <span>{{cart.quantity}} Pantallas</span>
 
+                    </div>
+                    <div class="col-3 text-lg-end text-start text-md-end col-md-3">
+                      <span class="fw-bold">${{cart.price}}</span>
+                      <div class="text-decoration-line-through text-muted small">$26.00</div>
+                    </div>
                   </div>
-                  <div class="col-3 text-lg-end text-start text-md-end col-md-3">
-                    <span class="fw-bold">$5.00</span>
-
-                  </div>
-                </div>
-
-              </li>
-              <!-- list group item -->
-              <li class="list-group-item px-4 py-3">
-                <div class="row align-items-center">
-                  <div class="col-2 col-md-2">
-                    <img src="../assets/images/products/product-img-2.jpg" alt="Ecommerce" class="img-fluid"></div>
-                  <div class="col-5 col-md-5">
-                    <h6 class="mb-0">NutriChoice Digestive</h6>
-                    <span><small class="text-muted">250g</small></span>
-
-                  </div>
-                  <div class="col-2 col-md-2 text-center text-muted">
-                    <span>1</span>
-
-                  </div>
-                  <div class="col-3 text-lg-end text-start text-md-end col-md-3">
-                    <span class="fw-bold">$20.00</span>
-                    <div class="text-decoration-line-through text-muted small">$26.00</div>
-                  </div>
-                </div>
-
-              </li>
-              <!-- list group item -->
-              <li class="list-group-item px-4 py-3">
-                <div class="row align-items-center">
-                  <div class="col-2 col-md-2">
-                    <img src="../assets/images/products/product-img-3.jpg" alt="Ecommerce" class="img-fluid"></div>
-                  <div class="col-5 col-md-5">
-                    <h6 class="mb-0">Cadbury 5 Star Chocolate</h6>
-                    <span><small class="text-muted">1 kg</small></span>
-
-                  </div>
-                  <div class="col-2 col-md-2 text-center text-muted">
-                    <span>1</span>
-
-                  </div>
-                  <div class="col-3 text-lg-end text-start text-md-end col-md-3">
-                    <span class="fw-bold">$15.00</span>
-                    <div class="text-decoration-line-through text-muted small">$20.00</div>
-                  </div>
-                </div>
-
-              </li>
-              <!-- list group item -->
-              <li class="list-group-item px-4 py-3">
-                <div class="row align-items-center">
-                  <div class="col-2 col-md-2">
-                    <img src="../assets/images/products/product-img-4.jpg" alt="Ecommerce" class="img-fluid"></div>
-                  <div class="col-5 col-md-5">
-                    <h6 class="mb-0">Onion Flavour Potato</h6>
-                    <span><small class="text-muted">250g</small></span>
-                  </div>
-                  <div class="col-2 col-md-2 text-center text-muted">
-                    <span>1</span>
-                  </div>
-                  <div class="col-3 text-lg-end text-start text-md-end col-md-3">
-                    <span class="fw-bold">$15.00</span>
-                    <div class="text-decoration-line-through text-muted small">$20.00</div>
-                  </div>
-                </div>
-              </li>
-              <!-- list group item -->
-              <li class="list-group-item px-4 py-3">
-                <div class="d-flex align-items-center justify-content-between   mb-2">
-                  <div>
-                    Item Subtotal
-                  </div>
-                  <div class="fw-bold">
-                    $70.00
-                  </div>
-                </div>
-                <div class="d-flex align-items-center justify-content-between  ">
-                  <div>
-                    Service Fee <i class="feather-icon icon-info text-muted" data-bs-toggle="tooltip" aria-label="Default tooltip"></i>
-                  </div>
-                  <div class="fw-bold">
-                    $3.00
-                  </div>
-                </div>
-              </li>
+                </li>
+              {% endfor %}
               <!-- list group item -->
               <li class="list-group-item px-4 py-3">
                 <div class="d-flex align-items-center justify-content-between fw-bold">
@@ -179,4 +106,11 @@
         </div>
       </div>
     </div>
+  {% endif %}
 {% endblock body %}
+
+{% block extraje %}
+<script>
+
+</script>
+{% endblock extraje %}

@@ -1,4 +1,5 @@
 # Django
+import json
 from django.shortcuts import render
 from django.http import HttpResponse, HttpRequest
 from django.views.generic import DetailView, CreateView, UpdateView, TemplateView, ListView, DeleteView
@@ -49,7 +50,7 @@ def index(request):
         'sales_month': sales_month,
         'acc_name': sales_acc[0],
         'acc_total': sales_acc[1],
-		'time':timezone.now()
+        'time': timezone.now()
     })
 
 
@@ -599,12 +600,75 @@ def SalesSearchView(request):
     if is_ajax(request):
         res = None
         services = request.POST.getlist('data[]', '')
+        print(services)
         data = []
         if services:
             for s in services:
-                service = Service.objects.get(pk=s)
+                service = Service.objects.get(pk=int(json.loads(s)['service']))
                 acc = Account.objects.filter(
                     account_name=service, customer=None, status=True).order_by('-expiration_date')
+
+                if not json.loads(s)['duration'] == 'None':
+                    # Establece una fecha de expiración de dos meses
+                    better_acc_expiration_date = timezone.now(
+                    ) + relativedelta(months=int(json.loads(s)['duration']))
+                    # Busca la cuenta más adecuada
+                    better_acc = Sales.search_better_acc(
+                        service.id, better_acc_expiration_date)
+                    # Agrega los detalles de la cuenta más adecuada a la lista
+                    print(better_acc)
+                    if better_acc and better_acc[0] == True:
+                        data.append({
+                            'id': better_acc[1].id,
+                            'logo': str(better_acc[1].account_name.logo),
+                            'acc_name': better_acc[1].account_name.description,
+                            'email': better_acc[1].email,
+                            'password': better_acc[1].password,
+                            'expiration_acc': better_acc[1].expiration_date,
+                            'profile': better_acc[1].profile
+                        })
+                        for other_acc in acc:
+                            if other_acc.id != better_acc[1].id:
+                                item = {
+                                    'id': other_acc.id,
+                                    'logo': str(other_acc.account_name.logo),
+                                    'acc_name': other_acc.account_name.description,
+                                    'email': other_acc.email,
+                                    'password': other_acc.password,
+                                    'expiration_acc': other_acc.expiration_date,
+                                    'profile': other_acc.profile
+                                }
+                                data.append(item)
+                    else:
+                        for other_acc in acc:
+                            item = {
+                                'id': other_acc.id,
+                                'logo': str(other_acc.account_name.logo),
+                                'acc_name': other_acc.account_name.description,
+                                'email': other_acc.email,
+                                'password': other_acc.password,
+                                'expiration_acc': other_acc.expiration_date,
+                                'profile': other_acc.profile
+                            }
+                            data.append(item)
+                # Si no tiene duración definida, establece una fecha de expiración de dos meses
+                else:
+                    expiration_date = timezone.now() + relativedelta(months=2)
+                    # Agrega los detalles de las cuentas disponibles a la lista
+                    for pos in acc:
+                        item = {
+                            'id': pos.id,
+                            'logo': str(pos.account_name.image),
+                            'acc_name': pos.account_name.name,
+                            'email': pos.email,
+                            'password': pos.password,
+                            'expiration_acc': pos.expiration_date,
+                            'profile': pos.profile
+                        }
+                        data.append(item)
+                    # Establece el resultado como la lista de detalles de cuentas
+                    res = data
+
                 if len(acc) > 0 and len(services) > 0:
                     for pos in acc:
                         item = {
@@ -626,6 +690,55 @@ def SalesSearchView(request):
         else:
             res = "No hay cuentas seleccionadas"
         return JsonResponse({'data': res})
+
+    elif request.method == 'POST':
+        data_array = []
+        data = json.loads(request.body)
+        service_id = int(data['data']['service'])
+        code_name = data['data']['code']
+        code = Cupon.objects.get(name=code_name)
+        service = Service.objects.get(pk=service_id)
+        duration = code.long
+        accounts = Account.objects.filter(
+            account_name=service, customer=None, status=True).order_by('-expiration_date')
+        if duration == 0.25:
+            better_acc_expiration_date = timezone.now() + timedelta(days=7)
+        else:
+            better_acc_expiration_date = timezone.now() + relativedelta(months=duration)
+
+        better_acc = Sales.search_better_acc(
+            service.id, better_acc_expiration_date)
+
+        if better_acc[0] == False:
+            return JsonResponse({'data': 'No hay cuentas disponibles'})
+        else:
+            data_array.append({
+                'id': better_acc[1].id,
+                'logo': str(better_acc[1].account_name.image),
+                'acc_name': better_acc[1].account_name.name,
+                'email': better_acc[1].email,
+                'password': better_acc[1].password,
+                'expiration_acc': better_acc[1].expiration_date,
+                'profile': better_acc[1].profile
+            })
+            for other_acc in accounts:
+                if other_acc.id != better_acc[1].id:
+                    item = {
+                        'id': other_acc.id,
+                        'logo': str(other_acc.account_name.image),
+                        'acc_name': other_acc.account_name.name,
+                        'email': other_acc.email,
+                        'password': other_acc.password,
+                        'expiration_acc': other_acc.expiration_date,
+                        'profile': other_acc.profile
+                    }
+                    data_array.append(item)
+
+        if len(accounts) == 0 and len(services) == 0:
+            data_array = "No Hay cuentas disponibles"
+
+        return JsonResponse({'data': data_array})
+
     return JsonResponse({})
 
 
@@ -929,7 +1042,8 @@ def CuponRedeemView(request):
             return render(request, template_name, {
                 'service': service,
                 'cupon': cupon,
-                'customer': customer
+                'customer': customer,
+                'months': cupon.long
             })
         try:
             cupon = Cupon.objects.get(name=cupon)
@@ -962,14 +1076,14 @@ class ReceivableView(UserAccessMixin, ListView):
     model = Sale
     template_name = "adm/receivable.html"
     paginate_by = 1000
-    
+
     def get_queryset(self):
         if self.request.GET.get('date') is not None:
             return Sale.objects.filter(
-            expiration_date__lte = f"{self.request.GET.get('date')} 23:59:59", 
-            expiration_date__gte = f"{self.request.GET.get('date')} 00:00:00", 
-            status=True
-        ).order_by('-expiration_date','account')
+                expiration_date__lte=f"{self.request.GET.get('date')} 23:59:59",
+                expiration_date__gte=f"{self.request.GET.get('date')} 00:00:00",
+                status=True
+            ).order_by('-expiration_date', 'account')
 
         elif self.request.GET.get('email'):
             email = self.request.GET.get('email')
@@ -990,7 +1104,7 @@ class ReceivableView(UserAccessMixin, ListView):
         context = super().get_context_data(**kwargs)
         context['tomorrow'] = timezone.now().date() + timedelta(days=1)
         context['left'] = Sale.objects.filter(
-            expiration_date__lte = f'{timezone.now().date()} 23:59:59',
+            expiration_date__lte=f'{timezone.now().date()} 23:59:59',
             status=True
         ).count()
         return context
