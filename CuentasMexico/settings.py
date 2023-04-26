@@ -93,7 +93,7 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'cuentasmexico',
-        'USER': 'root',
+        'USER': 'cuentasmexico',
         'PASSWORD': 'Tarkan11.-',
         'HOST': 'localhost',
         'PORT': '3306',
@@ -160,6 +160,8 @@ DATE_INPUT_FORMATS = ('%d-%m-%Y')
 # EMAIL_BACKEND = "naomi.mail.backends.naomi.NaomiBackend"
 # EMAIL_FILE_PATH = "/Users/luinmack/Documents/Proyectos/CuentasMexico/tmp"
 
-CORS_ORIGIN_WHITELIST = [
-    'http://192.168.100.13:19006',
+#CORS_ORIGIN_ALLOW_ALL = True
+CORS_ALLOWED_ORIGINS = [
+    "https://app.cuentasmexico.mx"
 ]
+
