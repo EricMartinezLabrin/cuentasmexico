@@ -11,6 +11,7 @@ from django.core.paginator import Paginator
 from django.http import JsonResponse
 from django.db.models import Sum
 from django.utils import timezone
+from django.views.decorators.csrf import csrf_exempt
 
 # Python
 from datetime import datetime, timedelta
@@ -595,12 +596,16 @@ def SalesUpdateStatusView(request, pk, customer, status):
     return Sales.render_view(request, customer)
 
 
+@csrf_exempt
 @permission_required('is_staff', 'adm:no-permission')
 def SalesSearchView(request):
+    print('empezo')
     if is_ajax(request):
+        print('entro al ajax')
         res = None
         services = request.POST.getlist('data[]', '')
         print(services)
+        print(res)
         data = []
         if services:
             for s in services:
@@ -1066,7 +1071,9 @@ def CuponRedeemView(request):
 def CuponRedeemEndView(request):
     if request.method == 'POST':
         customer = request.POST.get('customer')
-        if Sales.cupon_sale(request) == True:
+        sale = Sales.cupon_sale(request)
+        print(sale)
+        if sale[0] == True:
             customer = User.objects.get(pk=customer)
             return Sales.render_view(request, customer)
 
