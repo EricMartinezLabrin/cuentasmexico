@@ -21,20 +21,21 @@ const listPaymentMethod = document.getElementById("paymentlist");
 const changeService = document.getElementById("service");
 
 const sendSearchData = (data) => {
-  $.ajax({
-    type: "POST",
-    url: "/adm/sales/search",
-    data: {
-      csrfmiddlewaretoken: csrf,
-      "data[]": data,
-    },
-    success: (res) => {
-      const data = res.data;
-      if (Array.isArray(data)) {
-        resultsBox.innerHTML = "";
-        data.forEach((data, index) => {
-          let borderStyle = index === 0 ? "border: 2px solid green;" : "";
-          resultsBox.innerHTML += `
+  try {
+    $.ajax({
+      type: "POST",
+      url: "/adm/sales/search",
+      data: {
+        csrfmiddlewaretoken: csrf,
+        "data[]": data,
+      },
+      success: (res) => {
+        const data = res.data;
+        if (Array.isArray(data)) {
+          resultsBox.innerHTML = "";
+          data.forEach((data, index) => {
+            let borderStyle = index === 0 ? "border: 2px solid green;" : "";
+            resultsBox.innerHTML += `
           <tr style="${borderStyle}">
             <td><input class="form-check-input details" name="serv" id="${
               data.id
@@ -48,13 +49,16 @@ const sendSearchData = (data) => {
             <br>
             </label>
             `;
-        });
-      } else {
-        resultsBox.innerHTML = `<b>${data}</b>`;
-        accounts.classList.add("not-visible");
-      }
-    },
-  });
+          });
+        } else {
+          resultsBox.innerHTML = `<b>${data}</b>`;
+          accounts.classList.add("not-visible");
+        }
+      },
+    });
+  } catch (error) {
+    console.error(error);
+  }
 };
 
 const sendSearchDetailData = (det) => {

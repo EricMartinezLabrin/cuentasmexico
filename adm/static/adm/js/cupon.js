@@ -1,42 +1,46 @@
 const redeem = document.getElementById("redeem");
 const csrf = document.getElementsByName("csrfmiddlewaretoken")[0].value;
 const long = document.getElementById("long");
-console.log(long);
 const sendSearchData = (data) => {
-  console.log("test");
+  try {
+    $.ajax({
+      type: "POST",
+      url: "/adm/sales/search",
+      data: {
+        csrfmiddlewaretoken: csrf,
+        "data[]": data,
+      },
+      success: (res) => {
+        const data = res.data;
+        if (Array.isArray(data)) {
+          resultsBox.innerHTML = "";
+          data.forEach((data, index) => {
+            let borderStyle = index === 0 ? "border: 2px solid green;" : "";
+            resultsBox.innerHTML += `
+            <tr style="${borderStyle}">
+                <td><input class="form-check-input details" name="serv" id="${
+                  data.id
+                }" type="checkbox" value="${data.id}" onclick="detail()"></td>
+                <label for="${data.id}">
+                <td><img src="/media/${data.logo}" width="20"></td>
+                <td>${data.email}</td>
+                <td>${data.password}</td>
+                <td>${moment(data.expiration_acc).format("DD/MM/YYYY")}</td>
+                <td>${data.profile}</td>            
+                <br>
+                </label>
+                `;
+          });
+        } else {
+          resultsBox.innerHTML = `<b>${data}</b>`;
+          // accounts.classList.add("not-visible");
+        }
+      },
+    });
+  } catch (error) {
+    console.error(error);
+  }
   const resultsBox = document.getElementById("resultsBox");
-  $.ajax({
-    type: "POST",
-    url: "/adm/sales/search",
-    data: {
-      csrfmiddlewaretoken: csrf,
-      "data[]": data,
-    },
-    success: (res) => {
-      const data = res.data;
-      if (Array.isArray(data)) {
-        resultsBox.innerHTML = "";
-        data.forEach((data) => {
-          resultsBox.innerHTML += `
-              <td><input class="form-check-input details" name="serv" id="${
-                data.id
-              }" type="checkbox" value="${data.id}" onclick="detail()"></td>
-              <label for="${data.id}">
-              <td><img src="/media/${data.logo}" width="20"></td>
-              <td>${data.email}</td>
-              <td>${data.password}</td>
-              <td>${moment(data.expiration_acc).format("DD/MM/YYYY")}</td>
-              <td>${data.profile}</td>            
-              <br>
-              </label>
-              `;
-        });
-      } else {
-        resultsBox.innerHTML = `<b>${data}</b>`;
-        //   accounts.classList.add('not-visible')
-      }
-    },
-  });
 };
 
 const sendSearchDetailData = (det) => {
@@ -72,7 +76,11 @@ const sendSearchDetailData = (det) => {
 
 redeem.addEventListener(
   "load",
-  sendSearchData({ service: redeem.value, duration: long.value })
+  (() => {
+    const arr = [];
+    arr.push(JSON.stringify({ service: redeem.value, duration: long.value }));
+    sendSearchData(arr);
+  })()
 );
 
 function detail() {

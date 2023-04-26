@@ -112,6 +112,13 @@ class Sales():
         else:
             c = None
 
+        if customer_id:
+            customer = User.objects.get(pk=customer_id)
+        elif request.POST.get('customer'):
+            customer = User.objects.get(pk=request.POST.get('customer'))
+        else:
+            customer = User.objects.get(pk=request.user.id)
+
         if c:
             cupon = Cupon.objects.get(name=request.POST.get('code').lower())
             service = Account.objects.get(pk=request.POST.get('serv'))
@@ -125,17 +132,9 @@ class Sales():
             cupon.used_at = timezone.now()
             cupon.customer = customer
             cupon.seller = request.user
-            cupon.order = sale
             cupon.status_sale = True
             cupon.status = False
             cupon.save()
-
-        if customer_id:
-            customer = User.objects.get(pk=customer_id)
-        elif request.POST.get('customer'):
-            customer = User.objects.get(pk=request.POST.get('customer'))
-        else:
-            customer = User.objects.get(pk=request.user.id)
 
         try:
             bank_selected = Bank.objects.get(bank_name=bank_name)
@@ -199,6 +198,9 @@ class Sales():
             service.customer = customer
             service.modified_by = request.user
             service.save()
+
+            cupon.order = sale
+            cupon.save()
 
             if customer.email != 'example@example.com':
                 Email.email_passwords(request, customer.email, (sale,))
@@ -376,7 +378,6 @@ class Sales():
                 empty = Account.objects.filter(
                     account_name=service, status=True, customer=None)
                 if empty.count() == 0:
-                    print('entr0o aqui')
                     return False, "No hay cuentas disponibles, porfavor comunicate al whats app +521 833 535 5863"
                 for e in empty:
                     q = Account.objects.filter(
@@ -399,7 +400,6 @@ class Sales():
                                 if acc.count() > 0:
                                     return True, acc[0]
                     else:
-                        print("o talvez aqui")
                         return False, "No hay cuentas disponibles, porfavor comunicate al whats app +521 833 535 5863"
         else:
             return False, "El código ya fue utilizado, si no lo canjeó usted contacte a su vendedor y pidale uno nuevo."
