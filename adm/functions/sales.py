@@ -1,4 +1,5 @@
 from adm.models import Account, Service, UserDetail, Bank, PaymentMethod, Sale, Status, Business, Credits
+from api.functions.notifications import send_push_notification
 from cupon.models import Cupon
 from django.contrib.auth.models import User
 from dateutil.relativedelta import relativedelta
@@ -99,6 +100,15 @@ class Sales():
                 # update date
                 sale.created_at = created_at
                 sale.save()
+                try:
+                    token = UserDetail.objects.get(user=customer).token
+                    title = f"Muchas Gracias por tu compra"
+                    body = f"Para ver las claves de tu cuenta {acc.account_name.description} da click en el botón de abajo o visita la seccion Mi Cuenta"
+                    url = "MyAccount"
+                    notification = send_push_notification(
+                        token, title, body, url)
+                except:
+                    pass
 
                 if not customer.email == 'example@example.com':
                     Email.email_passwords(request, customer.email, (sale,))
@@ -176,6 +186,17 @@ class Sales():
                 service.modified_by = customer
                 service.save()
 
+                try:
+                    token = UserDetail.objects.get(user=customer).token
+                    title = f"Muchas Gracias por tu compra"
+                    body = f"Visita la sección Mi Cuenta para ver las nuevas claves"
+                    url = "MyAccount"
+
+                    notification = send_push_notification(
+                        token, title, body, url)
+                except:
+                    pass
+
                 if customer.email != 'example@example.com':
                     Email.email_passwords(request, customer.email, (sale,))
 
@@ -201,6 +222,16 @@ class Sales():
 
             cupon.order = sale
             cupon.save()
+
+            try:
+                token = UserDetail.objects.get(user=customer).token
+                title = f"Muchas Gracias por tu compra"
+                body = f"Visita la sección Mi Cuenta para ver las nuevas claves"
+                url = "MyAccount"
+
+                notification = send_push_notification(token, title, body, url)
+            except:
+                pass
 
             if customer.email != 'example@example.com':
                 Email.email_passwords(request, customer.email, (sale,))
@@ -246,6 +277,16 @@ class Sales():
         old_sale.status = False
         old_sale.old_sale = new_sale_id
         old_sale.save()
+
+        try:
+            token = UserDetail.objects.get(user=customer).token
+            title = f"Tu cuenta ha sido renovada"
+            body = f"Tu nuevo vencimiento es {exp_date}, haz click en aceptar para ver el detalle."
+            url = "MyAccount"
+
+            notification = send_push_notification(token, title, body, url)
+        except:
+            pass
 
         if customer.email != 'example@example.com':
             Email.email_passwords(request, customer.email, (new_sale,))
@@ -293,6 +334,16 @@ class Sales():
         acc.customer = old_sale.customer
         acc.modified_by = request.user
         acc.save()
+
+        try:
+            token = UserDetail.objects.get(user=old_sale.customer).token
+            title = f"Tu cuenta {acc.account_name.description} ha sido cambiada"
+            body = f"Haz click en aceptar para ver el detalle o visita la seccion Mi Cuenta."
+            url = "MyAccount"
+
+            notification = send_push_notification(token, title, body, url)
+        except:
+            pass
 
         if old_sale.customer.email != 'example@example.com':
             Email.email_passwords(
@@ -456,6 +507,16 @@ class Sales():
             cupon.status = False
             cupon.save()
 
+            try:
+                token = UserDetail.objects.get(user=customer).token
+                title = f"Muchas Gracias por tu compra"
+                body = f"Visita la sección Mi Cuenta para ver las nuevas claves"
+                url = "MyAccount"
+
+                notification = send_push_notification(token, title, body, url)
+            except:
+                pass
+
             if customer.email != 'example@example.com':
                 Email.email_passwords(request, customer.email, (sale,))
 
@@ -523,6 +584,16 @@ class Sales():
             cupon.status_sale = True
             cupon.status = False
             cupon.save()
+
+            try:
+                token = UserDetail.objects.get(user=customer).token
+                title = f"Muchas Gracias por tu compra"
+                body = f"Visita la sección Mi Cuenta para ver las nuevas claves"
+                url = "MyAccount"
+
+                notification = send_push_notification(token, title, body, url)
+            except:
+                pass
 
             if customer.email != 'example@example.com':
                 Email.email_passwords(request, customer.email, (new_sale,))

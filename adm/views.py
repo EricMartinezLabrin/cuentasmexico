@@ -16,6 +16,8 @@ from django.views.decorators.csrf import csrf_exempt
 # Python
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
+import requests
+from api.functions.notifications import send_push_notification
 import pyperclip as clipboard
 import pandas as pd
 
@@ -31,6 +33,7 @@ from .functions.dashboard import Dashboard
 from adm.functions.duplicated import NoDuplicate
 from adm.functions.sales import Sales
 from adm.functions.import_data import ImportData
+from adm.db.constants import URL
 
 
 def is_ajax(request):
@@ -526,7 +529,19 @@ def SalesAddFreeDaysView(request, pk, days):
     customer = UserDetail.objects.get(user=sale.customer.id)
     customer.free_days = 0
     customer.save()
-    print(customer.free_days)
+    try:
+        if days > 0:
+            title = f"Felicidades, has ganado {days} días gratis"
+            token = customer.token
+            body = f"Los días ya fueron cargados a tu cuneta. Puedes ver tu nueva fecha de vencimiento en la sección de Mi Cuenta"
+            url = "MyAccount"
+
+            notification = send_push_notification(
+                token, title, body, url)
+
+            print(notification)
+    except:
+        pass
     return Sales.render_view(request, sale.customer.id)
 
 
@@ -888,13 +903,35 @@ class ProfileUpdateView(UserAccessMixin, UpdateView):
     fields = ['profile']
 
 
-class BankListView(UserAccessMixin, ListView):
+def BankListView(request):
     """
     Show all bank accounts
     """
-    permission_required = 'is_staff'
-    model = Bank
     template_name = "adm/bank.html"
+    bank = Bank.objects.all()
+    object_list = []
+    for b in bank:
+        month = datetime.now().month
+        start_date = timezone.make_aware(datetime(2023, month, 1))
+        end_date = timezone.make_aware(
+            datetime(2023, month, 31, 23, 59, 59, 999999))
+        sales = Sale.objects.filter(
+            bank=b, created_at__range=(start_date, end_date)).aggregate(Sum('payment_amount', flat=True))
+        item = {
+            'pk': b.id,
+            'logo': b.logo,
+            'bank_name': b.bank_name,
+            'headline': b.headline,
+            'card_number': b.card_number,
+            'clabe': b.clabe,
+            'total': sales['payment_amount__sum'],
+            'status': b.status,
+        }
+        object_list.append(item)
+    return render(request, template_name, {
+        'object_list': object_list
+    }
+    )
 
 
 class bankCreateView(UserAccessMixin, CreateView):
@@ -1174,6 +1211,22 @@ def ReleaseAccounts(request, pk):
             a.comments = comments
             a.renovable = renovable
             a.save()
+
+            try:
+                sale_expiration = Sale.objects.get(
+                    account=a.pk, customer=a.customer, status=True)
+                now = datetime.now(timezone.utc)
+                if sale_expiration.expiration_date > now:
+                    token = UserDetail.objects.get(user=a.customer).token
+                    title = f"Las claves de tu {a.account_name} fueron actualizadas"
+                    body = f"Visita la sección Mi Cuenta para ver las nuevas claves"
+                    url = "MyAccount"
+
+                    notification = send_push_notification(
+                        token, title, body, url)
+            except:
+                continue
+
         return redirect(success_url)
 
     return render(request, template_name, {
