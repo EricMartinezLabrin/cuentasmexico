@@ -128,7 +128,7 @@ TIME_ZONE = 'America/Mexico_City'
 
 USE_I18N = True
 
-#USE_TZ = True
+# USE_TZ = True
 
 
 # Static files (CSS, JavaScript, Images)
@@ -160,7 +160,7 @@ DATE_INPUT_FORMATS = ('%d-%m-%Y')
 # EMAIL_BACKEND = "naomi.mail.backends.naomi.NaomiBackend"
 # EMAIL_FILE_PATH = "/Users/luinmack/Documents/Proyectos/CuentasMexico/tmp"
 
-#CORS_ORIGIN_ALLOW_ALL = True
+# CORS_ORIGIN_ALLOW_ALL = True
 CORS_ALLOWED_ORIGINS = [
     "https://app.cuentasmexico.mx"
 ]
