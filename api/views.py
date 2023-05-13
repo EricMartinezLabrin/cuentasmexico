@@ -4,35 +4,55 @@ from django.contrib.auth import authenticate
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.models import User
+from django.utils import timezone
 
 import json
+import stripe
+import requests
+from pyflowcl import FlowAPI
+from pyflowcl.utils import genera_parametros
+from dateutil.relativedelta import relativedelta
 
-from adm.models import Business, Sale, UserDetail
+from adm.models import Business, Sale, Service, UserDetail
 from .functions.notifications import send_push_notification
+from .functions.salesApi import SalesApi
+
+try:
+    keys = Business.objects.get(id=1)
+    stripe.api_key = keys.stripe_secret_key
+    flow_api_key = keys.flow_customer_key
+    flow_secret_key = keys.flow_secret_key
+
+except Business.DoesNotExist:
+    pass
+
+# POST
 
 
-#POST
 @csrf_exempt
 def checkFlowPaymentByTokenApi(request):
     url = "https://sandbox.flow.cl/api"
     route = "/payment/getStatusExtended"
     apiKey = flow_api_key
     secretKey = flow_secret_key
-    sandbox = Business2.objects.get(id=1).stripe_sandbox
+    sandbox = Business.objects.get(id=1).stripe_sandbox
     if request.method == 'POST':
         token = request.POST.get('token')
         if token:
-            api = FlowAPI(flow_key=apiKey, flow_secret=secretKey,flow_use_sandbox=sandbox)
+            api = FlowAPI(flow_key=apiKey, flow_secret=secretKey,
+                          flow_use_sandbox=sandbox)
             parametros = {"apiKey": api.apiKey, "token": token}
             # status = api.objetos.call_get_payment_getstatus(
             #     parameters=genera_parametros(parametros, api.secretKey)
             # )
-            status = requests.get(url+route, params=genera_parametros(parametros, api.secretKey))
+            status = requests.get(
+                url+route, params=genera_parametros(parametros, api.secretKey))
             status_decode = status.json()
             if status_decode["status"] == 2 or status_decode["status"] == "2":
                 expiration_long = int(status_decode["optional"]["expiration"])
                 expiration_date = timezone.now() + relativedelta(months=expiration_long)
-                sale = SalesApi.SalesCreateApi(request,status_decode["payer"],status_decode["optional"]["serviceId"],expiration_date,"flow",status_decode["amount"],status_decode["flowOrder"])
+                sale = SalesApi.SalesCreateApi(request, status_decode["payer"], status_decode["optional"]
+                                               ["serviceId"], expiration_date, "flow", status_decode["amount"], status_decode["flowOrder"])
                 return JsonResponse(status=200, data={"status": "success", "message": "Pago realizado con exito"})
             else:
                 return JsonResponse(status=400, data={"status": "error", "message": "Pago no realizado"})
@@ -40,6 +60,7 @@ def checkFlowPaymentByTokenApi(request):
             return JsonResponse(status=400, data={"status": "error", "message": "Token no enviado"})
     else:
         return JsonResponse(status=400, data={"status": "error", "message": "Metodo no permitido"})
+
 
 @csrf_exempt
 def saleApi(request):
@@ -52,14 +73,16 @@ def saleApi(request):
         platform = data['platform']
         amount = data['amount']
         order_id = data['order_id']
-        sale = SalesApi.SalesCreateApi(request,customer_email,service_id,expiration_date,platform,amount,order_id)
+        sale = SalesApi.SalesCreateApi(
+            request, customer_email, service_id, expiration_date, platform, amount, order_id)
 
         if sale == False:
             return JsonResponse(status=400, data={"status": "error", "message": "Hubo un error al crear la cuenta, contacta a soporte"})
         else:
             return JsonResponse(status=200, data={"status": "success", "message": "Cuenta Creada con Exito"})
 
-@csrf_exempt    
+
+@csrf_exempt
 def stripe_create_payment(request):
     if request.method == "POST":
         # Decodifica la información en formato JSON a un diccionario Python
@@ -71,6 +94,7 @@ def stripe_create_payment(request):
     payment_intent = stripe.PaymentIntent.create(
         amount=amount,
         currency=currency,
+        # payment_method_types=["card", 'oxxo'],
         automatic_payment_methods={
             'enabled': True,
         },
@@ -79,6 +103,7 @@ def stripe_create_payment(request):
     return JsonResponse({
         "clientSecret": payment_intent.client_secret
     })
+
 
 @csrf_exempt
 def setToken(request):
@@ -169,6 +194,7 @@ def sendNotification(request):
     else:
         return JsonResponse(status=405, data={'detail': 'method not allowed'})
 
+
 @csrf_exempt
 def create_user_api(request):
     if request.method == "POST":
@@ -176,29 +202,33 @@ def create_user_api(request):
         username = data.get('username')
         password = data.get('password')
         email = data.get('email')
-        user = User.objects.create_user(username=username, password=password, email=email)
+        user = User.objects.create_user(
+            username=username, password=password, email=email)
         user.save()
         return JsonResponse(status=200, data={'detail': 'user created'})
     else:
         return JsonResponse(status=405, data={'detail': 'method not allowed'})
 
-#GET
+# GET
+
+
 def getServices(request):
     if request.is_secure():
         protocol = 'https://'
     else:
         protocol = 'http://'
-    
-    host = '192.168.100.12:8000/media/' ##request.get_host()
+
+    host = '192.168.100.12:8000/media/'  # request.get_host()
     if request.method == 'GET':
-        services = Service.objects.filter(is_active=True, countable=True).values(
-            "id", "name", "image", "description", "price")
+        services = Service.objects.filter(status=True).values(
+            "id", "description", "logo", "info", "price")
         for service in services:
-            service["image"] = protocol + host + str(service["image"])
+            service["logo"] = protocol + host + str(service["logo"])
         return JsonResponse(status=200, data={'detail': list(services)})
     else:
         return JsonResponse(status=405, data={'detail': 'method not allowed'})
-    
+
+
 def loginApi(request, username, password):
     """
     El siguiente código es una función llamada loginApi que recibe tres parámetros request, username y password. 
@@ -226,6 +256,7 @@ def loginApi(request, username, password):
         # retornamos un objeto JsonResponse con un mensaje de error
         return JsonResponse(status=400, data={'detail': 'invalid username or password'})
 
+
 def getActiveAccounts(request):
     """
     El siguiente código busca obtener cuentas activas de un usuario autenticado mediante una solicitud (request) de tipo GET.
@@ -252,29 +283,28 @@ def getActiveAccounts(request):
         # Devolver un error si la solicitud no fue GET
         return JsonResponse(status=405, data={'detail': 'method not allowed'})
 
+
 def get_keys(request):
-    if request.method=="GET":
+    if request.method == "GET":
         try:
-            keys = Business2.objects.get(id=1)
-        except Business2.DoesNotExist:
+            keys = Business.objects.get(id=1)
+        except Business.DoesNotExist:
             return JsonResponse(status=400, data={"status": "error", "message": "No se encontraron las llaves"})
-        return JsonResponse(status=200, data={"status": "success", "message": "Llaves encontradas", "data": {"stripe_api_key": keys.stripe_customer_key, "flow_api_key": keys.flow_customer_key, "flow_secret_key": keys.flow_secret_key,"flow_show":keys.flow_show,"stripe_sandbox":keys.stripe_sandbox}})      
+        return JsonResponse(status=200, data={"status": "success", "message": "Llaves encontradas", "data": {"stripe_api_key": keys.stripe_customer_key, "flow_api_key": keys.flow_customer_key, "flow_secret_key": keys.flow_secret_key, "flow_show": keys.flow_show, "stripe_sandbox": keys.stripe_sandbox}})
+
 
 def get_services_by_name_api(request, name):
     if request.is_secure():
         protocol = 'https://'
     else:
         protocol = 'http://'
-    
-    host = '192.168.100.12:8000/media/' ##request.get_host()
+
+    host = '192.168.100.12:8000/media/'  # request.get_host()
     if request.method == 'GET':
-        services = Service.objects.filter(name__icontains=name, is_active=True, countable=True).values(
-            "id", "name", "image", "description", "price")
+        services = Service.objects.filter(description__icontains=name, status=True).values(
+            "id", "description", "logo", "info", "price")
         for service in services:
-            service["image"] = protocol + host + str(service["image"])
+            service["logo"] = protocol + host + str(service["logo"])
         return JsonResponse(status=200, data={'detail': list(services)})
     else:
         return JsonResponse(status=405, data={'detail': 'method not allowed'})
-
-
-

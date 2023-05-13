@@ -22,9 +22,10 @@ class Business(models.Model):
     phoneNumberRegex = RegexValidator(regex=r"^\+?1?\d{8,15}$")
     phone_number = models.CharField(
         validators=[phoneNumberRegex], max_length=16, null=False, blank=False)
-    stripe_customer_key = models.CharField(max_length=255, null=True, blank=True)
+    stripe_customer_key = models.CharField(
+        max_length=255, null=True, blank=True)
     stripe_secret_key = models.CharField(max_length=255, null=True, blank=True)
-    stripe_sandbox= models.BooleanField(default=True)
+    stripe_sandbox = models.BooleanField(default=True)
     flow_customer_key = models.CharField(max_length=255, null=True, blank=True)
     flow_secret_key = models.CharField(max_length=255, null=True, blank=True)
     flow_show = models.BooleanField(default=True)
@@ -36,6 +37,7 @@ class Business(models.Model):
 
 class Service(models.Model):
     description = models.CharField(max_length=40)
+    info = models.CharField(max_length=255, null=True, blank=True)
     perfil_quantity = models.IntegerField()
     status = models.BooleanField(default=True)
     logo = models.FileField(upload_to="settings/", null=True, blank=True)
