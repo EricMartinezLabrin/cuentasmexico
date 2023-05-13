@@ -5,6 +5,7 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.models import User
 from django.utils import timezone
+from django.contrib.auth.hashers import make_password
 
 import json
 import stripe
@@ -60,6 +61,43 @@ except Business.DoesNotExist:
 #             return JsonResponse(status=400, data={"status": "error", "message": "Token no enviado"})
 #     else:
 #         return JsonResponse(status=400, data={"status": "error", "message": "Metodo no permitido"})
+@csrf_exempt
+def changePasswordApi(request):
+    if request.method == 'POST':
+        data = json.loads(request.body.decode('utf-8'))
+        print(data)
+        old_password = data['old_password']
+        new_password = data['new_password']
+        confirm_password = data['confirm_password']
+        print(old_password)
+
+        print(new_password)
+        print(confirm_password)
+
+        try:
+            user = User.objects.get(username=data['user'])
+            print(user)
+        except User.DoesNotExist:
+            return JsonResponse(status=400, data={"status": "error", "message": "Usuario no encontrado."})
+        except User.MultipleObjectsReturned:
+            return JsonResponse(status=400, data={"status": "error", "message": "Usuario duplicado."})
+
+        # Verificar que la contraseña actual ingresa en coincidencia con la del usuario.
+        print(user.check_password(old_password))
+        if not user.check_password(old_password):
+            print("La contraseña actual no coincide.")
+            return JsonResponse(status=400, data={"status": "error", "message": "La contraseña actual no coincide."})
+
+        # Veficar que la contraseña nueva es valida y que coincide con la confirmación.
+        if new_password and confirm_password and new_password == confirm_password:
+            print("La contraseña nueva coincide.")
+            password = make_password(new_password)
+            user.password = password
+            user.save()
+            return JsonResponse(status=200, data={"status": "success", "message": "Contraseña actualizada con éxito."})
+        # En caso contrario, notificar al usuario.
+        print("La contraseña nueva no coincide.")
+        return JsonResponse(status=400, data={"status": "error", "message": "La contraseña nueva no coincide."})
 
 
 @csrf_exempt

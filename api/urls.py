@@ -24,4 +24,5 @@ urlpatterns = [
     path('get_services_by_name_api/<str:name>',
          views.get_services_by_name_api, name='get_services_by_name_api'),
     path('create_user_api', views.create_user_api, name='create_user_api'),
+    path('changePasswordApi', views.changePasswordApi, name='changePasswordApi'),
 ]
