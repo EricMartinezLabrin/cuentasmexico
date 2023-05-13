@@ -9,8 +9,8 @@ from django.utils import timezone
 import json
 import stripe
 import requests
-from pyflowcl import FlowAPI
-from pyflowcl.utils import genera_parametros
+# from pyflowcl import FlowAPI
+# from pyflowcl.utils import genera_parametros
 from dateutil.relativedelta import relativedelta
 
 from adm.models import Business, Sale, Service, UserDetail
@@ -29,37 +29,37 @@ except Business.DoesNotExist:
 # POST
 
 
-@csrf_exempt
-def checkFlowPaymentByTokenApi(request):
-    url = "https://sandbox.flow.cl/api"
-    route = "/payment/getStatusExtended"
-    apiKey = flow_api_key
-    secretKey = flow_secret_key
-    sandbox = Business.objects.get(id=1).stripe_sandbox
-    if request.method == 'POST':
-        token = request.POST.get('token')
-        if token:
-            api = FlowAPI(flow_key=apiKey, flow_secret=secretKey,
-                          flow_use_sandbox=sandbox)
-            parametros = {"apiKey": api.apiKey, "token": token}
-            # status = api.objetos.call_get_payment_getstatus(
-            #     parameters=genera_parametros(parametros, api.secretKey)
-            # )
-            status = requests.get(
-                url+route, params=genera_parametros(parametros, api.secretKey))
-            status_decode = status.json()
-            if status_decode["status"] == 2 or status_decode["status"] == "2":
-                expiration_long = int(status_decode["optional"]["expiration"])
-                expiration_date = timezone.now() + relativedelta(months=expiration_long)
-                sale = SalesApi.SalesCreateApi(request, status_decode["payer"], status_decode["optional"]
-                                               ["serviceId"], expiration_date, "flow", status_decode["amount"], status_decode["flowOrder"])
-                return JsonResponse(status=200, data={"status": "success", "message": "Pago realizado con exito"})
-            else:
-                return JsonResponse(status=400, data={"status": "error", "message": "Pago no realizado"})
-        else:
-            return JsonResponse(status=400, data={"status": "error", "message": "Token no enviado"})
-    else:
-        return JsonResponse(status=400, data={"status": "error", "message": "Metodo no permitido"})
+# @csrf_exempt
+# def checkFlowPaymentByTokenApi(request):
+#     url = "https://sandbox.flow.cl/api"
+#     route = "/payment/getStatusExtended"
+#     apiKey = flow_api_key
+#     secretKey = flow_secret_key
+#     sandbox = Business.objects.get(id=1).stripe_sandbox
+#     if request.method == 'POST':
+#         token = request.POST.get('token')
+#         if token:
+#             api = FlowAPI(flow_key=apiKey, flow_secret=secretKey,
+#                           flow_use_sandbox=sandbox)
+#             parametros = {"apiKey": api.apiKey, "token": token}
+#             # status = api.objetos.call_get_payment_getstatus(
+#             #     parameters=genera_parametros(parametros, api.secretKey)
+#             # )
+#             status = requests.get(
+#                 url+route, params=genera_parametros(parametros, api.secretKey))
+#             status_decode = status.json()
+#             if status_decode["status"] == 2 or status_decode["status"] == "2":
+#                 expiration_long = int(status_decode["optional"]["expiration"])
+#                 expiration_date = timezone.now() + relativedelta(months=expiration_long)
+#                 sale = SalesApi.SalesCreateApi(request, status_decode["payer"], status_decode["optional"]
+#                                                ["serviceId"], expiration_date, "flow", status_decode["amount"], status_decode["flowOrder"])
+#                 return JsonResponse(status=200, data={"status": "success", "message": "Pago realizado con exito"})
+#             else:
+#                 return JsonResponse(status=400, data={"status": "error", "message": "Pago no realizado"})
+#         else:
+#             return JsonResponse(status=400, data={"status": "error", "message": "Token no enviado"})
+#     else:
+#         return JsonResponse(status=400, data={"status": "error", "message": "Metodo no permitido"})
 
 
 @csrf_exempt
