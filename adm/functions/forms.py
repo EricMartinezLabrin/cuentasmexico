@@ -177,7 +177,7 @@ class AccountsForm(forms.ModelForm):
     class Meta:
         model = Account
         fields = ['business', 'supplier', 'account_name', 'expiration_date',
-                  'email', 'password', 'comments', 'renovable', 'created_by', 'modified_by']
+                  'email', 'password', 'comments', 'renovable', 'created_by', 'modified_by', 'renewal_date']
         labels = {
             'business': 'Empresa',
             'supplier': 'Proveedor',

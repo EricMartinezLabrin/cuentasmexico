@@ -123,6 +123,7 @@ class Account(models.Model):
         auto_now=False, auto_now_add=True, null=False)
     expiration_date = models.DateTimeField(
         auto_now=False, auto_now_add=False, null=False)
+    renewal_date = models.DateTimeField(null=True, blank=True)
     email = models.EmailField(max_length=50, null=False)
     password = models.CharField(max_length=50, null=False)
     pin = models.IntegerField(blank=True, null=True)

@@ -5,6 +5,7 @@
 <h1>Administración</h1>
 <a href="{% url 'adm:accounts_create' %}" class="btn btn-cm mb-3">Crear Nueva</a>
 <a href="{% url 'adm:accounts_expired' %}" class="btn btn-primary mb-3">Vencidos</a>
+<a href="{% url 'adm:SearchRenewAcc' %}" class="btn btn-cm-cancel mb-3">Renovaciones</a>
 
 {% if not accounts %}
 <p><strong>No Hay Cuentas Disponibles</strong></p>
