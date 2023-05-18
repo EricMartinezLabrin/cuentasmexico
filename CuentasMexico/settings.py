@@ -161,6 +161,8 @@ DATE_INPUT_FORMATS = ('%d-%m-%Y')
 # EMAIL_FILE_PATH = "/Users/luinmack/Documents/Proyectos/CuentasMexico/tmp"
 
 CORS_ORIGIN_ALLOW_ALL = True
+
 #CORS_ALLOWED_ORIGINS = [
 #    "https://app.cuentasmexico.mx"
 #]
+

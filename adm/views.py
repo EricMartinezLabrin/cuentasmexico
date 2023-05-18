@@ -12,6 +12,7 @@ from django.http import JsonResponse
 from django.db.models import Sum
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
+from django.db.models import DateTimeField, ExpressionWrapper, F
 
 # Python
 from datetime import datetime, timedelta
@@ -351,6 +352,7 @@ def AccountsUpdateView(request, pk):
         email = request.POST.get('email')
         password = request.POST.get('password')
         comments = request.POST.get('comments')
+        renewal_date = request.POST.get('renewal_date')
         if request.POST.get('renovable') == 'on':
             renovable = True
         else:
@@ -370,6 +372,9 @@ def AccountsUpdateView(request, pk):
             a.password = password
             a.comments = comments
             a.renovable = renovable
+            a.renewal_date = renewal_date
+            if request.POST.get('status') == 'on':
+                a.status = True
             a.save()
         return redirect(success_url)
     else:
@@ -1293,3 +1298,59 @@ def ImportView(request):
     ImportData.shop()
     ImportData.cupon()
     return redirect(reverse('adm:index'))
+
+
+@permission_required('is_staff', 'adm:no-permission')
+def SearchRenewAcc(request, **kwargs):
+    template_name = 'adm/search_renew_acc.html'
+    account_name = Service.objects.filter(status=True)
+    if request.method == 'GET':
+        filters = {}
+        for key, value in request.GET.items():
+            if value == None or value == '' or value == {}:
+                continue
+            else:
+                if value == 'on':
+                    value = True
+
+                filters[key] = value
+
+        if len(filters) == 0:
+            accounts = Account.objects.filter(
+                renewal_date__lte=timezone.now().date(), renovable=True).annotate(
+                time_diff=ExpressionWrapper(
+                    F('renewal_date') - timezone.now(), output_field=DateTimeField())
+            ).order_by('time_diff')
+        else:
+            accounts = Account.objects.filter(
+                **filters).annotate(
+                time_diff=ExpressionWrapper(
+                    F('renewal_date') - timezone.now(), output_field=DateTimeField())
+            ).order_by('time_diff')
+        return render(request, template_name, {
+            'object_list': accounts,
+            'account_name': account_name,
+            'count': len(accounts)
+        })
+
+
+def setRenewalDateToExpirationDate(request):
+    accounts = Account.objects.all()
+    for account in accounts:
+        account.renewal_date = account.expiration_date
+        account.save()
+    return redirect(reverse('adm:SearchRenewAcc'))
+
+
+def toogleStatusRenewal(request, id):
+    account = Account.objects.get(pk=id)
+    account.status = not account.status
+    account.save()
+    return redirect(reverse('adm:SearchRenewAcc'))
+
+
+def toogleRenewRenewal(request, id):
+    account = Account.objects.get(pk=id)
+    account.renovable = not account.renovable
+    account.save()
+    return redirect(reverse('adm:SearchRenewAcc'))
