@@ -256,7 +256,7 @@ def getServices(request):
     else:
         protocol = 'http://'
 
-    host = '192.168.100.12:8000/media/'  # request.get_host()
+    host =request.get_host()+'/media/' #'192.168.100.12:8000/media/'  
     if request.method == 'GET':
         services = Service.objects.filter(status=True).values(
             "id", "description", "logo", "info", "price")
@@ -337,7 +337,7 @@ def get_services_by_name_api(request, name):
     else:
         protocol = 'http://'
 
-    host = '192.168.100.12:8000/media/'  # request.get_host()
+    host = request.get_host()+'/media/' #'192.168.100.12:8000/media/'  # request.get_host()
     if request.method == 'GET':
         services = Service.objects.filter(description__icontains=name, status=True).values(
             "id", "description", "logo", "info", "price")
