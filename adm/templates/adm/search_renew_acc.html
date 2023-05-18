@@ -51,7 +51,7 @@
     <div class="d-flex justify-content-center align-items-center mb-3">
         <input type="submit" value="Buscar" class="btn btn-primary me-3">
         <a href="{% url 'adm:SearchRenewAcc' %}" class="btn btn-danger me-3">Limpiar Filtros</a>
-        <a href="{% url 'adm:setRenewalDateToExpirationDate' %}" class="btn btn-danger h-50">Setear Fecha de Renovacion</a>
+        {% comment %} <a href="{% url 'adm:setRenewalDateToExpirationDate' %}" class="btn btn-danger h-50">Setear Fecha de Renovacion</a> {% endcomment %}
     </div>
 
 </form>
