@@ -64,6 +64,7 @@
             <th>Fecha de Vencimiento</th>
             <th>Fecha de Renovacion</th>
             <th>Email</th>
+            <th>Password</th>
             <th>Perfil</th>
             <th>Renovable</th>
             <th>Estado</th>
@@ -77,6 +78,7 @@
             <td>{{data.expiration_date}}</td>
             <td>{{data.renewal_date}}</td>
             <td>{{data.email}}</td>
+            <td>{{data.password}}</td>
             <td>{{data.profile}}</td>
             <td><a href="{% url 'adm:toogleRenewRenewal' data.id %}">{{data.renovable}}</a></td>
             <td><a href="{% url 'adm:toogleStatusRenewal' data.id %}">{{data.status}}</a></td>
