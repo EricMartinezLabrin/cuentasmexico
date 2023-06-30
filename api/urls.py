@@ -25,4 +25,8 @@ urlpatterns = [
          views.get_services_by_name_api, name='get_services_by_name_api'),
     path('create_user_api', views.create_user_api, name='create_user_api'),
     path('changePasswordApi', views.changePasswordApi, name='changePasswordApi'),
+    path('get_free_days_api', views.get_free_days_api, name='get_free_days_api'),
+    path('use_free_days_api', views.use_free_days_api, name='use_free_days_api'),
+    path('register_user_api', views.register_user_api, name='register_user_api'),
+    path('get_countries_api', views.get_countries_api, name='get_countries_api'),
 ]

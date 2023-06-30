@@ -1,3 +1,6 @@
+import csv
+from datetime import timedelta
+from django.db import IntegrityError
 from django.forms import model_to_dict
 from django.shortcuts import render
 from django.contrib.auth import authenticate
@@ -14,7 +17,7 @@ import requests
 # from pyflowcl.utils import genera_parametros
 from dateutil.relativedelta import relativedelta
 
-from adm.models import Business, Sale, Service, UserDetail
+from adm.models import Account, Business, Sale, Service, UserDetail
 from .functions.notifications import send_push_notification
 from .functions.salesApi import SalesApi
 
@@ -106,18 +109,48 @@ def saleApi(request):
         data = json.loads(request.body.decode('utf-8'))
         expiration_long = data['expiration_long']
         expiration_date = timezone.now() + relativedelta(months=expiration_long)
-        customer_email = data['customer_email']
+        customer_username = data['customer_username']
         service_id = data['service_id']
         platform = data['platform']
         amount = data['amount']
         order_id = data['order_id']
         sale = SalesApi.SalesCreateApi(
-            request, customer_email, service_id, expiration_date, platform, amount, order_id)
+            request, customer_username, service_id, expiration_date, platform, amount, order_id)
 
         if sale == False:
             return JsonResponse(status=400, data={"status": "error", "message": "Hubo un error al crear la cuenta, contacta a soporte"})
         else:
-            return JsonResponse(status=200, data={"status": "success", "message": "Cuenta Creada con Exito"})
+            try:
+                customer = User.objects.get(username=customer_username)
+                customer_detail = UserDetail.objects.get(user=customer)
+                if customer_detail.reference_used == False and customer_detail.reference != None:
+                    add_days = SalesApi.add_free_days(request,customer.id)
+                    if add_days:
+                        try:
+                            reference = User.objects.get(pk=customer_detail.reference)
+                            reference_detail = UserDetail.objects.get(user=reference)
+                            send_push_notification(
+                                reference_detail.token,"Referido", "Has recibido un referido, encontraras tu recomenza en la sección Mi Cuenta","MyAccount" )
+                        except User.DoesNotExist:
+                            print("No se encontró el usuario")
+                        except User.MultipleObjectsReturned:
+                            print("Usuario duplicado")
+                        except UserDetail.DoesNotExist:
+                            print("No se encontró el detalle del usuario")
+                        except UserDetail.MultipleObjectsReturned:
+                            print("Detalle de usuario duplicado")
+                        except Exception as e:
+                            print(e)
+                    else:
+                        print(add_days)
+                return JsonResponse(status=200, data={"status": "success", "message": "Cuenta Creada con Exito"})
+            except User.DoesNotExist:
+                return JsonResponse(status=400, data={"status": "error", "message": f"Usuario {customer_username} no encontrado."})
+            except User.MultipleObjectsReturned:
+                return JsonResponse(status=400, data={"status": "error", "message": f"Usuario {customer_username} duplicado."})
+    else:
+        return JsonResponse(status=400, data={"status": "error", "message": "Metodo no permitido"})
+    
 
 
 @csrf_exempt
@@ -247,8 +280,74 @@ def create_user_api(request):
     else:
         return JsonResponse(status=405, data={'detail': 'method not allowed'})
 
-# GET
+@csrf_exempt
+def use_free_days_api(request):
+    if request.method == 'POST':
+        data = json.loads(request.body)
+        try:
+            user = User.objects.get(username = data['user'])
+            days_to_add = int(data['days'])
+            account_to_update = Account.objects.get(pk=data['account_id'])
+            sale_to_extend = Sale.objects.get(account=account_to_update, status=True)
+            user_detail = UserDetail.objects.get(user=user)
+            days_left = user_detail.free_days
+        except User.DoesNotExist:
+            return JsonResponse(status=400, data={'detail':'user not found'})
+        except UserDetail.DoesNotExist:
+            return JsonResponse(status=400, data={'detail':'This user does not have details'})
+        except Account.DoesNotExist:
+            return JsonResponse(status=400,data={'detail': 'Account does not exist'})
+        except Sale.DoesNotExist:
+            return JsonResponse(status=400, data={'detail': 'This account does not have a sale'})
+        
+        if days_to_add <= days_left:
+            sale_to_extend.expiration_date = sale_to_extend.expiration_date + timedelta(days=days_to_add)
+            sale_to_extend.save()
 
+            user_detail.free_days = user_detail.free_days - days_to_add
+            user_detail.save()
+
+            return JsonResponse(status=200, data={'detail':'Success','account': sale_to_extend.account.email, 'new_expiration': sale_to_extend.expiration_date, 'days_left':user_detail.free_days})
+    else:
+        return JsonResponse(status=405, data={'detail': 'method not allowed'})
+
+
+@csrf_exempt
+def register_user_api(request):
+    if request.method == "POST":
+        data = json.loads(request.body)
+        username = data.get('username')
+        password = data.get('password')
+        email = data.get('email')
+        phone_number = data.get('phone_number')
+        country = data.get('country')
+        reference = data.get('reference')
+        print(reference)
+        try:
+            user = User.objects.create_user(
+                username=username, password=password, email=email)
+            user.save()
+            user_detail = UserDetail.objects.create(
+                user=user, phone_number=phone_number, country=country, reference=reference, business= Business.objects.get(id=1), lada=0
+            )
+            if country:
+                with open('adm/db/paises.csv') as country_list:
+                    reader = csv.reader(country_list)
+                    for row in reader:
+                        if row[0] == country:
+                            user_detail.lada = row[5]
+                            user_detail.save()
+                            break
+            return JsonResponse(status=200, data={'detail': 'user created'})
+        except IntegrityError:
+            return JsonResponse(status=400, data={'detail': 'user already exists'})
+
+    else:
+        return JsonResponse(status=405, data={'detail': 'method not allowed'})
+
+
+
+# GET
 
 def getServices(request):
     if request.is_secure():
@@ -256,7 +355,7 @@ def getServices(request):
     else:
         protocol = 'http://'
 
-    host =request.get_host()+'/media/' #'192.168.100.12:8000/media/'  
+    host = request.get_host()+'/media/'  # '192.168.100.12:8000/media/'
     if request.method == 'GET':
         services = Service.objects.filter(status=True).values(
             "id", "description", "logo", "info", "price")
@@ -279,7 +378,7 @@ def loginApi(request, username, password):
     # si el usuario es autenticado correctamente
     if user is not None:
         # Creamos un diccionario user_dict con algunos detalles del usuario
-        user_dict = {"username": user.username, "first_name": user.first_name,
+        user_dict = {"id":user.id,"username": user.username, "first_name": user.first_name,
                      "last_name": user.last_name, "email": user.email}
 
         # Obtenemos los detalles adicionales del usuario y los agregamos a una lista
@@ -310,7 +409,7 @@ def getActiveAccounts(request):
         auth = authenticate(username=username, password=password)
         if auth is not None:  # Verificar si la autenticación tuvo éxito
             # Obtener las ventas asociadas a la cuenta autenticada y las informaciónes de las cuentas
-            sales = Sale.objects.filter(status=True, customer=auth).values("account__account_name__description", "account__account_name__logo",
+            sales = Sale.objects.filter(status=True, customer=auth).values("account__id","account__account_name__description", "account__account_name__logo",
                                                                            "account__email", "account__password", "account__pin", "account__profile", "expiration_date")
             # Devolver las ventas de la cuenta autenticada
             return JsonResponse(status=200, data={'detail': list(sales)})
@@ -337,7 +436,8 @@ def get_services_by_name_api(request, name):
     else:
         protocol = 'http://'
 
-    host = request.get_host()+'/media/' #'192.168.100.12:8000/media/'  # request.get_host()
+    # '192.168.100.12:8000/media/'  # request.get_host()
+    host = request.get_host()+'/media/'
     if request.method == 'GET':
         services = Service.objects.filter(description__icontains=name, status=True).values(
             "id", "description", "logo", "info", "price")
@@ -346,3 +446,42 @@ def get_services_by_name_api(request, name):
         return JsonResponse(status=200, data={'detail': list(services)})
     else:
         return JsonResponse(status=405, data={'detail': 'method not allowed'})
+
+
+def get_free_days_api(request):
+    # Verifica si el método de solicitud es GET
+    if request.method == 'GET':
+        # Obtiene el nombre de usuario de los parámetros de la solicitud
+        username = request.GET.get('username')
+        try:
+            # Obtiene un usuario que coincida con el nombre de usuario
+            user = User.objects.get(username=username)
+        except User.DoesNotExist:
+            # Si no existe un usuario con ese nombre, devuelve una respuesta 400 con un mensaje de error
+            return JsonResponse(status=400, data={'detail': 'user not found'})
+        except User.MultipleObjectsReturned:
+            # Si hay más de un usuario que coincida con el nombre, devuelve una respuesta 400 con un mensaje de error.
+            return JsonResponse(status=400, data={'detail': 'multiple users found'})
+        try:
+            # Obtiene los detalles del usuario, como los días libres
+            user_detail = UserDetail.objects.get(user=user)
+        except UserDetail.DoesNotExist:
+            # Si los detalles del usuario no existen, devuelve una respuesta 400 con un mensaje de error
+            return JsonResponse(status=400, data={'detail': 'user detail not found'})
+        except UserDetail.MultipleObjectsReturned:
+            # Si hay múltiples detalles de usuario que coinciden, devuelve una respuesta 400 con un mensaje de error
+            return JsonResponse(status=400, data={'detail': 'multiple user details found'})
+        # Si todo va bien, devuelve una respuesta 200 con los días libres asociados al usuario.
+        return JsonResponse(status=200, data={'detail': user_detail.free_days})
+
+
+def get_countries_api(request):
+    with open('adm/db/paises.csv') as csv_file:
+        csv_reader = csv.reader(csv_file)
+        data = []
+        for row in csv_reader:
+            data.append(row[0])
+        return JsonResponse({'detail': data})
+    
+
+

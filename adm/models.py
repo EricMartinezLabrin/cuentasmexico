@@ -30,6 +30,7 @@ class Business(models.Model):
     flow_secret_key = models.CharField(max_length=255, null=True, blank=True)
     flow_show = models.BooleanField(default=True)
     logo = models.FileField(upload_to="settings/", null=True, blank=True)
+    free_days = models.IntegerField(default=7)
 
     def __str__(self):
         return self.name

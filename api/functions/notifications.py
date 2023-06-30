@@ -2,7 +2,7 @@ import json
 import requests
 
 
-def send_push_notification(device_token, title, body, url, data={}):
+def send_push_notification(device_token, title, body, url=None, data={}):
     payload = {
         "to": device_token,
         "title": title,

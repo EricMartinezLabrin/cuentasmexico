@@ -93,7 +93,7 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'cuentasmexico',
-        'USER': 'cuentasmexico',
+        'USER': 'root',
         'PASSWORD': 'Tarkan11.-',
         'HOST': 'localhost',
         'PORT': '3306',

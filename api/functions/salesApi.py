@@ -14,7 +14,7 @@ class SalesApi():
             payer = User.objects.create_user(
                 username=payer, password="api", email=payer)
         except User.MultipleObjectsReturned:
-            payer = User.objects.filter(email=payer).first()
+            payer = User.objects.filter(username=payer).first()
         try:
             seller = User.objects.get(username="api")
         except User.DoesNotExist:
@@ -30,7 +30,7 @@ class SalesApi():
 
         best_account = Sales.search_better_acc(
             service_id=service_id, exp=expiration_date)
-        if best_account[0] == True:
+        if best_account != None and best_account[0] == True:
             account = best_account[1]
 
             # Create Sale
@@ -105,5 +105,26 @@ class SalesApi():
                 if not account.email == 'example@example.com':
                     Email.email_passwords(request, account.email, (sale,))
                 return sale
+            else:
+                return False
 
-            return sale
+    def add_free_days(request, customer_id):
+        try:
+            days = Business.objects.get(pk=1).free_days
+            customer = User.objects.get(pk=customer_id)
+            print(customer_id)
+            print(customer)
+            customer_detail = UserDetail.objects.get(user=customer)
+            print(customer_detail)
+            print(customer_detail.free_days)
+            customer_detail.free_days = customer_detail.free_days + days
+            customer_detail.save()
+            print(customer_detail.free_days)
+            reference = User.objects.get(pk=customer_detail.reference)
+            reference_detail = UserDetail.objects.get(user=reference)
+            reference_detail.free_days = reference_detail.free_days + days
+            reference_detail.reference_used = True
+            reference_detail.save()
+            return True
+        except Exception as e:
+            return e
