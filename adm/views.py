@@ -13,6 +13,7 @@ from django.db.models import Sum
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.db.models import DateTimeField, ExpressionWrapper, F
+from calendar import monthrange
 
 # Python
 from datetime import datetime, timedelta
@@ -910,34 +911,35 @@ class ProfileUpdateView(UserAccessMixin, UpdateView):
 
 def BankListView(request):
     """
-    Show all bank accounts
+    Mostrar todas las cuentas bancarias
     """
     template_name = "adm/bank.html"
-    bank = Bank.objects.all()
+    banks = Bank.objects.all()
     object_list = []
-    for b in bank:
+
+    for bank in banks:
         month = datetime.now().month
+        _, last_day = monthrange(2023, month)
         start_date = timezone.make_aware(datetime(2023, month, 1))
-        end_date = timezone.make_aware(
-            datetime(2023, month, 31, 23, 59, 59, 999999))
+        end_date = timezone.make_aware(datetime(2023, month, last_day, 23, 59, 59, 999999))
         sales = Sale.objects.filter(
-            bank=b, created_at__range=(start_date, end_date)).aggregate(Sum('payment_amount', flat=True))
+            bank=bank,
+            created_at__range=(start_date, end_date)
+        ).aggregate(Sum('payment_amount'))
+
         item = {
-            'pk': b.id,
-            'logo': b.logo,
-            'bank_name': b.bank_name,
-            'headline': b.headline,
-            'card_number': b.card_number,
-            'clabe': b.clabe,
+            'pk': bank.pk,
+            'logo': bank.logo,
+            'bank_name': bank.bank_name,
+            'headline': bank.headline,
+            'card_number': bank.card_number,
+            'clabe': bank.clabe,
             'total': sales['payment_amount__sum'],
-            'status': b.status,
+            'status': bank.status,
         }
         object_list.append(item)
-    return render(request, template_name, {
-        'object_list': object_list
-    }
-    )
 
+    return render(request, template_name, {'object_list': object_list})
 
 class bankCreateView(UserAccessMixin, CreateView):
     """
