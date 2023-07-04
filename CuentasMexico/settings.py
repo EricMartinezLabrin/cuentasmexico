@@ -93,7 +93,7 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'cuentasmexico',
-        'USER': 'root',
+        'USER': 'cuentasmexico',
         'PASSWORD': 'Tarkan11.-',
         'HOST': 'localhost',
         'PORT': '3306',
@@ -128,7 +128,7 @@ TIME_ZONE = 'America/Mexico_City'
 
 USE_I18N = True
 
-# USE_TZ = True
+USE_TZ = False
 
 
 # Static files (CSS, JavaScript, Images)
