@@ -50,18 +50,18 @@ class SalesApi():
             account.save()
 
             # send Notification
-            try:
-                token = UserDetail.objects.get(user=payer).token
-                title = f"Muchas Gracias por tu compra"
-                body = f"Para ver las claves de tu cuenta {account.account_name.description} da click en aceptar o visita la seccion Mi Cuenta"
-                url = "MyAccount"
-                notification = send_push_notification(
-                    token, title, body, url)
-            except Exception as e:
-                print(e)
+            # try:
+            #     token = UserDetail.objects.get(user=payer).token
+            #     title = f"Muchas Gracias por tu compra"
+            #     body = f"Para ver las claves de tu cuenta {account.account_name.description} da click en aceptar o visita la seccion Mi Cuenta"
+            #     url = "MyAccount"
+            #     notification = send_push_notification(
+            #         token, title, body, url)
+            # except Exception as e:
+            #     print(e)
 
-            if not account.email == 'example@example.com':
-                Email.email_passwords(request, account.email, (sale,))
+            # if not account.email == 'example@example.com':
+            #     Email.email_passwords(request, account.email, (sale,))
             return sale
         else:
             try:
@@ -92,18 +92,18 @@ class SalesApi():
                 account.save()
 
                 # send Notification
-                try:
-                    token = UserDetail.objects.get(user=payer).token
-                    title = f"Muchas Gracias por tu compra"
-                    body = f"Para ver las claves de tu cuenta {account.account_name.name} da click en el botón de abajo o visita la seccion Mi Cuenta"
-                    url = "MyAccount"
-                    notification = send_push_notification(
-                        token, title, body, url)
-                except:
-                    pass
+                # try:
+                #     token = UserDetail.objects.get(user=payer).token
+                #     title = f"Muchas Gracias por tu compra"
+                #     body = f"Para ver las claves de tu cuenta {account.account_name.name} da click en el botón de abajo o visita la seccion Mi Cuenta"
+                #     url = "MyAccount"
+                #     notification = send_push_notification(
+                #         token, title, body, url)
+                # except:
+                #     pass
 
-                if not account.email == 'example@example.com':
-                    Email.email_passwords(request, account.email, (sale,))
+                # if not account.email == 'example@example.com':
+                #     Email.email_passwords(request, account.email, (sale,))
                 return sale
             else:
                 return False
