@@ -1,0 +1,117 @@
+{% load static %}
+
+<div class="d-flex flex-nowrap position-fixed">
+  <div class="d-flex flex-column flex-shrink-0 p-3 text-bg-dark">
+    <a href="{% url 'index' %}" class="d-flex align-items-center ms-4 mb-3 mb-md-0 me-md-auto text-white text-decoration-none">
+      <img src="/media/{{user.userdetail.business.logo}}" alt="{{user.userdetail.business}} Logo" width="100">
+    </a>
+    <hr>
+    <ul class="nav nav-pills flex-column mb-auto">
+      {% comment %} <li class="nav-item">
+          {% include 'adm/search.html' %}
+      </li>       {% endcomment %}
+      <li class="nav-item">
+        <a href="{% url 'adm:index' %}" class="nav-link text-white" aria-current="page">
+            <i class="bi bi-house-door"></i>
+          inicio
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="{% url 'adm:accounts' %}" class="nav-link text-white" aria-current="page">
+            <i class="bi bi-speedometer2"></i>
+          Cuentas
+        </a>
+      </li>
+      {% if request.user.is_superuser %}
+      <li>
+        <a href="{% url 'adm:cupon' %}" class="nav-link text-white">
+            <i class="bi bi-file-earmark-code"></i>
+          Códigos
+        </a>
+      </li>
+      <li>
+        <a href="{% url 'adm:services' %}" class="nav-link text-white">
+          <i class="bi bi-tag"></i>
+          Servicios
+        </a>
+      </li>      
+      <li>
+        <a href="{% url 'adm:bank' %}" class="nav-link text-white">
+          <i class="bi bi-shop"></i>
+          Bancos
+        </a>
+      </li>
+      <li>
+        <a href="{% url 'adm:payment_method' %}" class="nav-link text-white">
+          <i class="bi bi-shop"></i>
+          Metodos de Pago
+        </a>
+      </li>
+        <li>
+          <a href="{% url 'adm:status' %}" class="nav-link text-white">
+            <i class="bi bi-shop"></i>
+            Status
+          </a>
+        </li>
+        <li>
+          <a href="{% url 'adm:supplier' %}" class="nav-link text-white">
+            <i class="bi bi-shop"></i>
+            Proveedores
+          </a>
+        </li>
+        <li>
+        <a href="{% url 'adm:receivable' %}" class="nav-link text-white">
+          <i class="bi bi-cash-coin"></i>
+          Cobranza  
+        </a>
+      </li>    
+      <li>
+        <a href="{% url 'adm:sales' %}" class="nav-link text-white">
+          <i class="bi bi-cash-coin"></i>
+          Ventas  
+        </a>
+      </li>     
+      <li>
+        <a href="{% url 'adm:user' %}" class="nav-link text-white">
+          <i class="bi bi-person-circle"></i>
+          Usuarios
+        </a>
+      </li>
+      <li>
+        <a href="{% url 'adm:credit_list' %}" class="nav-link text-white">
+          <i class="bi bi-coin"></i>
+          Creditos
+        </a>
+      </li>
+      {% endif %}
+    </ul>
+    <hr>
+    <div class="dropdown">
+      <a href="#" class="d-flex align-items-center text-white text-decoration-none dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+        <img src="/media/{{request.user.userdetail.picture}}" alt="" width="32" height="32" class="rounded-circle me-2">
+        {% if user.first_name %}
+        <strong>{{user.first_name}}</strong>
+        {% else %}
+        <div class="row">
+          <div class="col-0 text-truncate">
+            <strong>{{user.username}}</strong>
+          </div>
+        </div>
+        
+        {% endif %}
+      </a>
+      <ul class="dropdown-menu dropdown-menu-dark text-small shadow">
+        <li><a class="dropdown-item" href="{% url 'adm:profile' %}">Perfil</a></li>
+        {% if user.is_superuser %}
+          <li><a class="dropdown-item" href="{% url 'adm:settings'%}">Ajustes</a></li>
+        {% endif %}
+        <li><hr class="dropdown-divider"></li>
+        <li><a class="dropdown-item" href="{% url 'logout' %}">Cerrar Sesión</a></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="b-example-divider b-example-vr me-3"></div>
+</div>
+
+

@@ -1,0 +1,143 @@
+{% load price %}
+{% load humanize %}
+
+<div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="d-flex">
+            <div class="text-center p-3">
+                <img src="/media/{{object.logo}}" class="rounded" alt="{{object.description}} Logo" width="350">
+            </div>
+            <div class="p-3">
+                <small class="cm">Categoria</small>
+                <h1>{{object.description}}</h1>
+                <div class="d-flex card-text" style="color:orange">
+                    <i class="bi bi-star-fill"></i>
+                    <i class="bi bi-star-fill"></i>
+                    <i class="bi bi-star-fill"></i>
+                    <i class="bi bi-star-fill"></i>
+                    <i class="bi bi-star-fill"></i>
+                    (5)
+                    <div class="cm ms-3">{{count}} reviews</div>
+                </div>
+                <div class="d-flex border-bottom">
+                    <span class="fw-bold text-dark me-1" id="priceDisplay"></span>
+                    <span class="text-decoration-line-through text-muted" id="regularPriceDisplay"></span>
+                    <small class="fs-6 ms-2 text-danger" id="off"></small>
+                </div>
+                <div class="p-3">
+                    {% if object.perfil_quantity == 1 %}
+                        <button type="button" id="disp('1')" class="btn btn-outline-secondary">
+                            1 Dispositivo
+                        </button>
+                    {% elif object.perfil_quantity == 2 %}
+                        <button type="button" id="disp('1')" class="btn btn-outline-secondary">
+                            1 Dispositivo
+                        </button>
+                        <button type="button" onclick="disp('2')" class="btn btn-outline-secondary">
+                            2 Dispositivos
+                        </button>
+                    {% else %}
+                        <button type="button" onclick="disp('1')" class="btn btn-outline-secondary">
+                            1 Dispositivo
+                        </button>
+                        <button type="button" onclick="disp('2')" class="btn btn-outline-secondary">
+                            2 Dispositivos
+                        </button>
+                        <button type="button" onclick="disp('{{object.perfil_quantity}}')" class="btn btn-outline-secondary">
+                            {{object.perfil_quantity}} Dispositivos
+                        </button>                    
+                    {% endif %}
+
+
+                </div>
+                <div class="p-3">
+                    <label for="month">Seleccione cuantos meses desea:</label>
+                    <div class="input-group mb-3">
+                        <button class="btn btn-outline-secondary" type="button" id="btnminus">-</button>
+                        <input type="number" class="form-control no-arrow" id="month" value ="1" aria-label="Example text with button addon" aria-describedby="button-addon1">
+                        <button class="btn btn-outline-secondary" type="button" id="btnplus">+</button>
+                    </div>
+                </div>
+                <form action="{% url 'addCart' object.pk object.price %}" method="POST">
+                    {% csrf_token %}
+                    {% if user.userdetail.level.discount %}
+                    <input type="hidden" name="price" id="correct-price" value="{{object.price|new_price:user.userdetail.level.discount|new_currency:1|intcomma}}">
+                    {% else %}
+                    <input type="hidden" name="price" id="correct-price" value="{{object.price|new_currency:1|intcomma}}">
+                    {% endif %}
+                    <input type="hidden" name="quantity" id="quantity">
+                    <input type="hidden" name="profiles" id="profiles">
+                    <div class="p-3 border-bottom">
+                        <button class="btn btn-cm" type="submit">
+                            <i class="bi bi-plus-lg"></i>
+                            Agregar al Carrito
+                        </button>
+                    </div>
+                </form>
+                <div class="p-3">
+                    Descripción del producto
+                </div>
+            </div>        
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const priceDisplay = document.getElementById('priceDisplay');
+    const regularPriceDisplay = document.getElementById('regularPriceDisplay');
+    const offDisplay = document.getElementById('off');
+    const monthsDisplay = document.getElementById('month')
+    const btnplus = document.getElementById('btnplus');
+    const btnminus = document.getElementById('btnminus');
+    const quantityForm = document.getElementById('quantity');
+    const profilesForm = document.getElementById('profiles');
+    const correctPrice = parseInt(document.getElementById('correct-price').value);
+    
+    var price = correctPrice;
+    var regularPrice = {{object.regular_price}};
+    var off = 100-((price*100)/regularPrice);
+    var prof = 1;
+
+    priceDisplay.innerHTML = `$ ${price} `;
+    regularPriceDisplay.innerHTML = `$ ${regularPrice}`;
+    offDisplay.innerHTML = `${off}% Off`;
+    profilesForm.value = 1;
+    quantityForm.value = 1;
+
+    function prices(){
+        var price = correctPrice*monthsDisplay.value*prof;
+        var regularPrice = {{object.regular_price}}*monthsDisplay.value*prof;
+        var off = 100-((price*100)/regularPrice);
+
+        priceDisplay.innerHTML = `$ ${price} `;
+        regularPriceDisplay.innerHTML = `$ ${regularPrice}`
+        offDisplay.innerHTML = `${off}% Off`
+        quantityForm.value = monthsDisplay.value
+    }
+
+    function disp(profiles){
+        profilesForm.value = profiles
+        prof = profiles
+        prices()
+    }
+
+    monthsDisplay.addEventListener('change',prices)
+
+    btnplus.addEventListener('click',()=>{
+        month = monthsDisplay.value;
+        newMonth = (month*1)+1;
+        monthsDisplay.value = newMonth;
+        prices()
+    })
+
+    btnminus.addEventListener('click',()=>{
+        monthsDisplay.value -= 1;
+        prices()
+    })
+
+  </script>

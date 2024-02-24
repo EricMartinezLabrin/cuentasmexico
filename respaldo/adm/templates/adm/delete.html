@@ -1,0 +1,11 @@
+{% extends 'adm/base/base.html' %}
+{% block title %}Eliminar{% endblock title %}
+{% block body %}
+<h1>Estás borrando {{object}}</h1>
+<form method="post">{% csrf_token %}
+    <p>Estás seguro que quieres borrar "{{ object }}"?</p>
+    {{ form }}
+    <input type="submit" value="Aceptar" class="btn btn-cm">
+    <a href="{% url 'adm:services' %}" class="btn btn-cm-cancel">Cancelar</a>
+</form>
+{% endblock body %}

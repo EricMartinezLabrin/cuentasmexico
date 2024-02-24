@@ -1,0 +1,116 @@
+{% extends 'index/base/base.html' %}
+{% block title %}Checkout{% endblock title %}
+{% block body %}
+<nav style="--bs-breadcrumb-divider: '>';" aria-label="breadcrumb">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="#" class="cm">Inicio</a></li>
+      <li class="breadcrumb-item cm"><a href="#" class="cm">Tienda</a></li>
+      <li class="breadcrumb-item active cm" aria-current="page">Checkout</li>
+    </ol>
+  </nav>
+{% if error_message %}
+  <h1>Checkout</h1>
+
+  {{error_message}}
+  {% else %}
+
+  <div>
+    <h1>Checkout</h1>
+    <small>¿Ya tienes cuenta? Inicia sesión <a href="#" class="cm">aquí</a></small>
+  </div>
+
+    <div class="d-flex">
+        <div class="col-lg-7 col-md-12">
+            {% comment %} <div class="mb-lg-7 p-4 mb-8 mt-8 border rounded">
+                    <div class="d-flex">
+                        <div class="form-check">
+                            <input type="radio" class="form-check-input" name="" id="stripe">    
+                        </div>                   
+                        <label for="stripe">
+                            <div>
+                                <h6 class="mb-1 h6">Tarjeta de Credito / Debito</h6>
+                                <small>Serás redirigido a la pagina de Stripe para terminar el pago</small> 
+                            </div>
+                        </label>     
+                    </div>                  
+            </div>
+            <div class="mb-lg-7 p-4 mb-8 mt-8 border rounded">
+                <div>
+                    <div class="d-flex">
+                        <div class="form-check">
+                            <input type="radio" class="form-check-input" name="" id="">    
+                        </div>                    
+                        <div>
+                            <h6 class="mb-1 h6">Paypal</h6>
+                            <small>Serás redirigido a la pagina de Paypal para terminar el pago</small> 
+                        </div>
+                    </div>                  
+                </div>
+
+            </div> {% endcomment %}
+            <div class="mb-lg-7 p-4 mb-8 mt-8 border rounded">
+                <div>
+                  <a href="{{preference_id}}" target="_blank">
+                    <div class="d-flex">
+                        <div>
+                            <h6 class="mb-1 h6">MercadoPago</h6>
+                            <small>Serás redirigido a la pagina de MercadoPago para terminar el pago</small> 
+                        </div>
+                    </div> 
+                   </a>                  
+                </div>
+
+            </div>
+        </div>
+    <div class="col-12 col-md-12 offset-lg-1 col-lg-4">
+        <div class="mt-4 mt-lg-0">
+          <div class="card shadow-sm">
+            <h5 class="p-3 bg-transparent mb-0">Order Details</h5>
+            <ul class="list-group list-group-flush">
+              <!-- list group item -->
+              {% for cart in cart_detail %}
+                <li class="list-group-item px-4 py-3">
+                  <div class="row align-items-center">
+                    <div class="col-2 col-md-2">
+                      <img src="/media/{{cart.service.logo}}" alt="{{cart.service.description}}" class="img-fluid"></div>
+                    <div class="col-5 col-md-5">
+                      <h6 class="mb-0">{{cart.service.description}}</h6>
+                      <span><small class="text-muted">250g</small></span>
+
+                    </div>
+                    <div class="col-2 col-md-2 text-center text-muted">
+                      <span>{{cart.long}} Meses</span>
+                      <span>{{cart.quantity}} Pantallas</span>
+
+                    </div>
+                    <div class="col-3 text-lg-end text-start text-md-end col-md-3">
+                      <span class="fw-bold">${{cart.price}}</span>
+                      <div class="text-decoration-line-through text-muted small">$26.00</div>
+                    </div>
+                  </div>
+                </li>
+              {% endfor %}
+              <!-- list group item -->
+              <li class="list-group-item px-4 py-3">
+                <div class="d-flex align-items-center justify-content-between fw-bold">
+                  <div>
+                    Subtotal
+                  </div>
+                  <div>
+                    $73.00
+                  </div>
+                </div>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  {% endif %}
+{% endblock body %}
+
+{% block extraje %}
+<script>
+
+</script>
+{% endblock extraje %}

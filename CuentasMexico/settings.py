@@ -17,6 +17,10 @@ from django.urls import reverse_lazy
 from pathlib import Path
 import os
 
+import pymysql
+pymysql.version_info = (1, 4, 5, "final", 0)  # Ajusta la versión según la que tengas instalada
+pymysql.install_as_MySQLdb()
+
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -93,7 +97,7 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'cuentasmexico',
-        'USER': 'cuentasmexico',
+        'USER': 'root',
         'PASSWORD': 'Tarkan11.-',
         'HOST': 'localhost',
         'PORT': '3306',
@@ -128,8 +132,7 @@ TIME_ZONE = 'America/Mexico_City'
 
 USE_I18N = True
 
-#USE_TZ = True
-
+USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.1/howto/static-files/
@@ -160,7 +163,9 @@ DATE_INPUT_FORMATS = ('%d-%m-%Y')
 # EMAIL_BACKEND = "naomi.mail.backends.naomi.NaomiBackend"
 # EMAIL_FILE_PATH = "/Users/luinmack/Documents/Proyectos/CuentasMexico/tmp"
 
-#CORS_ORIGIN_ALLOW_ALL = True
-CORS_ALLOWED_ORIGINS = [
-    "https://app.cuentasmexico.mx"
-]
+CORS_ORIGIN_ALLOW_ALL = True
+
+#CORS_ALLOWED_ORIGINS = [
+#    "https://app.cuentasmexico.mx"
+#]
+
