@@ -1090,9 +1090,12 @@ a.deletelink:focus, a.deletelink:hover {
 /* PAGINATOR */
 
 .paginator {
+<<<<<<< HEAD
     display: flex;
     align-items: center;
     gap: 4px;
+=======
+>>>>>>> 3498f55fbf9b5912b63923d4e08c4db8a5b02446
     font-size: 0.8125rem;
     padding-top: 10px;
     padding-bottom: 10px;
@@ -1136,10 +1139,13 @@ a.deletelink:focus, a.deletelink:hover {
     background: var(--link-hover-color);
 }
 
+<<<<<<< HEAD
 .paginator input {
     margin-left: auto;
 }
 
+=======
+>>>>>>> 3498f55fbf9b5912b63923d4e08c4db8a5b02446
 .base-svgs {
     display: none;
 }

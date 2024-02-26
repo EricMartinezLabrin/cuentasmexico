@@ -1,0 +1,110 @@
+{% extends 'adm/base/base.html' %}
+{% block title %}Cuentas{% endblock title %}
+{% block body %}
+<h1>Cuentas</h1>
+<form method="POST">
+    {% csrf_token %}
+    <div class="d-flex w-100">
+        <div class="w-100">
+            <p>
+                {{form.supplier.label}}
+                {{form.supplier}}                
+            </p>
+            <p>
+                {{form.account_name.label}}
+                {{form.account_name}}              
+            </p>
+            <p>
+                {{form.expiration_date.label}}
+                {% comment %} {{form.expiration_date}}             {% endcomment %}
+                <input type="date" name="{{form.expiration_date.name}}" id="newExpiration" value="{{form.expiration_date.value|date:"Y-m-d"}}" class="form-control">
+            </p>
+            <p>
+                <label for="renewal_date">Fecha de Renovación</label>
+                <input type="date" name="renewal_date" id="renewal_date" value="{{form.renewal_date.value|date:"Y-m-d"}}" class="form-control">
+            </p>
+
+            <p>
+                <label for="status">¿Reactivar suspendidas?</label>
+                <input type="checkbox" name="status" id="status" checked >
+            </p>
+
+        </div>
+        <div class="w-100 ms-3">
+            <p>
+                {{form.email.label}}
+                {{form.email}}                
+            </p>
+            <p>
+                {{form.password.label}}
+                {{form.password}}                
+            </p>
+            <p>
+                {{form.comments.label}}
+                {{form.comments}}                
+            </p>
+
+            <p>
+                {{form.renovable.label}}
+                {{form.renovable}}   
+            </p>
+
+            <p id="sugested"></p>
+
+        </div>
+
+
+    </div>
+    {{form.business}}
+    <input type="hidden" name="last_expiration_date" id="last_expiration_date" value={{form.expiration_date.value|date:"Y-m-d"}}>
+    <input type="hidden" name="{{form.created_by.name}}" value="{{request.user.id}}">
+    <input type="hidden" name="{{form.modified_by.name}}" value="{{request.user.id}}">
+    <input type="submit" value="Terminar" class="btn btn-cm">
+    <a href="{% url 'adm:accounts' %}" class="btn btn-cm-cancel">Cancelar</a>
+</form>
+
+{% endblock body %}
+
+{% block extrajs %}
+
+<script>
+    let sugested = document.getElementById('sugested');
+    let lastExpirationDateInput = document.getElementById('last_expiration_date');
+    let newExpirationInput = document.getElementById('newExpiration');
+    let renewalDateInput = document.getElementById('renewal_date');
+    
+    newExpirationInput.addEventListener('change', () => {
+      let lastExpirationDate = lastExpirationDateInput.value;
+      let newExpiration = newExpirationInput.value;
+      let renewalDate = renewalDateInput.value;
+    
+      const lastExpirationDateFormated = new Date(lastExpirationDate);
+      const newExpirationDate = new Date(newExpiration);
+      const renewalDateFormated = new Date(renewalDate)
+    
+      const differenceInDays = (date1, date2) => {
+        const diffInMs = Math.abs(date2 - date1);
+        return diffInMs / (1000 * 60 * 60 * 24);
+      };
+    
+      const daysOfAccount = Math.round(
+        differenceInDays(lastExpirationDateFormated, newExpirationDate)
+      );
+    
+      const suggestedDay = new Date(
+        renewalDateFormated.getTime() + daysOfAccount * 24 * 60 * 60 * 1000
+      );
+    
+      const day = suggestedDay.getDate().toString().padStart(2, '0');
+      const month = (suggestedDay.getMonth() + 1).toString().padStart(2, '0');
+      const year = suggestedDay.getFullYear().toString();
+      const formattedDate = `${day}/${month}/${year}`;
+    
+      sugested.innerHTML = `
+      <label for="sugested">Fecha de renovación sugerida</label>
+          <input type="text" id="sugested" value="${formattedDate}" disabled>
+        `;
+    });
+    </script>
+    
+{% endblock extrajs %}

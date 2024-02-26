@@ -561,14 +561,6 @@ input[type="submit"], button {
         width: calc(100vw - 30px);
     }
 
-    .flex-container {
-        flex-flow: column;
-    }
-
-    .flex-container.checkbox-row {
-        flex-flow: row;
-    }
-
     textarea {
         max-width: none;
     }
@@ -621,7 +613,8 @@ input[type="submit"], button {
     }
 
     .aligned p.file-upload {
-        font-size: 0.8125rem;
+        margin-left: 0;
+        font-size: 13px;
     }
 
     span.clearable-file-input {
