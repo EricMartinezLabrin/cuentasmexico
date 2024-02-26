@@ -9,6 +9,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.models import User
 from django.utils import timezone
 from django.contrib.auth.hashers import make_password
+from django.db.models import Case, When, Value, CharField
 
 import json
 import stripe
@@ -348,6 +349,46 @@ def register_user_api(request):
 
 
 # GET
+def get_active_sales_by_user_api(request):
+    if request.method == 'GET':
+        username = request.GET.get('customer')[2:]
+        try:
+            user_obj = User.objects.get(username=username)
+            sales = Sale.objects.filter(status=True, customer=user_obj).values(
+    "id",
+    "business_id",
+    "user_seller_id",
+    "bank_id",
+    "customer_id",
+    "account_id",
+    "status",
+    "payment_method_id",
+    "created_at",
+    "expiration_date",
+    "payment_amount",
+    "invoice",
+    "comment",
+    "old_acc",
+    "account_id__account_name__description",
+    "account_id__email",
+    "account_id__password",
+    "account_id__pin",
+    "account_id__profile",
+).annotate(
+    pin_status=Case(
+        When(account_id__pin__isnull=True, then=Value('No tiene Pin')),
+        default='account_id__pin',
+        output_field=CharField(),
+    )
+)
+        except User.DoesNotExist:
+            return JsonResponse(status=400, data={'detail': 'user not found'})
+        except User.MultipleObjectsReturned:
+            return JsonResponse(status=400, data={'detail': 'multiple users found'})
+        
+        return JsonResponse(status=200, data={'detail': list(sales)})
+    else:
+        return JsonResponse(status=405, data={'detail': 'method not allowed'})
 
 def getServices(request):
     if request.is_secure():
@@ -364,7 +405,6 @@ def getServices(request):
         return JsonResponse(status=200, data={'detail': list(services)})
     else:
         return JsonResponse(status=405, data={'detail': 'method not allowed'})
-
 
 def loginApi(request, username, password):
     """

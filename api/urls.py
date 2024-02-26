@@ -29,4 +29,5 @@ urlpatterns = [
     path('use_free_days_api', views.use_free_days_api, name='use_free_days_api'),
     path('register_user_api', views.register_user_api, name='register_user_api'),
     path('get_countries_api', views.get_countries_api, name='get_countries_api'),
+    path('get_active_sales_by_user_api/', views.get_active_sales_by_user_api, name='get_active_sales_by_user_api'),
 ]
