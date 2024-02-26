@@ -5,7 +5,6 @@ from adm.models import UserDetail, Account, Service
 from django.utils import timezone
 # Python
 from datetime import datetime, timedelta
-import pandas as pd
 from calendar import monthrange
 # Local
 from adm.models import Sale
@@ -14,7 +13,7 @@ from adm.models import Sale
 class Dashboard():
 
     def sales_per_country_day():
-        today = timezone.now()
+        today = datetime.now()
         sales_country = {}
         countries = Sale.objects.values('customer__userdetail__country').order_by(
             'customer__userdetail__country').distinct()
@@ -29,8 +28,8 @@ class Dashboard():
         return sales_country
 
     def sales_per_country_month():
-        month = timezone.now().month
-        year = timezone.now().year
+        month = datetime.now().month
+        year = datetime.now().year
         last_day = monthrange(year, month)[1]
         start = f'{year}-{month}-01 00:00:00'
         end = f'{year}-{month}-{last_day} 23:59:59'
@@ -49,8 +48,8 @@ class Dashboard():
 
     def sales_per_account():
 
-        month = timezone.now().month
-        year = timezone.now().year
+        month = datetime.now().month
+        year = datetime.now().year
         last_day = monthrange(year, month)[1]
         start = f'{year}-{month}-01 00:00:00'
         end = f'{year}-{month}-{last_day} 23:59:59'

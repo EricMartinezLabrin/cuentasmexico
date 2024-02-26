@@ -12,14 +12,17 @@ from django.http import JsonResponse
 from django.db.models import Sum
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
+from django.db.models import DateTimeField, ExpressionWrapper, F
+from calendar import monthrange
 
 # Python
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
-import requests
 from api.functions.notifications import send_push_notification
 import pyperclip as clipboard
-import pandas as pd
+from django.db.models import DurationField
+
+# import pandas as pd
 
 # Local
 from .models import Business, PaymentMethod, Sale, UserDetail, Service, Account, Bank, Status, Supplier, Credits
@@ -32,7 +35,7 @@ from .functions.active_inactive import Active_Inactive
 from .functions.dashboard import Dashboard
 from adm.functions.duplicated import NoDuplicate
 from adm.functions.sales import Sales
-from adm.functions.import_data import ImportData
+# from adm.functions.import_data import ImportData
 from adm.db.constants import URL
 
 
@@ -351,6 +354,7 @@ def AccountsUpdateView(request, pk):
         email = request.POST.get('email')
         password = request.POST.get('password')
         comments = request.POST.get('comments')
+        renewal_date = request.POST.get('renewal_date')
         if request.POST.get('renovable') == 'on':
             renovable = True
         else:
@@ -370,6 +374,9 @@ def AccountsUpdateView(request, pk):
             a.password = password
             a.comments = comments
             a.renovable = renovable
+            a.renewal_date = renewal_date
+            if request.POST.get('status') == 'on':
+                a.status = True
             a.save()
         return redirect(success_url)
     else:
@@ -905,34 +912,35 @@ class ProfileUpdateView(UserAccessMixin, UpdateView):
 
 def BankListView(request):
     """
-    Show all bank accounts
+    Mostrar todas las cuentas bancarias
     """
     template_name = "adm/bank.html"
-    bank = Bank.objects.all()
+    banks = Bank.objects.all()
     object_list = []
-    for b in bank:
+
+    for bank in banks:
         month = datetime.now().month
+        _, last_day = monthrange(2023, month)
         start_date = timezone.make_aware(datetime(2023, month, 1))
-        end_date = timezone.make_aware(
-            datetime(2023, month, 31, 23, 59, 59, 999999))
+        end_date = timezone.make_aware(datetime(2023, month, last_day, 23, 59, 59, 999999))
         sales = Sale.objects.filter(
-            bank=b, created_at__range=(start_date, end_date)).aggregate(Sum('payment_amount', flat=True))
+            bank=bank,
+            created_at__range=(start_date, end_date)
+        ).aggregate(Sum('payment_amount'))
+
         item = {
-            'pk': b.id,
-            'logo': b.logo,
-            'bank_name': b.bank_name,
-            'headline': b.headline,
-            'card_number': b.card_number,
-            'clabe': b.clabe,
+            'pk': bank.pk,
+            'logo': bank.logo,
+            'bank_name': bank.bank_name,
+            'headline': bank.headline,
+            'card_number': bank.card_number,
+            'clabe': bank.clabe,
             'total': sales['payment_amount__sum'],
-            'status': b.status,
+            'status': bank.status,
         }
         object_list.append(item)
-    return render(request, template_name, {
-        'object_list': object_list
-    }
-    )
 
+    return render(request, template_name, {'object_list': object_list})
 
 class bankCreateView(UserAccessMixin, CreateView):
     """
@@ -1215,7 +1223,7 @@ def ReleaseAccounts(request, pk):
             try:
                 sale_expiration = Sale.objects.get(
                     account=a.pk, customer=a.customer, status=True)
-                now = datetime.now(timezone.utc)
+                now = datetime.now()
                 if sale_expiration.expiration_date > now:
                     token = UserDetail.objects.get(user=a.customer).token
                     title = f"Las claves de tu {a.account_name} fueron actualizadas"
@@ -1293,3 +1301,60 @@ def ImportView(request):
     ImportData.shop()
     ImportData.cupon()
     return redirect(reverse('adm:index'))
+
+
+@permission_required('is_staff', 'adm:no-permission')
+def SearchRenewAcc(request, **kwargs):
+    template_name = 'adm/search_renew_acc.html'
+    account_name = Service.objects.filter(status=True)
+    if request.method == 'GET':
+        filters = {}
+        for key, value in request.GET.items():
+            if value == None or value == '' or value == {}:
+                continue
+            else:
+                if value == 'on':
+                    value = True
+
+                filters[key] = value
+
+        if len(filters) == 0:
+            accounts = Account.objects.filter(
+                renewal_date__lte=timezone.now().date(), renovable=True).annotate(
+                time_diff=ExpressionWrapper(
+    F('renewal_date') - timezone.now(), output_field=DurationField()
+)
+            ).order_by('time_diff')
+        else:
+            accounts = Account.objects.filter(
+                **filters).annotate(
+                time_diff=ExpressionWrapper(
+                    F('renewal_date') - timezone.now(), output_field=DateTimeField())
+            ).order_by('time_diff')
+        return render(request, template_name, {
+            'object_list': accounts,
+            'account_name': account_name,
+            'count': len(accounts)
+        })
+
+
+def setRenewalDateToExpirationDate(request):
+    accounts = Account.objects.all()
+    for account in accounts:
+        account.renewal_date = account.expiration_date
+        account.save()
+    return redirect(reverse('adm:SearchRenewAcc'))
+
+
+def toogleStatusRenewal(request, id):
+    account = Account.objects.get(pk=id)
+    account.status = not account.status
+    account.save()
+    return redirect(reverse('adm:SearchRenewAcc'))
+
+
+def toogleRenewRenewal(request, id):
+    account = Account.objects.get(pk=id)
+    account.renovable = not account.renovable
+    account.save()
+    return redirect(reverse('adm:SearchRenewAcc'))

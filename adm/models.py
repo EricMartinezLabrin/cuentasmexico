@@ -22,13 +22,15 @@ class Business(models.Model):
     phoneNumberRegex = RegexValidator(regex=r"^\+?1?\d{8,15}$")
     phone_number = models.CharField(
         validators=[phoneNumberRegex], max_length=16, null=False, blank=False)
-    stripe_customer_key = models.CharField(max_length=255, null=True, blank=True)
+    stripe_customer_key = models.CharField(
+        max_length=255, null=True, blank=True)
     stripe_secret_key = models.CharField(max_length=255, null=True, blank=True)
-    stripe_sandbox= models.BooleanField(default=True)
+    stripe_sandbox = models.BooleanField(default=True)
     flow_customer_key = models.CharField(max_length=255, null=True, blank=True)
     flow_secret_key = models.CharField(max_length=255, null=True, blank=True)
     flow_show = models.BooleanField(default=True)
     logo = models.FileField(upload_to="settings/", null=True, blank=True)
+    free_days = models.IntegerField(default=7)
 
     def __str__(self):
         return self.name
@@ -36,6 +38,7 @@ class Business(models.Model):
 
 class Service(models.Model):
     description = models.CharField(max_length=40)
+    info = models.CharField(max_length=255, null=True, blank=True)
     perfil_quantity = models.IntegerField()
     status = models.BooleanField(default=True)
     logo = models.FileField(upload_to="settings/", null=True, blank=True)
@@ -121,6 +124,7 @@ class Account(models.Model):
         auto_now=False, auto_now_add=True, null=False)
     expiration_date = models.DateTimeField(
         auto_now=False, auto_now_add=False, null=False)
+    renewal_date = models.DateTimeField(null=True, blank=True)
     email = models.EmailField(max_length=50, null=False)
     password = models.CharField(max_length=50, null=False)
     pin = models.IntegerField(blank=True, null=True)
@@ -142,7 +146,7 @@ class Sale(models.Model):
         Bank, on_delete=models.DO_NOTHING, blank=True, null=True)
     customer = models.ForeignKey(
         User, on_delete=models.DO_NOTHING, related_name='Customer')
-    account = models.ForeignKey(Account, on_delete=models.DO_NOTHING)
+    account = models.ForeignKey(Account, on_delete=models.CASCADE)
     status = models.BooleanField(default=True)
     payment_method = models.ForeignKey(
         PaymentMethod, on_delete=models.DO_NOTHING, blank=True, null=True)

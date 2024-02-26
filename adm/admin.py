@@ -8,6 +8,10 @@ class ParteAdmin(admin.ModelAdmin):
     search_fields = ['user__username']
     # con esto añadiras una lista desplegable con la que podras filtrar (activo es un atributo booleano)
     list_filter = ['level']
+	
+class SearchAccount(admin.ModelAdmin):
+    search_fields = ['email']
+    list_filter = ['status','account_name_id']
 
 # Register your models here.
 admin.site.register(Bank)
@@ -15,7 +19,7 @@ admin.site.register(PaymentMethod)
 admin.site.register(Status)
 admin.site.register(UserDetail,ParteAdmin)
 admin.site.register(Supplier)
-admin.site.register(Account)
+admin.site.register(Account, SearchAccount)
 admin.site.register(Sale)
 admin.site.register(Business)
 admin.site.register(Level)
