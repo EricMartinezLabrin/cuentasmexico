@@ -47,3 +47,9 @@ def get_active_sales_by_user_api(request,customer):
             return JsonResponse({"error": "Failed to retrieve customer data"}, status=response.status_code)
     else:
         return JsonResponse({"error": "Invalid request method"}, status=400)
+    
+def bot_gpt_history_api(request):
+    if request.method == 'POST':
+        pass
+    else:
+        return JsonResponse({"error": "Invalid request method"}, status=400)
