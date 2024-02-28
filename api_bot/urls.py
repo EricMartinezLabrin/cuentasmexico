@@ -9,5 +9,5 @@ from . import views
 app_name = "api_bot"
 
 urlpatterns = [
-    # path('get_active_sales_by_user_api/', views.get_active_sales_by_user_api, name='get_active_sales_by_user_api'),
+path('get_active_sales_by_user_api/<str:customer>/', views.get_active_sales_by_user_api, name='get_active_sales_by_user_api'),
 ]
