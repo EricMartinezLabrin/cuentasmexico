@@ -1,7 +1,9 @@
+import json
 from django.http import JsonResponse
 from django.shortcuts import render
 from django.urls import reverse
 import requests
+from django.views.decorators.csrf import csrf_exempt
 
 local_url = 'http://127.0.0.1:8000/api'
 pyc_url = 'https://bdpyc.cl/api'
@@ -48,8 +50,27 @@ def get_active_sales_by_user_api(request,customer):
     else:
         return JsonResponse({"error": "Invalid request method"}, status=400)
     
+
+# POSt
+@csrf_exempt
 def bot_gpt_history_api(request):
     if request.method == 'POST':
-        pass
+        data = json.loads(request.body)
+        history = data['custom_fields']['Historial del Chat']
+        webhook = data['custom_fields']['WebHook']
+        chatgpt = data['custom_fields']['ChatGpt']
+        user_response = data['custom_fields']['Respuesta del Usuario']
+
+        if webhook:
+            if webhook not in history:
+                history+=f"\n{webhook}"
+        if chatgpt:
+            if chatgpt not in history:
+                history+=f"\n{chatgpt}"
+        if user_response:
+            if user_response not in history:
+                history+=f"\n{user_response}"
+    
+        return JsonResponse(status=200, data={'detail': history})
     else:
         return JsonResponse({"error": "Invalid request method"}, status=400)
