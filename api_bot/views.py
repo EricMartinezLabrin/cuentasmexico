@@ -5,7 +5,7 @@ from django.urls import reverse
 import requests
 from django.views.decorators.csrf import csrf_exempt
 
-local_url = 'http://127.0.0.1:8000/api'
+local_url = 'https://cuentasmexico/api'
 pyc_url = 'https://bdpyc.cl/api'
 
 # Create your views here.
@@ -61,15 +61,25 @@ def bot_gpt_history_api(request):
         chatgpt = data['custom_fields']['ChatGpt']
         user_response = data['custom_fields']['Respuesta del Usuario']
 
-        if webhook:
-            if webhook not in history:
+        if history:
+            if webhook:
+                if webhook not in history:
+                    history+=f"\n{webhook}"
+            if chatgpt:
+                if chatgpt not in history:
+                    history+=f"\n{chatgpt}"
+            if user_response:
+                if user_response not in history:
+                    history+=f"\n{user_response}"
+        else:
+            history = ""
+            if webhook:
                 history+=f"\n{webhook}"
-        if chatgpt:
-            if chatgpt not in history:
+            if chatgpt:
                 history+=f"\n{chatgpt}"
-        if user_response:
-            if user_response not in history:
+            if user_response:
                 history+=f"\n{user_response}"
+
     
         return JsonResponse(status=200, data={'detail': history})
     else:

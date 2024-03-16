@@ -31,6 +31,9 @@ try:
 except Business.DoesNotExist:
     pass
 
+local_url = 'https://cuentasmexico/api'
+pyc_url = 'https://bdpyc.cl/api'
+
 # POST
 
 
@@ -351,7 +354,7 @@ def register_user_api(request):
 # GET
 def get_active_sales_by_user_api(request, customer):
     if request.method == 'GET':
-        username = customer[2:]
+        username = customer[-10:]
         try:
             user_obj = User.objects.get(username=username)
             sales = Sale.objects.filter(status=True, customer=user_obj).values(
@@ -381,6 +384,37 @@ def get_active_sales_by_user_api(request, customer):
                 output_field=CharField(),
             )
         )
+            if len(sales) == 0:
+                user_detail = UserDetail.objects.get(phone_number=customer[-10:])
+                user_obj = User.objects.get(username=user_detail.user)
+                sales = Sale.objects.filter(status=True, customer=user_obj).values(
+                "id",
+                "business_id",
+                "user_seller_id",
+                "bank_id",
+                "customer_id",
+                "account_id",
+                "status",
+                "payment_method_id",
+                "created_at",
+                "expiration_date",
+                "payment_amount",
+                "invoice",
+                "comment",
+                "old_acc",
+                "account_id__account_name__description",
+                "account_id__email",
+                "account_id__password",
+                "account_id__pin",
+                "account_id__profile",
+            ).annotate(
+                pin_status=Case(
+                    When(account_id__pin__isnull=True, then=Value('No tiene Pin')),
+                    default='account_id__pin',
+                    output_field=CharField(),
+                )
+            )
+                print(sales)
         except User.DoesNotExist:
             return JsonResponse(status=400, data={'detail': 'user not found'})
         except User.MultipleObjectsReturned:
@@ -523,5 +557,47 @@ def get_countries_api(request):
             data.append(row[0])
         return JsonResponse({'detail': data})
     
+def auto_update_password_api(request):
+    if request.method == 'GET':
+        try:
+            service = Service.objects.get(id=21)
+            accounts = Account.objects.filter(account_name=service)
+        except Service.DoesNotExist:
+            return JsonResponse(status=400, data={"status": "error", "message": "No se encontraron las llaves"})  
+        except Account.DoesNotExist:
+            return JsonResponse(status=400, data={"status": "error", "message": "No se encontraron las llaves"})
+        except Account.MultipleObjectsReturned:
+            return JsonResponse(status=400, data={"status": "error", "message": "No se encontraron las llaves"})
+        except Service.MultipleObjectsReturned:
+            return JsonResponse(status=400, data={"status": "error", "message": "No se encontraron las llaves"})
+        
+        success=0
+        failed=0
 
+        for account in accounts:
+            response = requests.get(f'{pyc_url}/get_password_by_email_api?email={account.email}')
+            if response.status_code == 200:
+                pyc_data = response.json()
+                if account.password == pyc_data['password']:
+                    # print(f"La cuenta {account.email} ya tiene la contraseña actualizada")
+                    continue
+                if pyc_data['status'] ==True:
+                    account.status=1
+                if pyc_data['status'] == False:
+                    account.status=0
+                else:
+                    account.status=0
+                    account.comment="no"
+                account.password = pyc_data['password']
+                account.save()
+                success+=1
+                # print(f"La cuenta {account.email} se actualizó con éxito")
+            else:
+                failed+=1
+                account.status=0
+                account.comment="no"
+                account.save()
+                continue
+
+        return JsonResponse(status=200, data={"status": "Finished","success":success,"failed":failed})  
 
