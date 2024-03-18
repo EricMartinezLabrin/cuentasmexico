@@ -18,6 +18,7 @@ from calendar import monthrange
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 import requests
+from adm.functions.send_whatsapp_notification import Notification
 from api.functions.notifications import send_push_notification
 import pyperclip as clipboard
 from django.db.models import DurationField
@@ -480,6 +481,11 @@ def key_adjust(request, pk):
         new_date = expiration_date + timedelta(days=days)
         sale.expiration_date = new_date
         sale.save()
+        account_name = sale.account.account_name
+        accont_email = sale.account.email
+        message = f"Hemos ajustado la fecha de vencimiento, de tu cuenta {account_name} con email {accont_email} ahora vence el {new_date.strftime('%d/%m/%Y')}"
+        customer_detail = UserDetail.objects.get(user=sale.customer.id)
+        Notification.send_whatsapp_notification(message,customer_detail.lada,customer_detail.phone_number)
         return redirect(reverse_lazy('adm:sales'))
     return render(request, template_name, {
         'pk': pk
@@ -1091,6 +1097,10 @@ def ReleaseAccounts(request, pk):
     for sales in sales_to_release:   
         sales[0].status = False
         sales[0].save()
+        message = f'Le informamos que su cuenta {sales[0].account.account_name.description} con email {sales[0].account.email} fue suspendida por falta de pago. Aún está a tiempo de recuperarla renovando su cuenta. Por favor, si tiene alguna duda o comentario solo escribe Hablar con un Humano o envianos un whats app al número de siempre. Saludos.'
+        customer_detail_released = UserDetail.objects.get(user=sales[0].customer)
+        Notification.send_whatsapp_notification(message,customer_detail_released.lada,customer_detail_released.phone_number)
+
 
         # ReleaseProfile
         account = sales[0].account
@@ -1122,17 +1132,13 @@ def ReleaseAccounts(request, pk):
         
         #Notificar a los clientes
         for customer in sales_to_report:
-            message = f'Estimado cliente, le informamos que por su seguridad las claves de su cuenta {data_account.account_name} fueron cambiadas. A continuación le dejo sus nuevas claves:\n'
+            message = f'Le informamos que por su seguridad las claves de su cuenta {data_account.account_name} fueron cambiadas. A continuación le dejo sus nuevas claves:\n'
             message += f'Email: {email}\n'
             message += f'Contraseña: {password}\n'
             message += f'El perfil, pin y fechas de vencimiento siguen siendo los mismos.\n'
             message += f'Por favor, si tiene alguna duda o comentario solo escribe Hablar con un Humano o envianos un whats app al número de siempre. Saludos.'
             customer_detail = UserDetail.objects.get(user=customer[0].customer)
-            customer_phone = f'{customer_detail.lada}1{customer_detail.phone_number}'
-            requests.post('https://hook.us1.make.com/tjbu4dtlfb3uilc1111xt3o6lha7jlbv', {
-                'phone': customer_phone,
-                'body': message
-            })
+            Notification.send_whatsapp_notification(message,customer_detail.lada,customer_detail.phone_number)
 
         for a in acc:
             a.supplier = supplier

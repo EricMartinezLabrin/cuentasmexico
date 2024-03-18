@@ -1,3 +1,4 @@
+from adm.functions.send_whatsapp_notification import Notification
 from adm.models import Account, Service, UserDetail, Bank, PaymentMethod, Sale, Status, Business, Credits
 from api.functions.notifications import send_push_notification
 from cupon.models import Cupon
@@ -101,6 +102,16 @@ class Sales():
                 # update date
                 sale.created_at = created_at
                 sale.save()
+                if acc.pin == None:
+                    acc.pin = "No tiene Pin"
+                message = f"Gracias por tu compra, tu cuenta {acc.account_name.description} ha sido activada, a continuación obtendras los datos de tu cuenta:\n"
+                message += f"Usuario: {acc.email}\n"
+                message += f"Contraseña: {acc.password}\n"
+                message += f"Perfil: {acc.profile}\n"
+                message += f"Pin: {acc.pin}\n"
+                message += f"Vencimiento: {sale.expiration_date.date()}\n"
+                customer_detail = UserDetail.objects.get(user=customer)
+                Notification.send_whatsapp_notification(message,customer_detail.lada,customer_detail.phone_number)
                 try:
                     token = UserDetail.objects.get(user=customer).token
                     title = f"Muchas Gracias por tu compra"
