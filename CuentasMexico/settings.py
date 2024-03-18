@@ -54,7 +54,8 @@ INSTALLED_APPS = [
     'cupon',
     'api',
     'corsheaders',
-    'api_bot'
+    'api_bot',
+    'ThanksYou'
 ]
 INSTALLED_APPS += ('naomi',)
 SITE_ID = 1
