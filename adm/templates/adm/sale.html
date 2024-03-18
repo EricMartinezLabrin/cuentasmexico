@@ -38,7 +38,7 @@
 <!--Seach Box-->
 <form method="post" class="d-flex w-100">
     {% csrf_token %}
-    <input type="text" class="form-control" name="customer" placeholder="Ingresa email o whats app sin codigo de país" autofocus>
+    <input type="text" class="form-control" name="customer" placeholder="Ingresa email o whats app sin codigo de pais" autofocus>
     <input type="submit" value="Buscar Cliente" class="btn btn-cm ms-2">
     <a href="{% url 'adm:sales' %}" class="btn btn-cm-cancel ms-2">Limpiar</a>
     {% if customer and customer.userdetail.country %}
@@ -46,7 +46,7 @@
         
         {% else %}
             <a href="{% url 'adm:sales_create' customer.id %}" class="btn btn-primary ms-2">Venta</a>         
-            <a href="#" class="btn btn-info ms-2" data-bs-toggle="modal" data-bs-target="#staticBackdrop">Código</a>         
+            <a href="#" class="btn btn-info ms-2" data-bs-toggle="modal" data-bs-target="#staticBackdrop">Codigo</a>         
         {% endif %}
    
     {% endif %}
@@ -55,7 +55,7 @@
 <!--Country do not seted-->
 {% if customer and not customer.userdetail.country or customer.userdetail.country == '??' %}
     <div class="alert alert-danger mt-3" role="alert">
-        Para crear una venta debes completar el perfil del cliente haciendo clic <a href="{% url 'adm:user_update' customer.userdetail.id %}" class="alert-link">aquí</a>.
+        Para crear una venta debes completar el perfil del cliente haciendo clic <a href="{% url 'adm:user_update' customer.userdetail.id %}" class="alert-link">aqui</a>.
     </div>
 {% endif %}
 
@@ -75,7 +75,7 @@
             <th></th>
             <th></th>
             <th>E-Mail</th>
-            <th>Contraseña</th>
+            <th>Clave</th>
             <th>Pin</th>
             <th>Perfil</th>
             <th>F.Compra</th>
@@ -93,21 +93,26 @@
                             <i class="bi bi-star-fill" style="color:orange"></i>
                         {% endif %}
                           <!--Copiado-->
-                        <textarea id="{{a.id}}" style="border:none;background-color:transparent;overflow: hidden;resize: none;" rows="1" cols="1" readonly>
+                        {% comment %} <textarea id="{{a.id}}" style="border:none;background-color:transparent;overflow: hidden;resize: none;" rows="1" cols="1" readonly>
                             *E-Mail:* {{a.account.email}} 
                             *Clave:* {{a.account.password}}  {{a.account.pin}} 
                             *Perfil:* {{a.account.profile}} 
-                            💎 Esta es su cuenta *{{a.account.account_name.description}}* para *1 Dispositivo*. Inicie sesión con el *EMAIL* y *CLAVE* recibida 
-                            💎 Usar *SOLO EL PERFIL ASIGNADO* 
-                            💎 *NO* puedes cambiar las claves. Gracias por tu preferencia, Recuerde que los unicos canales oficiales de atencion son: Whats App y Telegram al número 833 535 5863.
+                            Esta es su cuenta *{{a.account.account_name.description}}* para *1 Dispositivo*. Inicie sesion con el *EMAIL* y *CLAVE* recibida 
+                            Usar *SOLO EL PERFIL ASIGNADO* 
+                            *NO* puedes cambiar las claves. Gracias por tu preferencia, Recuerde que los unicos canales oficiales de atencion son: Whats App y Telegram al numero 833 535 5863.
+                        </textarea> {% endcomment %}
+                        <textarea id="{{a.id}}" style="border:none;background-color:transparent;overflow: hidden;resize: none;" rows="1" cols="1" readonly>
+                            *Muchas Gracias por tu compra!*
+                            Siempre buscamos mejorar nuestro servicio, es por eso que ahora tus claves estaran siempre disponibles en este link, para verlas solo entra aqui y luego presiona en "Ver Claves";
+                            https://cuentasmexico.mx/ThanksYou/system/{{a.payment_amount}}/{{a.id}}
                         </textarea>
                         <textarea  id="{{a.id}}2" style="border:none;background-color:transparent;overflow: hidden;resize: none;" rows="1" cols="1" readonly>
                             *Muchas Gracias por tu compra!*
-                            Para ver tus claves siempre actualizadas descarga nuestra app *Cuentas México* desde Play store haciendo click aquí: https://play.google.com/store/apps/details?id=com.luinmack.CuentasMexicoApp
-                            También verlas desde Iphone, Ipad o PC en https://app.cuentasmexico.mx
-                            Tus usuario para la aplicación es:
+                            Para ver tus claves siempre actualizadas descarga nuestra app *Cuentas Mexico* desde Play store haciendo click aqui: https://play.google.com/store/apps/details?id=com.luinmack.CuentasMexicoApp
+                            Tambien verlas desde Iphone, Ipad o PC en https://app.cuentasmexico.mx
+                            Tus usuario para la aplicacion es:
                             *{{a.customer.username}}*
-                            Pregúntame por la contraseña si no la tienes o no la recuerdas.😏
+                            Preguntame por la clave si no la tienes o no la recuerdas.
                         </textarea>
 
                     </td>
@@ -162,7 +167,7 @@
                 <th></th>
                 <th></th>
                 <th>E-Mail</th>
-                <th>Contraseña</th>
+                <th>Clave</th>
                 <th>Pin</th>
                 <th>Perfil</th>
                 <th>F.Compra</th>
@@ -213,7 +218,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <label for="code">Ingresa el codigo del cupón</label>
+                <label for="code">Ingresa el codigo del cupon</label>
                 <input type="text" id="code" name="code" class="form-control" autofocus>
                 <input type="hidden" name="customer" value="{{customer.id}}">
             </div>
