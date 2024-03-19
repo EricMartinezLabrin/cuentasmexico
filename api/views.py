@@ -558,6 +558,19 @@ def get_countries_api(request):
         return JsonResponse({'detail': data})
     
 def auto_update_password_api(request):
+    """
+    API endpoint for automatically updating account passwords.
+
+    Args:
+        request (HttpRequest): The HTTP request object.
+
+    Returns:
+        JsonResponse: A JSON response indicating the status of the password update process.
+
+    Raises:
+        None
+
+    """
     if request.method == 'GET':
         try:
             service = Service.objects.get(id=21)
@@ -579,16 +592,23 @@ def auto_update_password_api(request):
             if response.status_code == 200:
                 pyc_data = response.json()
                 if account.password == pyc_data['password']:
-                    # print(f"La cuenta {account.email} ya tiene la contraseña actualizada")
+                #     # print(f"La cuenta {account.email} ya tiene la contraseña actualizada")
+                    failed+=1
                     continue
-                if pyc_data['status'] ==True:
+                # print(pyc_data['status'])
+                # print(pyc_data['status'] == True)
+                if pyc_data['status'] == True:
                     account.status=1
+                    account.save()
+                    print(f"{pyc_data['Email']}activado")
                 if pyc_data['status'] == False:
                     account.status=0
-                else:
-                    account.status=0
                     account.comment="no"
+
+                    print("desactivado")
                 account.password = pyc_data['password']
+                print(pyc_data['password'])
+                print(account.password)
                 account.save()
                 success+=1
                 # print(f"La cuenta {account.email} se actualizó con éxito")
@@ -599,5 +619,5 @@ def auto_update_password_api(request):
                 account.save()
                 continue
 
-        return JsonResponse(status=200, data={"status": "Finished","success":success,"failed":failed})  
+        return JsonResponse(status=200, data={"status": "Finished","success":success,"failed":failed})
 

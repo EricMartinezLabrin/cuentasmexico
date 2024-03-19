@@ -5,7 +5,7 @@ from django.urls import reverse
 import requests
 from django.views.decorators.csrf import csrf_exempt
 
-local_url = 'https://cuentasmexico/api'
+local_url = 'https://cuentasmexico.mx/api'
 pyc_url = 'https://bdpyc.cl/api'
 
 # Create your views here.
@@ -13,7 +13,7 @@ def get_active_sales_by_user_api(request,customer):
     if request.method == 'GET':
         #get customer data using requests to the API get_active_sales_by_user_api
         # Make a GET request to the API endpoint
-        response = requests.get(f'{local_url}/get_active_sales_by_user_api/{customer}')
+        response = requests.get(f'{local_url}/get_active_sales_by_user_api/{customer}',verify=False)
         # Check if the request was successful
         if response.status_code == 200:
             # Extract the customer data from the response
@@ -25,7 +25,7 @@ def get_active_sales_by_user_api(request,customer):
             account_lenght = len(customer_data['detail'])
             for account in customer_data['detail']:
                 if '@premiumycodigos.cl' in account['account_id__email'] or '@berberdna.tn' in account['account_id__email']:
-                    pyc_response = requests.get(f'{pyc_url}/get_password_by_email_api?email={account["account_id__email"]}')
+                    pyc_response = requests.get(f'{pyc_url}/get_password_by_email_api?email={account["account_id__email"]}',verify=False)
                     if pyc_response.status_code == 200:
                         pyc_data = pyc_response.json()
                         account['account_id__password'] = pyc_data['password']
@@ -38,6 +38,7 @@ def get_active_sales_by_user_api(request,customer):
                 account_list += f"*Password:* {account['account_id__password']}\n"
                 account_list += f"*Pin:* {account['pin_status']}\n"
                 account_list += f"*Perfil:* {account['account_id__profile']}\n\n"
+                account_list += f"*Vencimiento:{account['expiration_date']}\n\n"
                 
             
             json_to_bot ={
