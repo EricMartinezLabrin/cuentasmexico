@@ -109,7 +109,7 @@ urlpatterns = [
     path('credits/customer/list/<int:pk>',
          login_required(views.CreditCustomerListView.as_view()), name='credits_customer_list'),
     path('credits/list', login_required(views.CreditsView), name='credit_list'),
-    path('import', login_required(views.ImportView), name='import'),
+#     path('import', login_required(views.ImportView), name='import'),
     path('SearchRenewAcc', login_required(
         views.SearchRenewAcc), name='SearchRenewAcc'),
     path('setRenewalDateToExpirationDate', login_required(

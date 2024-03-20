@@ -1086,13 +1086,12 @@ def ReleaseAccounts(request, pk):
     sales_to_report = []
 
     for acc in acc_list:
-        data_release = Sale.objects.filter(account=acc,status=True,expiration_date__lte=timezone.now().date())
-        data_report = Sale.objects.filter(account=acc,status=True,expiration_date__gte=timezone.now().date())
+        data_release = Sale.objects.filter(account=acc,status=True,expiration_date__lte=datetime.now().replace(hour=23, minute=59, second=59, microsecond=999999))
+        data_report = Sale.objects.filter(account=acc,status=True,expiration_date__gte=datetime.now().replace(hour=23, minute=59, second=59, microsecond=999999))
         if data_release:
             sales_to_release.append(data_release)
         if data_report:
             sales_to_report.append(data_report)
-
         # Change Sale Status
     for sales in sales_to_release:   
         sales[0].status = False
@@ -1207,18 +1206,18 @@ class CreditCustomerListView(UserAccessMixin, ListView):
         context['customer'] = User.objects.get(pk=self.kwargs.get('pk'))
         return context
 
-@permission_required('is_staff', 'adm:no-permission')
-def ImportView(request):
-    # ImportData.services()
-    # ImportData.customers()
-    # ImportData.accounts(request)
-    # ImportData.sales(request)
-    # ImportData.bank()
-    # ImportData.invoices()
-    # ImportData.update_country()
-    ImportData.shop()
-    ImportData.cupon()
-    return redirect(reverse('adm:index'))
+# @permission_required('is_staff', 'adm:no-permission')
+# def ImportView(request):
+#     # ImportData.services()
+#     # ImportData.customers()
+#     # ImportData.accounts(request)
+#     # ImportData.sales(request)
+#     # ImportData.bank()
+#     # ImportData.invoices()
+#     # ImportData.update_country()
+#     ImportData.shop()
+#     ImportData.cupon()
+#     return redirect(reverse('adm:index'))
 
 @permission_required('is_staff', 'adm:no-permission')
 def SearchRenewAcc(request, **kwargs):
