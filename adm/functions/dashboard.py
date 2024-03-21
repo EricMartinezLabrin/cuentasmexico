@@ -9,8 +9,6 @@ from calendar import monthrange,month_name
 # Local
 from adm.models import Sale
 from dateutil.relativedelta import relativedelta
-import locale
-locale.setlocale(locale.LC_TIME, 'es_ES.UTF-8') 
 
 
 
