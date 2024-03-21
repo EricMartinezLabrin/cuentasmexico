@@ -49,12 +49,18 @@ def index(request):
     sales_month = Dashboard.sales_per_country_month()
     sales_acc = Dashboard.sales_per_account()
     template_name = "adm/index.html"
+    if 'date' in request.GET:
+        date = datetime.strptime(request.GET['date'], '%Y-%m-%d')
+    else:
+        date = timezone.now().date()
     return render(request, template_name, {
         'sales_day': sales_day,
         'sales_month': sales_month,
         'acc_name': sales_acc[0],
         'acc_total': sales_acc[1],
-        'time': timezone.now()
+        'time': timezone.now(),
+        'last_year_sales_new_user': Dashboard.last_year_sales_new_user(),
+        'sales_per_day_new_user':Dashboard.sales_per_day_new_user(date)
     })
 
 class NoPermissionView(TemplateView):
@@ -1269,3 +1275,4 @@ def toogleRenewRenewal(request, id):
     account.renovable = not account.renovable
     account.save()
     return redirect(reverse('adm:SearchRenewAcc'))
+

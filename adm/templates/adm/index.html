@@ -3,21 +3,21 @@
 {% load humanize %}
 {% block title %}Dashboard{% endblock title %}
 {% block body %}
-<h1>Dashboard - Sistema Nuevo</h1>
+<h1>Dashboard</h1>
 
 <div class="d-flex">
         <table class="table table-hover me-3">
             <thead>
-                <th colspan="2">Ventas del día: {{time}}</th>
+                <th colspan="2">Ventas del día: {{time|date}}</th>
             </thead>
             {% for key,value in sales_day.items %}
                 <tr>
                     <td>{{key}}</td>
-                    {% for key,value in value.items %}
-                        {% if not value %}
+                    {% for sub_key, sub_value in value.items %}
+                        {% if not sub_value %}
                             <td>$0</td>
                         {% else %}
-                            <td>${{value|intcomma}}</td>
+                            <td>${{sub_value|intcomma}}</td>
                         {% endif %}
                         
                     {% endfor %}
@@ -32,20 +32,47 @@
             {% for key,value in sales_month.items %}
                 <tr style="height:10px">
                     <td>{{key}}</td>
-                    {% for key,value in value.items %}
-                        {% if not value %}
+                    {% for sub_key, sub_value in value.items %}
+                        {% if not sub_value %}
                             <td>$0</td>
                         {% else %}
-                            <td>${{value|intcomma}}</td>
+                            <td>${{sub_value|intcomma}}</td>
                         {% endif %}
                     {% endfor %}
                 </tr>
             {% endfor %}    
         </table>   
+        <table class="table table-hover ms-3">
+            <thead>
+                <th colspan="2">Clientes Nuevos por día Mexico</th>
+            </thead>
+                <tr style="height:10px">
+                    {% for key, value in sales_per_day_new_user.items %}
+                    <tr>
+                        <form>
+                        <td><input name="date" type="date" class="form-control" value={{key}}></td>
+                        <td><input type="submit" value="buscar" class="btn btn-success"></td>
+                        <form>
+                    </tr>
+                        <tr>
+                            <td>Venta Total</td>
+                            <td>${{ value.sales|intcomma }}</td>
+                        </tr>
+                        <tr>
+                            <td>Cantidad de Clientes Mexico</td>
+                            <td>{{ value.new_users }}</td>
+                        </tr>
+                    {% endfor %}
+                </tr>
+        </table> 
 
 </div>
     <div style="width:400px">
         <canvas id="myChart" class="lex-shrink-0"></canvas>
+        <h3>Ventas totales a clientes nuevos Mexico</h3>
+        <canvas id="graficoBarras" width="400" height="300"></canvas>
+        <h3>Cantidad de clientes nuevos Mexico</h3>
+        <canvas id="graficoBarras2" width="400" height="300"></canvas>
     </div>
 {% endblock body  %}
 
@@ -82,4 +109,82 @@
 
         new Chart(ctx, config);
     </script>
+    <script>
+        // Definimos los datos para las etiquetas y las barras
+        const meses = []
+        const datos = [];
+        {% for item in last_year_sales_new_user %}
+            meses.push("{{ item.date }}");
+            datos.push("{{ item.sales }}");
+        {% endfor %}
+        meses.reverse()
+        datos.reverse()
+        
+        // Obtenemos el elemento canvas donde se mostrará el gráfico
+        const canvasBarras = document.getElementById("graficoBarras");
+        
+        // Creamos el gráfico de barras
+        new Chart(canvasBarras, {
+          type: "bar",
+          data: {
+            labels: meses,
+            datasets: [{
+              label: "Ventas",
+              data: datos
+            }]
+          },
+          options: {
+            scales: {
+              yAxes: [{
+                ticks: {
+                  beginAtZero: true
+                }
+              }]
+            },
+            title: {
+                display: true,
+                text: "Ventas a clientes nuevos"  // Cambiado aquí
+            }
+          }
+        });
+
+        // Definimos los datos para las etiquetas y las barras
+        const meses2 = []
+        const datos2 = [];
+        {% for item in last_year_sales_new_user %}
+            meses2.push("{{ item.date }}");
+            datos2.push("{{ item.new_users }}");
+        {% endfor %}
+        meses2.reverse()
+        datos2.reverse()
+        
+        // Obtenemos el elemento canvas donde se mostrará el gráfico
+        const canvasBarras2 = document.getElementById("graficoBarras2");
+        
+        // Creamos el segundo gráfico de barras
+        new Chart(canvasBarras2, {
+          type: "bar",
+          data: {
+            labels: meses2,
+            datasets: [{
+              label: "Ventas",
+              data: datos2
+            }]
+          },
+          options: {
+            scales: {
+              yAxes: [{
+                ticks: {
+                  beginAtZero: true
+                }
+              }]
+            },
+            title: {
+                display: true,
+                text: "Otro título para el gráfico de barras"  // Cambiado aquí
+            }
+          }
+        });
+    </script>
 {% endblock extrajs %}
+

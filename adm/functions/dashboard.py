@@ -5,9 +5,13 @@ from adm.models import UserDetail, Account, Service
 from django.utils import timezone
 # Python
 from datetime import datetime, timedelta
-from calendar import monthrange
+from calendar import monthrange,month_name
 # Local
 from adm.models import Sale
+from dateutil.relativedelta import relativedelta
+import locale
+locale.setlocale(locale.LC_TIME, 'es_ES.UTF-8') 
+
 
 
 class Dashboard():
@@ -68,3 +72,28 @@ class Dashboard():
                         value = 0
                     acc_total.append(value)
         return acc_name, acc_total
+
+    def new_formated_date(date, months):
+        date = date - relativedelta(months=months)
+        return date.strftime('%Y-%m')
+
+    def last_year_sales_new_user():
+        last_year_monts = []
+        date = datetime.now()
+        for i in range(13):
+            sales_new_customer = Sale.objects.filter(customer__date_joined__startswith=Dashboard.new_formated_date(date,i), payment_amount__gt=0,customer__userdetail__lada=52)
+            total = sales_new_customer.aggregate(Sum('payment_amount'))
+            new_date = datetime.strptime(Dashboard.new_formated_date(date, i), "%Y-%m")
+            month = new_date.month 
+            last_year_monts.append({'date':month_name[month],'sales':total['payment_amount__sum'] , 'new_users': sales_new_customer.count()})
+
+        return last_year_monts
+    
+    def sales_per_day_new_user(date):
+        date = date.strftime('%Y-%m-%d')
+        sales = Sale.objects.filter(customer__date_joined__startswith=date, payment_amount__gt=0,customer__userdetail__lada=52)
+        total = sales.aggregate(Sum('payment_amount'))
+        if total['payment_amount__sum'] == None:
+            total['payment_amount__sum'] = 0
+        return {date:{'sales':total['payment_amount__sum'] , 'new_users': sales.count()}}
+
