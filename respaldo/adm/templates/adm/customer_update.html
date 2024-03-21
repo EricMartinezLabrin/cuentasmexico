@@ -1,0 +1,84 @@
+{% extends 'adm/base/base.html' %}
+{% block title %}Crear Nuevo Usuario{% endblock title %}
+{% block body %}
+<h1>Editar Usuario {{user.username}}</h1>
+<form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    <p>
+        {{form.phone_number.label}}
+        {{form.phone_number}}  
+    </p>
+    <p>
+        <label for="country">{{form.country.label}}</label>
+        <input type="text" name="{{form.country.name}}" id="country" value="{{form.country.value}}" class="form-control" list="countries" required>
+            <datalist id="countries">
+                {% for key,value in country.items %}
+                    <option value="{{key}}"><!--{{value}}</option>-->
+                {% endfor %}
+            </datalist>
+        </select>
+    </p>
+    <p>
+        <label for="lada">{{form.lada.label}}</label>
+        <input name="{{form.lada.name}}" id="lada" class="form-control" value="{{form.lada.value}}" list="ladas" required disabled>
+            <datalist id="ladas">
+                {% for key,value in country.items %}
+                    <option value="{{value}}">{{key}}</option>
+                {% endfor %}
+            </datalist>
+        </input>
+    </p>
+
+    <input type="submit" id="submit" value="Editar Usuario" class="btn btn-cm" disabled> 
+    <a href="{% url 'adm:profile' %}" class="btn btn-cm-cancel">Cancelar</a>
+</form>
+{% endblock body %}
+
+{% block extrajs %}
+<script>
+    const country = document.getElementById('country');
+    const countrylist = document.getElementById('countries')
+    const lada = document.getElementById('lada');
+    const ladalist = document.getElementById('ladas');
+    const submit = document.getElementById('submit');
+    function checkFields(){
+        if (country.value == '??'){
+            country.value = '';
+        };
+        if(lada.value == 0){
+            lada.value='';
+        };
+    }
+    function checkCountry(){
+        var counter = 0;
+        while(counter < countrylist.options.length){
+            if(country.value == countrylist.options[counter].value){
+                lada.disabled=false;
+                break;
+            }else{
+                counter +=1;
+            }
+        };   
+        if (country.value === ""){
+            lada.disabled=true;
+        } 
+    }
+    function checkLada(){
+        var counter = 0;
+        while(counter < ladalist.options.length){
+            if(lada.value == ladalist.options[counter].value){
+                submit.disabled=false;
+                break;
+            }else{
+                counter +=1;
+            }
+        };   
+        if (lada.value === ""){
+            submit.disabled=true;
+        }     
+    }
+    window.onload = checkFields();
+    country.addEventListener('keyup',checkCountry)
+    lada.addEventListener('keyup',checkLada)
+</script>
+{% endblock extrajs %}

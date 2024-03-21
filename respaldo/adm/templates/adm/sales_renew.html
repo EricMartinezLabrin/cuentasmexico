@@ -1,0 +1,90 @@
+{% extends 'adm/base/base.html' %}
+{% load static %}
+{% block title %}Renovar Cuenta{% endblock title %}
+{% block body %}
+
+<h1>Renovar a {{object.customer.userdetail.phone_number}}</h1>
+<form method="post">
+    {% csrf_token %}
+    <div class="w-100 d-flex">
+        <input type="hidden" name="customer" value="{{object.customer.id}}">
+        <div class="me-4">
+            <p>
+                <label for="email">Cuenta:</label>
+                <input type="text" value="{{object.account.account_name}}" class="form-control" disabled>
+                <input type="hidden" value="{{object.account.account_name.id}}" name="serv">
+            </p>
+            <p>
+                <label for="email">E-Mail:</label>
+                <input type="text" value="{{object.account.email}}" class="form-control" disabled>
+            </p>
+            <p>
+                <label for="profile">Perfil:</label>
+                <input type="text" value="{{object.account.profile}}" class="form-control" disabled>
+            </p>
+            <p>
+                <label for="expiration">Ultimo Vencimiento:</label>
+                <input type="text" value="{{object.account.expiration_date}}" class="form-control" disabled>
+            </p>
+        </div>
+        <div class="me-4">
+            <p>
+                <label for="duration">Duración</label>
+                <select name="duration" id="duration" class="form-control">
+                    <option value="None">----</option>
+                    <option value="1">1 mes</option>
+                    <option value="2">2 meses</option>
+                    <option value="3">3 meses</option>
+                    <option value="4">4 meses</option>
+                    <option value="5">5 meses</option>
+                    <option value="6">6 meses</option>
+                    <option value="7">7 meses</option>
+                    <option value="8">8 meses</option>
+                    <option value="9">9 meses</option>
+                    <option value="10">10 meses</option>
+                    <option value="11">11 meses</option>
+                    <option value="12">12 meses</option>
+                </select>
+            </p>
+            <p>
+                <label for="payment">Monto de Pago:</label>
+                <input type="number" name="price" id="payment" class="form-control" required>
+            </p>
+            <p>
+                <label for="bank">Banco:</label>
+                <input list="banklist" id="bank" name="bank" class="form-control" required>
+                <datalist id="banklist">
+                    {% for data in banklist %}
+                        <option value="{{data.id}}">{{data.headline}} - {{data.bank_name}} - {{data.card_number}}</option>
+                    {% endfor %}
+                </datalist>
+            </p>
+            <p>
+                <label for="method">Metodo de Pago:</label>
+                <input list="paymentlist" id="method" name="method" class="form-control" required>
+                <datalist id="paymentlist">
+                    {% for data in paymentmethodlist %}
+                        <option value="{{data.id}}">{{data.description}}</option>
+                    {% endfor %}
+                </datalist>
+            </p>
+
+        </div>
+        <div class="me-4">
+            <label for="ticket">Comprobante</label>
+            <input type="text" class="form-control" id="comp" name="comp" required>
+        </div>
+        
+    </div>
+    <input type="submit" value="Renovar" id="end" class="btn btn-cm" disabled>
+</form>
+
+<form action="{% url 'adm:sales' %}" class="mt-2" method="post">
+    {% csrf_token %}
+    <input type="hidden" name="customer" value="{{object.customer.userdetail.phone_number}}">
+    <input type="submit" value="Cancelar" class="btn btn-cm-cancel">
+</form>
+{% endblock body %}
+{% block extrajs %}
+<script src="{% static 'adm/js/validations.js' %}"></script>
+{% endblock extrajs %}

@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gracias por tu compra</title>
+  <!-- Manychat -->
+<script src="//widget.manychat.com/1024146_3bdcb.js" defer="defer"></script>
+<script src="https://mccdn.me/assets/js/widget.js" defer="defer"></script>
+<!-- Meta Pixel Code -->
+<script>
+    !function(f,b,e,v,n,t,s)
+    {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+    n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+    if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+    n.queue=[];t=b.createElement(e);t.async=!0;
+    t.src=v;s=b.getElementsByTagName(e)[0];
+    s.parentNode.insertBefore(t,s)}(window, document,'script',
+    'https://connect.facebook.net/en_US/fbevents.js');
+    fbq('init', '1166199367880387');
+    fbq('track', 'PageView');
+    </script>
+    <noscript><img height="1" width="1" style="display:none"
+    src="https://www.facebook.com/tr?id=1166199367880387&ev=PageView&noscript=1"
+    /></noscript>
+    <!-- End Meta Pixel Code -->
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f2f2f2;
+    }
+    .redirect {
+        opacity: 0.7; 
+        font-size:9px;
+    }
+    .container {
+      max-width: 600px;
+      margin: 50px auto;
+      padding: 20px;
+      background-color: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    h1 {
+      color: #333;
+      margin-bottom: 20px;
+    }
+    p {
+      color: #666;
+      margin-bottom: 10px;
+    }
+    .btn {
+      display: inline-block;
+      padding: 10px 20px;
+      background-color: #007bff;
+      color: #fff;
+      text-decoration: none;
+      border-radius: 4px;
+      transition: background-color 0.3s ease;
+    }
+    .btn:hover {
+      background-color: #0056b3;
+    }
+    .ad-container {
+      background-color: #f9f9f9;
+      padding: 20px;
+      border-radius: 8px;
+      margin-top: 30px;
+    }
+    .ad {
+      display: block;
+      width: 100%;
+      height: auto;
+      margin: 0 auto;
+      border-radius: 8px;
+    }
+    a {
+      display: inline-block;
+      padding: 10px 20px;
+      background-color: #ff6600; /* Color de fondo naranja */
+      color: #fff; /* Color de texto blanco */
+      text-decoration: none;
+      border-radius: 4px;
+      transition: background-color 0.3s ease;
+    }
+    a:hover {
+      background-color: #e65c00; /* Color de fondo naranja más oscuro al pasar el mouse */
+    }
+    @media only screen and (max-width: 600px) {
+      .container {
+        border-radius: 0;
+        margin: 0 auto;
+      }
+      h1 {
+        font-size: 24px;
+        margin-bottom: 10px;
+      }
+      p {
+        font-size: 14px;
+        margin-bottom: 8px;
+      }
+      .btn {
+        padding: 8px 16px;
+      }
+    }
+  </style>
+</head>
+<body>
+    <script>
+        fbq('track', 'Purchase', {currency: "MXN", value: {{price}}}, {eventID: {{event_id}}});
+      </script>
+  <div class="container">
+    <h1>¡Gracias por tu compra!</h1>
+    <p>El pago del pedido <span>{{event_id}}</span> ha sido recibido correctamente.</p>
+    <p>Se recibió un monto de $<span>{{price}}</span>.</p>
+    <a href="https://wa.me/5218333796446?text=VerMiCuenta" class="btn">Ver claves</a>
+    <p class="redirect">Serás redireccionado para ver las claves de tu cuenta en <span id="countdown">10</span> segundos.</p>
+    <script>
+        var seconds = 10;
+        setInterval(function() {
+            seconds--;
+            document.getElementById("countdown").textContent = seconds;
+            if (seconds <= 0) {
+                window.location.href = "https://wa.me/5218333796446?text=VerMiCuenta";
+            }
+        }, 1000);
+    </script>
+  </div>
+</body>
+</html>

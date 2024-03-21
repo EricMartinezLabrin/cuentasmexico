@@ -1,0 +1,71 @@
+{% extends 'index/base/base.html' %}
+{% block title %}Canjear Cupón{% endblock title %}
+{% block body %}
+<div class="mt-4">
+    <div class="container">
+       <!-- row -->
+       <div class="row ">
+         <!-- col -->
+         <div class="col-12">
+            <!-- breadcrumb -->
+           <nav aria-label="breadcrumb">
+             <ol class="breadcrumb mb-0">
+               <li class="breadcrumb-item"><a href="{% url 'index' %}" class="cm">Inicio</a></li>
+               <li class="breadcrumb-item"><a href="{% url 'shop' %}" class="cm">Tiendas</a></li>
+               <li class="breadcrumb-item active" aria-current="page"><a href="{% url 'shop' %}" class="cm">Canjear</a></li>
+             </ol>
+           </nav>
+         </div>
+       </div>
+     </div>
+   </div>
+<section class="mt-4">
+    <!-- container -->
+    <div class="container">
+      <!-- row -->
+      <div class="row ">
+        <div class="col-12 ">
+          <!-- heading -->
+          <div class="bg-light rounded-3 d-flex justify-content-between ps-md-10 ps-3">
+            <div class="d-flex align-items-center">
+              <h1 class="mb-0 fw-bold p-5">Canjear Código</h1>
+
+            </div>
+            <div class="py-6">
+              <!-- img -->
+              <!-- img -->
+              <img src="https://freshcart.codescandy.com/assets/images/svg-graphics/store-graphics.svg" alt="" class="img-fluid"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+</section>
+<section class="mt-4">
+    <div class="container">
+        <div class="row">
+            <div class="col-12">
+                <h1>Selecciona la cuenta que quieras canjear</h1>
+                <div class="row row-cols-lg-4">
+                    {% for accounts in available %}
+                        <div class="card m-3 p-2" style="max-width: 540px;">
+                            <a href="#!" onclick="abrir_modal_edicion('{% url 'redeem_confirm' %}?name={{code.name}}&service={{accounts.id}}')" class="no-decoration">
+                                <div class="row g-0">
+                                <div class="col-md-4">
+                                    <img src="/media/{{accounts.logo}}" class="img-fluid rounded-start" alt="{{accounts.description}}">
+                                </div>
+                                <div class="col-md-8">
+                                    <div class="card-body">
+                                    <h5 class="card-title">{{code.long}} me{{code.long|pluralize:"s,ses"}} de {{accounts.description}}</h5>
+                                    <p class="card-text"><small class="text-muted">Recibiras inmediatamente tus claves de acceso</small></p>
+                                    </div>
+                                </div>
+                                </div>
+                            </a>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock body %}

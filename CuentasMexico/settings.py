@@ -17,6 +17,10 @@ from django.urls import reverse_lazy
 from pathlib import Path
 import os
 
+import pymysql
+pymysql.version_info = (1, 4, 5, "final", 0)  # Ajusta la versión según la que tengas instalada
+pymysql.install_as_MySQLdb()
+
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -29,7 +33,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-uf41q9_1%4#x4!k4a)pa#pqc&5aj^-s)*f5lcicaui-$m2@s*e'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
 ALLOWED_HOSTS = ['*', 'localhost', '127.0.0.1', 'cuentasmexico.mx']
 
@@ -50,6 +54,8 @@ INSTALLED_APPS = [
     'cupon',
     'api',
     'corsheaders',
+    'api_bot',
+    'ThanksYou'
 ]
 INSTALLED_APPS += ('naomi',)
 SITE_ID = 1
@@ -93,7 +99,7 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'cuentasmexico',
-        'USER': 'cuentasmexico',
+        'USER': 'root',
         'PASSWORD': 'Tarkan11.-',
         'HOST': 'localhost',
         'PORT': '3306',
@@ -128,8 +134,7 @@ TIME_ZONE = 'America/Mexico_City'
 
 USE_I18N = True
 
-#USE_TZ = True
-
+USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.1/howto/static-files/
@@ -160,7 +165,9 @@ DATE_INPUT_FORMATS = ('%d-%m-%Y')
 # EMAIL_BACKEND = "naomi.mail.backends.naomi.NaomiBackend"
 # EMAIL_FILE_PATH = "/Users/luinmack/Documents/Proyectos/CuentasMexico/tmp"
 
-#CORS_ORIGIN_ALLOW_ALL = True
-CORS_ALLOWED_ORIGINS = [
-    "https://app.cuentasmexico.mx"
-]
+CORS_ORIGIN_ALLOW_ALL = True
+
+#CORS_ALLOWED_ORIGINS = [
+#    "https://app.cuentasmexico.mx"
+#]
+

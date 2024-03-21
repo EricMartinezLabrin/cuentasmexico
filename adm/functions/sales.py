@@ -1,3 +1,4 @@
+from adm.functions.send_whatsapp_notification import Notification
 from adm.models import Account, Service, UserDetail, Bank, PaymentMethod, Sale, Status, Business, Credits
 from api.functions.notifications import send_push_notification
 from cupon.models import Cupon
@@ -11,6 +12,7 @@ from adm.functions.send_email import Email
 from django.utils import timezone
 from datetime import timedelta
 from traceback import format_exc
+from datetime import datetime
 
 
 class Sales():
@@ -88,7 +90,7 @@ class Sales():
                     account=acc,
                     status=True,
                     payment_method=payment_used,
-                    expiration_date=timezone.now() + relativedelta(months=duration),
+                    expiration_date=datetime.now() + relativedelta(months=duration),
                     payment_amount=price_each,
                     invoice=ticket
                 )
@@ -100,6 +102,16 @@ class Sales():
                 # update date
                 sale.created_at = created_at
                 sale.save()
+                if acc.pin == None:
+                    acc.pin = "No tiene Pin"
+                message = f"Gracias por tu compra, tu cuenta {acc.account_name.description} ha sido activada, a continuación obtendras los datos de tu cuenta:\n"
+                message += f"Usuario: {acc.email}\n"
+                message += f"Contraseña: {acc.password}\n"
+                message += f"Perfil: {acc.profile}\n"
+                message += f"Pin: {acc.pin}\n"
+                message += f"Vencimiento: {sale.expiration_date.date()}\n"
+                customer_detail = UserDetail.objects.get(user=customer)
+                Notification.send_whatsapp_notification(message,customer_detail.lada,customer_detail.phone_number)
                 try:
                     token = UserDetail.objects.get(user=customer).token
                     title = f"Muchas Gracias por tu compra"
@@ -139,7 +151,7 @@ class Sales():
             payment_used = 'Codigo'
 
             # Update Cupon
-            cupon.used_at = timezone.now()
+            cupon.used_at = datetime.now()
             cupon.customer = customer
             cupon.seller = request.user
             cupon.status_sale = True
@@ -177,7 +189,7 @@ class Sales():
                     account=service,
                     status=True,
                     payment_method=payment_used,
-                    expiration_date=timezone.now() + timedelta(days=30*duration),
+                    expiration_date=datetime.now() + timedelta(days=30*duration),
                     payment_amount=price,
                     invoice=ticket
                 )
@@ -211,7 +223,7 @@ class Sales():
                 account=service,
                 status=True,
                 payment_method=payment_used,
-                expiration_date=timezone.now() + timedelta(days=30*duration),
+                expiration_date=datetime.now() + timedelta(days=30*duration),
                 payment_amount=price,
                 invoice=ticket
             )
@@ -248,10 +260,10 @@ class Sales():
         customer = User.objects.get(pk=request.POST.get('customer'))
         old_sale = Sale.objects.get(pk=old)
         acc = Account.objects.get(pk=old_sale.account.id)
-        if Sale.objects.get(pk=old).expiration_date.date() >= timezone.now().date():
+        if Sale.objects.get(pk=old).expiration_date.date() >= datetime.now().date():
             exp_date = old_sale.expiration_date.date() + relativedelta(months=duration)
         else:
-            exp_date = timezone.now() + relativedelta(months=duration)
+            exp_date = datetime.now() + relativedelta(months=duration)
 
         # create sale
         new_sale = Sale.objects.create(
@@ -489,7 +501,7 @@ class Sales():
                 account=service,
                 status=True,
                 payment_method=payment_used,
-                expiration_date=timezone.now() + relativedelta(months=duration),
+                expiration_date=datetime.now() + relativedelta(months=duration),
                 payment_amount=price,
                 invoice=ticket
             )
@@ -499,7 +511,7 @@ class Sales():
             service.save()
 
             # Update Cupon
-            cupon.used_at = timezone.now()
+            cupon.used_at = datetime.now()
             cupon.customer = customer
             cupon.seller = User.objects.get(pk=1)
             cupon.order = sale
@@ -546,10 +558,10 @@ class Sales():
             customer = User.objects.get(pk=customer_id)
             old_sale = Sale.objects.get(account_id=acc, status=True)
             old_acc = Account.objects.get(pk=old_sale.account.id)
-            if old_sale.expiration_date.date() >= timezone.now().date():
+            if old_sale.expiration_date.date() >= datetime.now().date():
                 exp_date = old_sale.expiration_date.date() + relativedelta(months=duration)
             else:
-                exp_date = timezone.now() + relativedelta(months=duration)
+                exp_date = datetime.now() + relativedelta(months=duration)
 
             # create sale
             new_sale = Sale.objects.create(
@@ -577,7 +589,7 @@ class Sales():
             old_sale.save()
 
             # Update Cupon
-            cupon.used_at = timezone.now()
+            cupon.used_at = datetime.now()
             cupon.customer = customer
             cupon.seller = User.objects.get(pk=1)
             cupon.order = new_sale
@@ -661,3 +673,12 @@ class Sales():
         service_obj.save()
 
         return True, sale
+
+
+
+
+
+
+
+
+

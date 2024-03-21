@@ -12,15 +12,17 @@ from django.http import JsonResponse
 from django.db.models import Sum
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
-
+from django.db.models import DateTimeField, ExpressionWrapper, F
+from calendar import monthrange
 # Python
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 import requests
+from adm.functions.send_whatsapp_notification import Notification
 from api.functions.notifications import send_push_notification
 import pyperclip as clipboard
-import pandas as pd
-
+from django.db.models import DurationField
+# import pandas as pd
 # Local
 from .models import Business, PaymentMethod, Sale, UserDetail, Service, Account, Bank, Status, Supplier, Credits
 from cupon.models import Cupon
@@ -32,13 +34,11 @@ from .functions.active_inactive import Active_Inactive
 from .functions.dashboard import Dashboard
 from adm.functions.duplicated import NoDuplicate
 from adm.functions.sales import Sales
-from adm.functions.import_data import ImportData
+# from adm.functions.import_data import ImportData
 from adm.db.constants import URL
-
 
 def is_ajax(request):
     return request.META.get('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest'
-
 
 @permission_required('is_superuser', 'adm:no-permission')
 def index(request):
@@ -57,15 +57,13 @@ def index(request):
         'time': timezone.now()
     })
 
-
 class NoPermissionView(TemplateView):
     """
     Page where are redirected users with out permissions
     """
     template_name = "adm/no_permission.html"
-
-
 @permission_required('is_superuser', 'adm:no-permission')
+
 def SettingsDetailView(request):
     """
     Here is displayed all Business Data
@@ -75,13 +73,10 @@ def SettingsDetailView(request):
         business_detail = Business.objects.get(pk=1)
     except Business.DoesNotExist:
         business_detail = None
-
     return render(request, template_name, {
         'object': business_detail
     })
-
 # @permission_required('is_superuser','adm:no-permission')
-
 
 class SettingsCreateView(UserAccessMixin, CreateView):
     """
@@ -92,9 +87,7 @@ class SettingsCreateView(UserAccessMixin, CreateView):
     template_name = "adm/settings_update.html"
     form_class = SettingsForm
     success_url = reverse_lazy('adm:settings')
-
 # @permission_required('is_superuser','adm:no-permission')
-
 
 class SettingsUpdateView(UserAccessMixin, UpdateView):
     """
@@ -106,7 +99,6 @@ class SettingsUpdateView(UserAccessMixin, UpdateView):
     form_class = SettingsForm
     success_url = reverse_lazy('adm:settings')
 
-
 @permission_required('is_staff', 'adm:no-permission')
 def ProfileView(request):
     """
@@ -115,7 +107,6 @@ def ProfileView(request):
     template_name = "adm/profile_details.html"
     return render(request, template_name, {
     })
-
 
 class UserdetailUpdateView(UserAccessMixin, UpdateView):
     """
@@ -127,12 +118,10 @@ class UserdetailUpdateView(UserAccessMixin, UpdateView):
     form_class = UserDetailForm
     success_url = reverse_lazy('adm:profile')
     country = Country.get_country_lada()
-
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["country"] = self.country
         return context
-
 
 class CustomerUpdateView(UserAccessMixin, UpdateView):
     permission_required = 'is_staff'
@@ -141,12 +130,10 @@ class CustomerUpdateView(UserAccessMixin, UpdateView):
     model = UserDetail
     success_url = reverse_lazy('adm:sales')
     country = Country.get_country_lada()
-
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["country"] = self.country
         return context
-
 
 class UserUpdateView(UserAccessMixin, UpdateView):
     """
@@ -158,14 +145,12 @@ class UserUpdateView(UserAccessMixin, UpdateView):
     form_class = UserForm
     success_url = reverse_lazy('adm:profile')
 
-
 class MainUserUpdateView(UserAccessMixin, UpdateView):
     permission_required = 'is_staff'
     model = User
     form_class = UserMainForm
     template_name = 'adm/user_edit.html'
     success_url = reverse_lazy('adm:user')
-
 
 class UserView(UserAccessMixin, ListView):
     """
@@ -177,7 +162,6 @@ class UserView(UserAccessMixin, ListView):
     permission_required = 'is_superuser'
     paginate_by = 30
 
-
 class ServiceView(UserAccessMixin, ListView):
     """
     Here you can see all Available Services
@@ -185,7 +169,6 @@ class ServiceView(UserAccessMixin, ListView):
     permission_required = 'is_staff'
     model = Service
     template_name = 'adm/services.html'
-
 
 class ServiceCreateView(UserAccessMixin, CreateView):
     """
@@ -197,7 +180,6 @@ class ServiceCreateView(UserAccessMixin, CreateView):
     form_class = ServicesForm
     success_url = reverse_lazy('adm:services')
 
-
 class ServiceUpdateView(UserAccessMixin, UpdateView):
     model = Service
     permission_required = 'is_staff'
@@ -205,13 +187,11 @@ class ServiceUpdateView(UserAccessMixin, UpdateView):
     form_class = ServicesForm
     success_url = reverse_lazy('adm:services')
 
-
 class ServiceDeleteView(UserAccessMixin, DeleteView):
     model = Service
     permission_required = 'is_staff'
     template_name = "adm/delete.html"
     success_url = reverse_lazy('adm:services')
-
 
 @permission_required('is_staff', 'adm:no-permission')
 def ActiveInactiveService(request, status, pk):
@@ -219,7 +199,6 @@ def ActiveInactiveService(request, status, pk):
     service.status = Active_Inactive.active_inactive(status)
     service.save()
     return redirect(reverse('adm:services'))
-
 
 @permission_required('is_staff', 'adm:no-permission')
 def AccountsView(request):
@@ -285,7 +264,6 @@ def AccountsView(request):
             "today": today
         })
 
-
 @permission_required('is_staff', 'adm:no-permission')
 def AccountsCreateView(request):
     """
@@ -294,7 +272,6 @@ def AccountsCreateView(request):
     template_name = 'adm/accounts_create.html'
     form_class = AccountsForm(request.POST or None)
     success_url = reverse_lazy('adm:accounts')
-
     if request.method == 'POST':
         business = Business.objects.get(pk=request.POST.get('business'))
         supplier = Supplier.objects.get(pk=request.POST.get('supplier'))
@@ -332,7 +309,6 @@ def AccountsCreateView(request):
             'form': form_class
         })
 
-
 @permission_required('is_staff', 'adm:no-permission')
 def AccountsUpdateView(request, pk):
     """
@@ -342,7 +318,6 @@ def AccountsUpdateView(request, pk):
     accounts = Account.objects.get(pk=pk)
     form_class = AccountsForm(request.POST or None, instance=accounts)
     success_url = reverse_lazy('adm:accounts')
-
     if request.method == 'POST':
         supplier = Supplier.objects.get(pk=request.POST.get('supplier'))
         modified_by = User.objects.get(pk=request.POST.get('modified_by'))
@@ -351,11 +326,11 @@ def AccountsUpdateView(request, pk):
         email = request.POST.get('email')
         password = request.POST.get('password')
         comments = request.POST.get('comments')
+        renewal_date = request.POST.get('renewal_date')
         if request.POST.get('renovable') == 'on':
             renovable = True
         else:
             renovable = False
-
         old = Account.objects.get(pk=pk)
         acc = Account.objects.filter(
             account_name=old.account_name,
@@ -370,13 +345,15 @@ def AccountsUpdateView(request, pk):
             a.password = password
             a.comments = comments
             a.renovable = renovable
+            a.renewal_date = renewal_date
+            if request.POST.get('status') == 'on':
+                a.status = True
             a.save()
         return redirect(success_url)
     else:
         return render(request, template_name, {
             'form': form_class
         })
-
 
 @permission_required('is_staff', 'adm:no-permission')
 def AccountsExpiredView(request):
@@ -386,7 +363,6 @@ def AccountsExpiredView(request):
     business_id = request.user.userdetail.business
     template_name = 'adm/accounts_expired.html'
     today = timezone.now().date()
-
     form = FilterAccountForm()
     if request.method == 'POST':
         date = request.POST['vencimiento'].replace(" ", "")
@@ -430,7 +406,6 @@ def AccountsExpiredView(request):
         accounts = Account.objects.filter(
             business=business_id, expiration_date__lte=today)
         acc = NoDuplicate.no_duplicate(accounts)
-
         # Set Up Pagination
         p = Paginator(acc, 7)
         page = request.GET.get('page')
@@ -441,7 +416,6 @@ def AccountsExpiredView(request):
             "form": form
         })
 
-
 @permission_required('is_staff', 'adm:no-permission')
 def ActiveInactiveAccount(request, status, pk):
     account = Account.objects.get(pk=pk)
@@ -449,11 +423,9 @@ def ActiveInactiveAccount(request, status, pk):
     account.save()
     return redirect(reverse('adm:accounts'))
 
-
 @permission_required('is_staff', 'adm:no-permission')
 def SalesView(request):
     template_name = 'adm/sale.html'
-
     if request.method == 'POST':
         try:
             customer = Sales.is_email(request, request.POST.get('customer'))
@@ -463,7 +435,6 @@ def SalesView(request):
         except TypeError:
             message = 'El email ingresado no tiene el formato correcto, debe incluir "@"'
             return Sales.render_view(request, message=message)
-
         if customer == 'phone':
             template_name = 'adm/user_new_customer.html'
             customer = request.POST.get('customer').replace(" ", "")
@@ -496,16 +467,13 @@ def SalesView(request):
             return redirect(reverse('adm:user_reference', args=(customer.id,)))
         except AttributeError:
             return Sales.render_view(request, customer.id)
-
     else:
         return render(request, template_name, {
             'availables': Sales.availables()[0]
         })
 
-
 def key_adjust(request, pk):
     template_name = 'adm/key_adjust.html'
-
     if request.method == 'POST':
         days = int(request.POST.get('days'))
         sale = Sale.objects.get(pk=pk)
@@ -513,13 +481,15 @@ def key_adjust(request, pk):
         new_date = expiration_date + timedelta(days=days)
         sale.expiration_date = new_date
         sale.save()
-
+        account_name = sale.account.account_name
+        accont_email = sale.account.email
+        message = f"Hemos ajustado la fecha de vencimiento, de tu cuenta {account_name} con email {accont_email} ahora vence el {new_date.strftime('%d/%m/%Y')}"
+        customer_detail = UserDetail.objects.get(user=sale.customer.id)
+        Notification.send_whatsapp_notification(message,customer_detail.lada,customer_detail.phone_number)
         return redirect(reverse_lazy('adm:sales'))
-
     return render(request, template_name, {
         'pk': pk
     })
-
 
 def SalesAddFreeDaysView(request, pk, days):
     sale = Sale.objects.get(pk=pk)
@@ -535,31 +505,25 @@ def SalesAddFreeDaysView(request, pk, days):
             token = customer.token
             body = f"Los días ya fueron cargados a tu cuneta. Puedes ver tu nueva fecha de vencimiento en la sección de Mi Cuenta"
             url = "MyAccount"
-
             notification = send_push_notification(
                 token, title, body, url)
-
             print(notification)
     except:
         pass
     return Sales.render_view(request, sale.customer.id)
-
 
 @permission_required('is_staff', 'adm:no-permission')
 def UserReferenceView(request, pk):
     template_name = "adm/user_reference.html"
     customer_reference = pk
     message = ''
-
     if request.method == 'POST':
         reference_phone = request.POST.get('reference')
         try:
             user = UserDetail.objects.get(phone_number=reference_phone)
-
             user.free_days += 7
             user.reference_used = False
             user.save()
-
             customer = UserDetail.objects.get(pk=pk)
             customer.free_days += 7
             customer.reference = user.id
@@ -567,28 +531,23 @@ def UserReferenceView(request, pk):
             print('si entro')
             customer.save()
             return redirect(reverse('adm:user_update', args=(pk,)))
-
         except UserDetail.DoesNotExist:
             message = "El cliente ingresado no existe"
-
     return render(request, template_name, {
         'customer_reference': customer_reference,
         'pk': pk,
         'message': message
     })
 
-
 @permission_required('is_staff', 'adm:no-permission')
 def SalesCreateView(request, pk):
     template_name = 'adm/sale_create.html'
     bank = Bank.objects.filter(status=True)
     payment = PaymentMethod.objects.all()
-
     if request.method == 'POST':
         if Sales.new_sale(request) == True:
             customer = User.objects.get(pk=pk)
             return Sales.render_view(request, customer)
-
     return render(request, template_name, {
         'customer': User.objects.get(pk=pk),
         'services': Sales.availables()[1],
@@ -597,7 +556,6 @@ def SalesCreateView(request, pk):
         'availables': Sales.availables()[0],
         'created_at': timezone.now()
     })
-
 
 @permission_required('is_staff', 'adm:no-permission')
 def SalesUpdateStatusView(request, pk, customer, status):
@@ -609,7 +567,6 @@ def SalesUpdateStatusView(request, pk, customer, status):
     acc.customer = None
     acc.save()
     return Sales.render_view(request, customer)
-
 
 @csrf_exempt
 @permission_required('is_staff', 'adm:no-permission')
@@ -627,7 +584,6 @@ def SalesSearchView(request):
                 service = Service.objects.get(pk=int(json.loads(s)['service']))
                 acc = Account.objects.filter(
                     account_name=service, customer=None, status=True).order_by('-expiration_date')
-
                 if not json.loads(s)['duration'] == 'None':
                     # Establece una fecha de expiración de dos meses
                     better_acc_expiration_date = timezone.now(
@@ -688,7 +644,6 @@ def SalesSearchView(request):
                         data.append(item)
                     # Establece el resultado como la lista de detalles de cuentas
                     res = data
-
                 if len(acc) > 0 and len(services) > 0:
                     for pos in acc:
                         item = {
@@ -699,18 +654,15 @@ def SalesSearchView(request):
                             'password': pos.password,
                             'expiration_acc': pos.expiration_date,
                             'profile': pos.profile
-
                         }
                         data.append(item)
                     res = data
                 else:
                     res = "No hay cuentas disponibles"
-
             return JsonResponse({'data': res})
         else:
             res = "No hay cuentas seleccionadas"
         return JsonResponse({'data': res})
-
     elif request.method == 'POST':
         data_array = []
         data = json.loads(request.body)
@@ -725,10 +677,8 @@ def SalesSearchView(request):
             better_acc_expiration_date = timezone.now() + timedelta(days=7)
         else:
             better_acc_expiration_date = timezone.now() + relativedelta(months=duration)
-
         better_acc = Sales.search_better_acc(
             service.id, better_acc_expiration_date)
-
         if better_acc[0] == False:
             return JsonResponse({'data': 'No hay cuentas disponibles'})
         else:
@@ -753,14 +703,10 @@ def SalesSearchView(request):
                         'profile': other_acc.profile
                     }
                     data_array.append(item)
-
         if len(accounts) == 0 and len(services) == 0:
             data_array = "No Hay cuentas disponibles"
-
         return JsonResponse({'data': data_array})
-
     return JsonResponse({})
-
 
 @permission_required('is_staff', 'adm:no-permission')
 def SalesSearchDetailView(request):
@@ -791,13 +737,11 @@ def SalesSearchDetailView(request):
                                 #     customer_end_date = 'Disponible'
                         else:
                             customer_end_date = 'Disponible'
-
                         if pos.customer:
                             customer = User.objects.get(
                                 pk=pos.customer.id).userdetail.phone_number
                         else:
                             customer = None
-
                         #
                         item = {
                             'id': pos.id,
@@ -821,7 +765,6 @@ def SalesSearchDetailView(request):
         return JsonResponse({'det': det})
     return JsonResponse({})
 
-
 @permission_required('is_staff', 'adm:no-permission')
 def RenewView(request, pk):
     template_name = 'adm/sales_renew.html'
@@ -832,13 +775,11 @@ def RenewView(request, pk):
         if Sales.renew_sale(request, pk) == True:
             customer = Sale.objects.get(pk=pk).customer
             return Sales.render_view(request, customer)
-
     return render(request, template_name, {
         'object': sale,
         'banklist': banklist,
         'paymentmethodlist': paymentmethodlist
     })
-
 
 @permission_required('is_staff', 'adm:no-permission')
 def SalesChangeView(request, pk):
@@ -848,19 +789,16 @@ def SalesChangeView(request, pk):
     sale = Sale.objects.get(pk=pk)
     accounts = Account.objects.filter(
         account_name=sale.account.account_name, status=True, customer=None)
-
     if request.method == 'POST':
         if Sales.change_sale(request) == True:
             customer = sale.customer
             return Sales.render_view(request, customer)
-
     return render(request, template_name, {
         'customer': Sale.objects.get(pk=pk).customer,
         'sale': sale,
         'accounts': accounts,
         'availables': Sales.availables()[0]
     })
-
 
 def OldAccView(request, sale):
     template_name = 'adm/archive.html'
@@ -870,7 +808,6 @@ def OldAccView(request, sale):
         'data': sale_data,
         'new_data': new_data
     })
-
 
 def CheckTicket(request):
     if is_ajax(request):
@@ -891,7 +828,6 @@ def CheckTicket(request):
         else:
             return JsonResponse({'data': data})
 
-
 class ProfileUpdateView(UserAccessMixin, UpdateView):
     """
     Update aprofile number
@@ -902,38 +838,34 @@ class ProfileUpdateView(UserAccessMixin, UpdateView):
     success_url = reverse_lazy('adm:accounts')
     fields = ['profile']
 
-
 def BankListView(request):
     """
-    Show all bank accounts
+    Mostrar todas las cuentas bancarias
     """
     template_name = "adm/bank.html"
-    bank = Bank.objects.all()
+    banks = Bank.objects.all()
     object_list = []
-    for b in bank:
+    for bank in banks:
         month = datetime.now().month
+        _, last_day = monthrange(2023, month)
         start_date = timezone.make_aware(datetime(2023, month, 1))
-        end_date = timezone.make_aware(
-            datetime(2023, month, 31, 23, 59, 59, 999999))
+        end_date = timezone.make_aware(datetime(2023, month, last_day, 23, 59, 59, 999999))
         sales = Sale.objects.filter(
-            bank=b, created_at__range=(start_date, end_date)).aggregate(Sum('payment_amount', flat=True))
+            bank=bank,
+            created_at__range=(start_date, end_date)
+        ).aggregate(Sum('payment_amount'))
         item = {
-            'pk': b.id,
-            'logo': b.logo,
-            'bank_name': b.bank_name,
-            'headline': b.headline,
-            'card_number': b.card_number,
-            'clabe': b.clabe,
+            'pk': bank.pk,
+            'logo': bank.logo,
+            'bank_name': bank.bank_name,
+            'headline': bank.headline,
+            'card_number': bank.card_number,
+            'clabe': bank.clabe,
             'total': sales['payment_amount__sum'],
-            'status': b.status,
+            'status': bank.status,
         }
         object_list.append(item)
-    return render(request, template_name, {
-        'object_list': object_list
-    }
-    )
-
-
+    return render(request, template_name, {'object_list': object_list})
 class bankCreateView(UserAccessMixin, CreateView):
     """
     Create a new Bank Account
@@ -943,7 +875,6 @@ class bankCreateView(UserAccessMixin, CreateView):
     template_name = "adm/bank_create.html"
     success_url = reverse_lazy('adm:bank')
     form_class = BankForm
-
 
 class BankUpdateView(UserAccessMixin, UpdateView):
     """
@@ -955,7 +886,6 @@ class BankUpdateView(UserAccessMixin, UpdateView):
     success_url = reverse_lazy('adm:bank')
     form_class = BankForm
 
-
 class BankDeleteView(UserAccessMixin, DeleteView):
     """
     Delete a Bank Account
@@ -965,7 +895,6 @@ class BankDeleteView(UserAccessMixin, DeleteView):
     template_name = "adm/delete.html"
     success_url = reverse_lazy('adm:bank')
 
-
 class PaymentMethodListView(UserAccessMixin, ListView):
     """
     Show all payment methods
@@ -973,7 +902,6 @@ class PaymentMethodListView(UserAccessMixin, ListView):
     permission_required = 'is_staff'
     model = PaymentMethod
     template_name = "adm/payment_method.html"
-
 
 class PaymentMethodCreateView(UserAccessMixin, CreateView):
     """
@@ -985,7 +913,6 @@ class PaymentMethodCreateView(UserAccessMixin, CreateView):
     success_url = reverse_lazy('adm:payment_method')
     form_class = PaymentMethodForm
 
-
 class PaymentMethodUpdateView(UserAccessMixin, UpdateView):
     """
     Update a existent Payment Method
@@ -996,19 +923,16 @@ class PaymentMethodUpdateView(UserAccessMixin, UpdateView):
     success_url = reverse_lazy('adm:payment_method')
     form_class = PaymentMethodForm
 
-
 class PaymentMethodDeleteView(UserAccessMixin, DeleteView):
     permission_required = 'is_staff'
     model = PaymentMethod
     template_name = "adm/delete.html"
     success_url = reverse_lazy('adm:payment_method')
 
-
 class StatusListView(UserAccessMixin, ListView):
     permission_required = 'is_staff'
     model = Status
     template_name = "adm/status.html"
-
 
 class StatusCreateView(UserAccessMixin, CreateView):
     permission_required = 'is_staff'
@@ -1017,7 +941,6 @@ class StatusCreateView(UserAccessMixin, CreateView):
     success_url = reverse_lazy('adm:status')
     form_class = StatusForm
 
-
 class StatusUpdateView(UserAccessMixin, UpdateView):
     permission_required = 'is_staff'
     model = Status
@@ -1025,19 +948,16 @@ class StatusUpdateView(UserAccessMixin, UpdateView):
     success_url = reverse_lazy('adm:status')
     form_class = StatusForm
 
-
 class StatusDeleteView(UserAccessMixin, DeleteView):
     permission_required = 'is_staff'
     model = Status
     template_name = "adm/delete.html"
     success_url = reverse_lazy('adm:status')
 
-
 class SupplierListView(UserAccessMixin, ListView):
     permission_required = 'is_staff'
     model = Supplier
     template_name = "adm/supplier.html"
-
 
 class SupplierCreateView(UserAccessMixin, CreateView):
     permission_required = 'is_staff'
@@ -1046,7 +966,6 @@ class SupplierCreateView(UserAccessMixin, CreateView):
     success_url = reverse_lazy('adm:supplier')
     form_class = SupplierForm
 
-
 class SupplierUpdateView(UserAccessMixin, UpdateView):
     permission_required = 'is_staff'
     model = Supplier
@@ -1054,20 +973,17 @@ class SupplierUpdateView(UserAccessMixin, UpdateView):
     success_url = reverse_lazy('adm:supplier')
     form_class = SupplierForm
 
-
 class SupplierDeleteView(UserAccessMixin, DeleteView):
     permission_required = 'is_staff'
     model = Supplier
     template_name = "adm/delete.html"
     success_url = reverse_lazy('adm:supplier')
 
-
 class CuponView(UserAccessMixin, ListView):
     permission_required = 'is_staff'
     model = Cupon
     template_name = "adm/cupon.html"
     paginate_by = 15
-
 
 @permission_required('is_staff', 'adm:no-permission')
 def CuponRedeemView(request):
@@ -1078,7 +994,6 @@ def CuponRedeemView(request):
         cupon = request.POST.get('code').lower()
         customer = request.POST.get('customer')
         service = request.POST.get('service')
-
         if service:
             cupon = Cupon.objects.get(name=cupon)
             return render(request, template_name, {
@@ -1095,14 +1010,12 @@ def CuponRedeemView(request):
                 services = Service.objects.filter(status=True)
         except Cupon.DoesNotExist:
             error = "El cupón no existe"
-
         return render(request, template_name, {
             'error': error,
             'services': services,
             'cupon': cupon,
             'customer': customer
         })
-
 
 @permission_required('is_staff', 'adm:no-permission')
 def CuponRedeemEndView(request):
@@ -1114,13 +1027,11 @@ def CuponRedeemEndView(request):
             customer = User.objects.get(pk=customer)
             return Sales.render_view(request, customer)
 
-
 class ReceivableView(UserAccessMixin, ListView):
     permission_required = 'is_staff'
     model = Sale
     template_name = "adm/receivable.html"
     paginate_by = 1000
-
     def get_queryset(self):
         if self.request.GET.get('date') is not None:
             return Sale.objects.filter(
@@ -1128,7 +1039,6 @@ class ReceivableView(UserAccessMixin, ListView):
                 expiration_date__gte=f"{self.request.GET.get('date')} 00:00:00",
                 status=True
             ).order_by('-expiration_date', 'account')
-
         elif self.request.GET.get('email'):
             email = self.request.GET.get('email')
             if self.request.GET.get('date') is not None:
@@ -1143,7 +1053,6 @@ class ReceivableView(UserAccessMixin, ListView):
                 expiration_date__lte=f'{timezone.now().date()} 23:59:59',
                 status=True
             ).order_by('-expiration_date', 'account__email')
-
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['tomorrow'] = timezone.now().date() + timedelta(days=1)
@@ -1153,36 +1062,55 @@ class ReceivableView(UserAccessMixin, ListView):
         ).count()
         return context
 
-
 @permission_required('is_staff', 'adm:no-permission')
 def ReceivableCopyPass(request, sale_id):
     sale = Sale.objects.get(pk=sale_id)
-
     message = f'Buenas tardes amig@, le recuerdo que su cuenta  {sale.account.account_name} ya venció, para seguir utilizándola debe renovar. Por ser cliente frecuente tendrás un 10% de descuento si renuevas por 3 meses o más el día de hoy.'
-
     clipboard.copy(message)
     return redirect(reverse('adm:receivable'))
-
 
 @permission_required('is_staff', 'adm:no-permission')
 def ReleaseAccounts(request, pk):
     template_name = 'adm/accounts_create.html'
     success_url = reverse('adm:receivable')
     sale = Sale.objects.get(pk=pk)
+    sale_email=sale.account.email
+    sale_password=sale.account.password
+    sale_account_mame_id=sale.account.account_name.id
+    acc_list = Account.objects.filter(
+        email=sale_email,
+        password=sale_password,
+        account_name=sale_account_mame_id
+    )
+    sales_to_release = []
+    sales_to_report = []
 
-    # Change Sale Status
-    sale.status = False
-    sale.save()
+    for acc in acc_list:
+        data_release = Sale.objects.filter(account=acc,status=True,expiration_date__lte=datetime.now().replace(hour=23, minute=59, second=59, microsecond=999999))
+        data_report = Sale.objects.filter(account=acc,status=True,expiration_date__gte=datetime.now().replace(hour=23, minute=59, second=59, microsecond=999999))
+        if data_release:
+            sales_to_release.append(data_release)
+        if data_report:
+            sales_to_report.append(data_report)
+        # Change Sale Status
+    for sales in sales_to_release:   
+        sales[0].status = False
+        sales[0].save()
+        message = f'Le informamos que su cuenta {sales[0].account.account_name.description} con email {sales[0].account.email} fue suspendida por falta de pago. Aún está a tiempo de recuperarla renovando su cuenta. Por favor, si tiene alguna duda o comentario solo escribe Hablar con un Humano o envianos un whats app al número de siempre. Saludos.'
+        customer_detail_released = UserDetail.objects.get(user=sales[0].customer)
+        Notification.send_whatsapp_notification(message,customer_detail_released.lada,customer_detail_released.phone_number)
 
-    # ReleaseProfile
-    account = sale.account
-    account.customer = None
-    account.modified_by = request.user
-    account.save()
+
+        # ReleaseProfile
+        account = sales[0].account
+        account.customer = None
+        account.modified_by = request.user
+        account.save()
+    
+    data_account = sale.account
 
     # Update Password
-    form_class = AccountsForm(request.POST or None, instance=account)
-
+    form_class = AccountsForm(request.POST or None, instance=data_account)
     if request.method == 'POST':
         supplier = Supplier.objects.get(pk=request.POST.get('supplier'))
         modified_by = User.objects.get(pk=request.POST.get('modified_by'))
@@ -1195,12 +1123,22 @@ def ReleaseAccounts(request, pk):
             renovable = True
         else:
             renovable = False
-
-        old = Account.objects.get(pk=account.id)
+        old = Account.objects.get(pk=data_account.id)
         acc = Account.objects.filter(
             account_name=old.account_name,
             email=old.email
         )
+        
+        #Notificar a los clientes
+        for customer in sales_to_report:
+            message = f'Le informamos que por su seguridad las claves de su cuenta {data_account.account_name} fueron cambiadas. A continuación le dejo sus nuevas claves:\n'
+            message += f'Email: {email}\n'
+            message += f'Contraseña: {password}\n'
+            message += f'El perfil, pin y fechas de vencimiento siguen siendo los mismos.\n'
+            message += f'Por favor, si tiene alguna duda o comentario solo escribe Hablar con un Humano o envianos un whats app al número de siempre. Saludos.'
+            customer_detail = UserDetail.objects.get(user=customer[0].customer)
+            Notification.send_whatsapp_notification(message,customer_detail.lada,customer_detail.phone_number)
+
         for a in acc:
             a.supplier = supplier
             a.modified_by = modified_by
@@ -1211,35 +1149,29 @@ def ReleaseAccounts(request, pk):
             a.comments = comments
             a.renovable = renovable
             a.save()
-
             try:
                 sale_expiration = Sale.objects.get(
                     account=a.pk, customer=a.customer, status=True)
-                now = datetime.now(timezone.utc)
+                now = datetime.now()
                 if sale_expiration.expiration_date > now:
                     token = UserDetail.objects.get(user=a.customer).token
                     title = f"Las claves de tu {a.account_name} fueron actualizadas"
                     body = f"Visita la sección Mi Cuenta para ver las nuevas claves"
                     url = "MyAccount"
-
                     notification = send_push_notification(
                         token, title, body, url)
             except:
                 continue
-
         return redirect(success_url)
-
     return render(request, template_name, {
         'form': form_class
     })
-
 
 @permission_required('is_staff', 'adm:no-permission')
 def credits(request, pk):
     template_name = 'adm/credits.html'
     customer = User.objects.get(pk=pk)
     success_url = reverse_lazy('adm:credit_list')
-
     if request.method == 'POST':
         credits = int(request.POST.get('credits'))
         if credits > 0:
@@ -1250,23 +1182,18 @@ def credits(request, pk):
             detail = "No hay cambios"
         op = Credits.objects.create(
             customer=customer, credits=credits, detail=detail)
-
         return redirect(success_url)
-
     return render(request, template_name, {
         'customer': customer
     })
-
 
 @permission_required('is_staff', 'adm:no-permission')
 def CreditsView(request):
     template_name = "adm/credits_list.html"
     customer = Credits.objects.values(
         'customer__username', 'customer').annotate(suma=Sum('credits'))
-
     return render(request, template_name, {
         'object_list': customer})
-
 
 class CreditCustomerListView(UserAccessMixin, ListView):
     permission_required = 'is_staff'
@@ -1274,22 +1201,71 @@ class CreditCustomerListView(UserAccessMixin, ListView):
     template_name = "adm/credit_customer_list.html"
     paginate_by = 10
     ordering = ['-id']
-
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['customer'] = User.objects.get(pk=self.kwargs.get('pk'))
         return context
 
+# @permission_required('is_staff', 'adm:no-permission')
+# def ImportView(request):
+#     # ImportData.services()
+#     # ImportData.customers()
+#     # ImportData.accounts(request)
+#     # ImportData.sales(request)
+#     # ImportData.bank()
+#     # ImportData.invoices()
+#     # ImportData.update_country()
+#     ImportData.shop()
+#     ImportData.cupon()
+#     return redirect(reverse('adm:index'))
 
 @permission_required('is_staff', 'adm:no-permission')
-def ImportView(request):
-    # ImportData.services()
-    # ImportData.customers()
-    # ImportData.accounts(request)
-    # ImportData.sales(request)
-    # ImportData.bank()
-    # ImportData.invoices()
-    # ImportData.update_country()
-    ImportData.shop()
-    ImportData.cupon()
-    return redirect(reverse('adm:index'))
+def SearchRenewAcc(request, **kwargs):
+    template_name = 'adm/search_renew_acc.html'
+    account_name = Service.objects.filter(status=True)
+    if request.method == 'GET':
+        filters = {}
+        for key, value in request.GET.items():
+            if value == None or value == '' or value == {}:
+                continue
+            else:
+                if value == 'on':
+                    value = True
+                filters[key] = value
+        if len(filters) == 0:
+            accounts = Account.objects.filter(
+                renewal_date__lte=timezone.now().date(), renovable=True).annotate(
+                time_diff=ExpressionWrapper(
+    F('renewal_date') - timezone.now(), output_field=DurationField()
+)
+            ).order_by('time_diff')
+        else:
+            accounts = Account.objects.filter(
+                **filters).annotate(
+                time_diff=ExpressionWrapper(
+                    F('renewal_date') - timezone.now(), output_field=DateTimeField())
+            ).order_by('time_diff')
+        return render(request, template_name, {
+            'object_list': accounts,
+            'account_name': account_name,
+            'count': len(accounts)
+        })
+
+def setRenewalDateToExpirationDate(request):
+    accounts = Account.objects.all()
+    for account in accounts:
+        account.renewal_date = account.expiration_date
+        account.save()
+    return redirect(reverse('adm:SearchRenewAcc'))
+
+def toogleStatusRenewal(request, id):
+    account = Account.objects.get(pk=id)
+    account.status = not account.status
+    account.save()
+    return redirect(reverse('adm:SearchRenewAcc'))
+
+def toogleRenewRenewal(request, id):
+    account = Account.objects.get(pk=id)
+    account.renovable = not account.renovable
+    account.save()
+    return redirect(reverse('adm:SearchRenewAcc'))
