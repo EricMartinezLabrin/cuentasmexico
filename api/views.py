@@ -1,5 +1,5 @@
 import csv
-from datetime import timedelta
+from datetime import timedelta, datetime
 from django.db import IntegrityError
 from django.forms import model_to_dict
 from django.shortcuts import render
@@ -21,6 +21,8 @@ from dateutil.relativedelta import relativedelta
 from adm.models import Account, Business, Sale, Service, UserDetail
 from .functions.notifications import send_push_notification
 from .functions.salesApi import SalesApi
+from adm.functions.send_whatsapp_notification import Notification
+from django.db.models import Q
 
 try:
     keys = Business.objects.get(id=1)
@@ -621,3 +623,114 @@ def auto_update_password_api(request):
 
         return JsonResponse(status=200, data={"status": "Finished","success":success,"failed":failed})
 
+def notify_tomorrows_due_date_api(request):
+    """
+    API endpoint for notifying users of accounts that are due tomorrow.
+
+    Args:
+        request (HttpRequest): The HTTP request object.
+
+    Returns:
+        JsonResponse: A JSON response indicating the status of the notification process.
+
+    Raises:
+        None
+
+    """
+    if request.method == 'GET':
+        # Obtener la fecha de mañana
+        tomorrow = datetime.now() + timedelta(days=1)
+        tomorrow = tomorrow.date()
+        today = datetime.now().date()
+        # Obtener todas las ventas que vencen mañana
+        sales = Sale.objects.filter(
+            expiration_date__icontains=tomorrow,
+            status=1
+        )
+        # Crear una lista vacía para almacenar las respuestas
+        response = {'success': 0, 'failed': 0}
+        # Recorrer cada una de las ventas
+        for sale in sales:
+            # Obtener el token del usuario
+            token = sale.customer.userdetail.token
+            if token:
+                # Crear el título de la notificación
+                title = 'Cuenta por vencer'
+                # Crear el cuerpo del mensaje
+                body = f'Tu cuenta {sale.account.account_name.description} vence mañana'
+                # Crear los datos adicionales
+                data = {"account_id": sale.account.id}
+                # Enviar la notificación push
+                request = send_push_notification(token, title, body, 'MyAccount', data)
+
+            message = f'Tu cuenta {sale.account.account_name.description}: {sale.account.email} vence mañana {sale.expiration_date.date()}. Obtén 20% de descuento renovando hoy {datetime.now().date()}'
+            lada = sale.customer.userdetail.lada
+            phone_number = sale.customer.userdetail.phone_number
+
+            notify = Notification.send_whatsapp_notification(message,lada,phone_number)
+            if notify == 200:
+                response['success']+=1
+            else:
+                response['failed']+=1
+            
+        # Devolver una respuesta de éxito con los detalles y respuestas
+        return JsonResponse(status=200, data={'detail': 'Notifications sent successfully', 'response': response})
+    else:
+        # Devolver un error si el método de solicitud no es GET
+        return JsonResponse(status=405, data={'detail': 'method not allowed'})
+
+def notify_today_due_date_api(request):
+    """
+    API endpoint for notifying users of accounts that are due tomorrow.
+
+    Args:
+        request (HttpRequest): The HTTP request object.
+
+    Returns:
+        JsonResponse: A JSON response indicating the status of the notification process.
+
+    Raises:
+        None
+
+    """
+    if request.method == 'GET':
+        # Obtener la fecha de mañana
+        today = datetime.now().date()
+
+        # Obtener todas las ventas que vencen mañana
+        sales = Sale.objects.filter(
+            expiration_date__icontains=today,
+            status=1
+        )
+        # Crear una lista vacía para almacenar las respuestas
+
+        response = {'success': 0, 'failed': 0}
+        # Recorrer cada una de las ventas
+        for sale in sales:
+            # Obtener el token del usuario
+            token = sale.customer.userdetail.token
+            if token:
+                # Crear el título de la notificación
+                title = 'Cuenta por vencer'
+                # Crear el cuerpo del mensaje
+                body = f'Hola!!! Estamos realizando cortes a los servicios impagos. Podrias quedar sin señal HOY!.'
+                # Crear los datos adicionales
+                data = {"account_id": sale.account.id}
+                # Enviar la notificación push
+                request = send_push_notification(token, title, body, 'MyAccount', data)
+
+            message = f'Estamos realizando cortes a los servicios impagos.Tu cuenta {sale.account.account_name.description}: {sale.account.email} podria quedar sin señal HOY!. Obtén 10% de descuento renovando hoy {datetime.now().date()}'
+            lada = sale.customer.userdetail.lada
+            phone_number = sale.customer.userdetail.phone_number
+
+            notify = Notification.send_whatsapp_notification(message,lada,phone_number)
+            if notify == 200:
+                response['success']+=1
+            else:
+                response['failed']+=1
+
+        # Devolver una respuesta de éxito con los detalles y respuestas
+        return JsonResponse(status=200, data={'detail': 'Notifications sent successfully', 'response': response})
+    else:
+        # Devolver un error si el método de solicitud no es GET
+        return JsonResponse(status=405, data={'detail': 'method not allowed'})

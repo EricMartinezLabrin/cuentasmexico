@@ -31,4 +31,6 @@ urlpatterns = [
     path('get_countries_api', views.get_countries_api, name='get_countries_api'),
     path('get_active_sales_by_user_api/<str:customer>', views.get_active_sales_by_user_api, name='get_active_sales_by_user_api'),
     path('auto_update_password_api', views.auto_update_password_api, name='auto_update_password_api'),
+    path('notify_tomorrows_due_date_api', views.notify_tomorrows_due_date_api, name='notify_tomorrows_due_date_api'),
+    path('notify_today_due_date_api', views.notify_today_due_date_api, name='notify_today_due_date_api'),
 ]
