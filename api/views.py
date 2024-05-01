@@ -648,7 +648,7 @@ def notify_tomorrows_due_date_api(request):
             status=1
         )
         # Crear una lista vacía para almacenar las respuestas
-        response = {'success': 0, 'failed': 0}
+        response = {'day':tomorrow,'success': 0, 'failed': 0, 'pending':[]}
         # Recorrer cada una de las ventas
         for sale in sales:
             # Obtener el token del usuario
@@ -672,6 +672,10 @@ def notify_tomorrows_due_date_api(request):
                 response['success']+=1
             else:
                 response['failed']+=1
+                response['pending'].append(phone_number)
+
+        Notification.send_whatsapp_notification('Esta es la lista de clientes pendientes por notificar vencimientos de mañana: '+str(response['pending']),52, 8335355863)
+
             
         # Devolver una respuesta de éxito con los detalles y respuestas
         return JsonResponse(status=200, data={'detail': 'Notifications sent successfully', 'response': response})
@@ -704,7 +708,7 @@ def notify_today_due_date_api(request):
         )
         # Crear una lista vacía para almacenar las respuestas
 
-        response = {'success': 0, 'failed': 0}
+        response = {'day':today,'success': 0, 'failed': 0, 'pending':[]}
         # Recorrer cada una de las ventas
         for sale in sales:
             # Obtener el token del usuario
@@ -728,7 +732,9 @@ def notify_today_due_date_api(request):
                 response['success']+=1
             else:
                 response['failed']+=1
+                response['pending'].append(phone_number)
 
+        Notification.send_whatsapp_notification('Esta es la lista de clientes pendientes por notificar vencimientos de hoy: '+str(response['pending']),52, 8335355863)
         # Devolver una respuesta de éxito con los detalles y respuestas
         return JsonResponse(status=200, data={'detail': 'Notifications sent successfully', 'response': response})
     else:

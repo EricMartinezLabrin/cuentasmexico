@@ -446,8 +446,11 @@ def SalesView(request):
             customer = request.POST.get('customer').replace(" ", "")
             if request.POST.get('new-customer') == 'yes':
                 customer = request.POST.get('customer')
+                current_datetime = timezone.now()-timedelta(hours=6)
                 user = User.objects.create_user(
-                    customer, 'example@example.com', 'cuentasmexico')
+                    customer, 'example@example.com', 'cuentasmexico', date_joined=current_datetime)
+                user.date_joined = current_datetime
+                user.save()
                 user_detail = UserDetail.objects.create(
                     business=request.user.userdetail.business, user=user, phone_number=int(customer), lada=0, country="??")
                 return redirect(reverse('adm:user_reference', args=(user_detail.id,)))
@@ -459,8 +462,11 @@ def SalesView(request):
             customer = request.POST.get('customer').replace(" ", "")
             if request.POST.get('new-customer') == 'yes':
                 customer = request.POST.get('customer')
+                current_datetime = timezone.now()-timedelta(hours=6)
                 user = User.objects.create_user(
-                    customer, customer, 'cuentasmexico')
+                    customer, customer, 'cuentasmexico', date_joined=current_datetime)
+                user.date_joined = current_datetime
+                user.save()
                 user_detail = UserDetail.objects.create(
                     business=request.user.userdetail.business, user=user, phone_number=0, lada=0, country="??")
                 return redirect(reverse('adm:user_reference', args=(user_detail.id,)))
