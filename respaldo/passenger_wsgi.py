@@ -1,1 +1,0 @@
-from CuentasMexico.wsgi import application
