@@ -98,11 +98,11 @@ WSGI_APPLICATION = 'CuentasMexico.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'cuentasmexico',
+        'NAME': 'railway',
         'USER': 'root',
         'PASSWORD': 'Tarkan11.-',
-        'HOST': 'localhost',
-        'PORT': '3306',
+        'HOST': 'NbsAjgXbGdaGmXuAritURIPcORuXpdQY@roundhouse.proxy.rlwy.net',
+        'PORT': '55263',
     }
 }
 
