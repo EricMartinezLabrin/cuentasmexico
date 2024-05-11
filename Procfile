@@ -1,1 +1,1 @@
-web: python3 manage.py migrate && gunicorn CuentasMexico.wsgi
+web: gunicorn CuentasMexico.wsgi
