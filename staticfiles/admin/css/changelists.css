@@ -257,19 +257,11 @@
 
 /* Once the :has() pseudo-class is supported by all browsers, the tr.selected
    selector and the JS adding the class can be removed. */
-<<<<<<< HEAD
 #changelist tbody tr.selected {
     background-color: var(--selected-row);
 }
 
 #changelist tbody tr:has(.action-select:checked) {
-=======
-#changelist table tbody tr.selected {
->>>>>>> 3498f55fbf9b5912b63923d4e08c4db8a5b02446
-    background-color: var(--selected-row);
-}
-
-#changelist table tbody tr:has(input[type=checkbox]:checked) {
     background-color: var(--selected-row);
 }
 
