@@ -338,7 +338,6 @@ def decrementCart(request, product_id, unitPrice):
 
 
 # Users Actions
-@csrf_exempt
 class LoginPageView(LoginView):
     """
     Login a user and redirect to a verifier of permission on RedirectOnLoginView
