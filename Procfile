@@ -1,1 +1,1 @@
-web: python3 manage.py collectstatic --noinput
+web: python3 manage.py collectstatic --noinput && gunicorn CuentasMexico.wsgi
