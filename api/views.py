@@ -590,7 +590,7 @@ def auto_update_password_api(request):
         failed=0
 
         for account in accounts:
-            response = requests.get(f'{pyc_url}/get_password_by_email_api?email={account.email}')
+            response = requests.get(f'{pyc_url}/get_password_by_email_api?email={account.email}', verify=False)
             if response.status_code == 200:
                 pyc_data = response.json()
                 if account.password == pyc_data['password']:
