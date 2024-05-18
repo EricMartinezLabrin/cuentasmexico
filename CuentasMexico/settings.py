@@ -35,8 +35,8 @@ SECRET_KEY = 'django-insecure-uf41q9_1%4#x4!k4a)pa#pqc&5aj^-s)*f5lcicaui-$m2@s*e
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['localhost','127.0.0.1','https://cuentasmexico-production.up.railway.app','cuentasmexico-production.up.railway.app']
-CSRF_TRUSTED_ORIGINS = ['https://cuentasmexico-production.up.railway.app']
+ALLOWED_HOSTS = ['localhost','127.0.0.1','https://cuentasmexico-production.up.railway.app','cuentasmexico-production.up.railway.app','www.cuentasmexico.mx']
+CSRF_TRUSTED_ORIGINS = ['https://cuentasmexico-production.up.railway.app','https://www.cuentasmexicomx','http://cuentasmexico.mx']
 
 
 # Application definition
