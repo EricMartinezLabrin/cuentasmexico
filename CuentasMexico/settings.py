@@ -35,7 +35,8 @@ SECRET_KEY = 'django-insecure-uf41q9_1%4#x4!k4a)pa#pqc&5aj^-s)*f5lcicaui-$m2@s*e
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['*', 'localhost', '127.0.0.1', 'cuentasmexico.mx']
+ALLOWED_HOSTS = ['localhost','127.0.0.1','https://cuentasmexico-production.up.railway.app','cuentasmexico-production.up.railway.app','www.cuentasmexico.mx','cuentasmexico.mx']
+CSRF_TRUSTED_ORIGINS = ['https://cuentasmexico-production.up.railway.app','https://www.cuentasmexico.mx','https://cuentasmexico.mx','http://cuentasmexico.mx','http://www.cuentasmexico.mx']
 
 
 # Application definition
@@ -49,6 +50,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'django.contrib.humanize',
     'django.contrib.sites',
+    "whitenoise.runserver_nostatic",
     'adm',
     'index',
     'cupon',
@@ -62,6 +64,7 @@ SITE_ID = 1
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -94,17 +97,29 @@ WSGI_APPLICATION = 'CuentasMexico.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/4.1/ref/settings/#databases
+# mysql://root:NbsAjgXbGdaGmXuAritURIPcORuXpdQY@roundhouse.proxy.rlwy.net:55263/railway
 
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'railway',#'cuentasmexico',
+        'NAME': 'railway',
         'USER': 'root',
-        'PASSWORD': 'NbsAjgXbGdaGmXuAritURIPcORuXpdQY',#'Tarkan11.-',
-        'HOST': 'roundhouse.proxy.rlwy.net',#'localhost',
-        'PORT': '55263',#'3306',
+        'PASSWORD': 'NbsAjgXbGdaGmXuAritURIPcORuXpdQY',
+        'HOST': 'roundhouse.proxy.rlwy.net',
+        'PORT': '55263',
     }
 }
+
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.mysql',
+#         'NAME': 'cuentasmexico',
+#         'USER': 'cuentasmexico',
+#         'PASSWORD': 'Tarkan11.-',
+#         'HOST': 'localhost',
+#         'PORT': '3306',
+#     }
+# }
 
 # Password validation
 # https://docs.djangoproject.com/en/4.1/ref/settings/#auth-password-validators
@@ -143,6 +158,7 @@ STATIC_URL = '/staticfiles/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.1/ref/settings/#default-auto-field

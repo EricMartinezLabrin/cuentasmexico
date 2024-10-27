@@ -590,11 +590,11 @@ def auto_update_password_api(request):
         failed=0
 
         for account in accounts:
-            response = requests.get(f'{pyc_url}/get_password_by_email_api?email={account.email}')
+            response = requests.get(f'{pyc_url}/get_password_by_email_api?email={account.email}', verify=False)
             if response.status_code == 200:
                 pyc_data = response.json()
                 if account.password == pyc_data['password']:
-                #     # print(f"La cuenta {account.email} ya tiene la contraseña actualizada")
+                    print(f"La cuenta {account.email} ya tiene la contraseña actualizada")
                     failed+=1
                     continue
                 # print(pyc_data['status'])
@@ -613,7 +613,7 @@ def auto_update_password_api(request):
                 print(account.password)
                 account.save()
                 success+=1
-                # print(f"La cuenta {account.email} se actualizó con éxito")
+                print(f"La cuenta {account.email} se actualizó con éxito")
             else:
                 failed+=1
                 account.status=0

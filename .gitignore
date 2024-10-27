@@ -140,3 +140,7 @@ venv/
 tmp/
 staticfiles/
 static/
+
+# Django migrations
+*/migrations/*
+!*/migrations/__init__.py
