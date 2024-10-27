@@ -8,6 +8,9 @@ from . import views
 app_name = "adm"
 
 urlpatterns = [
+#     Scripts
+
+     path('scripts/duplicateaccounts', login_required(views.duplicate_account), name='duplicateaccounts'),
     # extension: /adm/
     path('', login_required(views.index), name='index'),
     path('no-permission', login_required(views.NoPermissionView.as_view()),

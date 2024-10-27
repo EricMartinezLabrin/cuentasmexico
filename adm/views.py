@@ -1282,3 +1282,14 @@ def toogleRenewRenewal(request, id):
     account.save()
     return redirect(reverse('adm:SearchRenewAcc'))
 
+
+
+# Scripts
+
+def duplicate_account(request):
+    account_name = Service.objects.get(id=21)
+    # Search account to duplicate
+    accounts = Account.objects.filter(account_name=account_name,status=True,expiration_date__gte = datetime.now())
+    for account in accounts:
+        print(account)
+    return HttpResponse("listo")
