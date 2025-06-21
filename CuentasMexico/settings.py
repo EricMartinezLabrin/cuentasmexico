@@ -16,6 +16,8 @@ from django.urls import reverse_lazy
 # python
 from pathlib import Path
 import os
+from dotenv import load_dotenv
+
 
 import pymysql
 pymysql.version_info = (1, 4, 5, "final", 0)  # Ajusta la versión según la que tengas instalada
@@ -24,7 +26,7 @@ pymysql.install_as_MySQLdb()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-
+load_dotenv(os.path.join(BASE_DIR, '.env'))
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.1/howto/deployment/checklist/
@@ -36,7 +38,7 @@ SECRET_KEY = 'django-insecure-uf41q9_1%4#x4!k4a)pa#pqc&5aj^-s)*f5lcicaui-$m2@s*e
 DEBUG = True
 
 ALLOWED_HOSTS = ['*','localhost','127.0.0.1','https://cuentasmexico-production.up.railway.app','cuentasmexico-production.up.railway.app','www.cuentasmexico.mx','cuentasmexico.mx','pleasant-alignment-production-0677.up.railway.app']
-CSRF_TRUSTED_ORIGINS = ['*','https://cuentasmexico-production.up.railway.app','https://www.cuentasmexico.mx','https://cuentasmexico.mx','http://cuentasmexico.mx','http://www.cuentasmexico.mx','https://pleasant-alignment-production-0677.up.railway.app']
+CSRF_TRUSTED_ORIGINS = ['https://cuentasmexico-production.up.railway.app','https://www.cuentasmexico.mx','https://cuentasmexico.mx','http://cuentasmexico.mx','http://www.cuentasmexico.mx','https://pleasant-alignment-production-0677.up.railway.app']
 
 
 # Application definition
