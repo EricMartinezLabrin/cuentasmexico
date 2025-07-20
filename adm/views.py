@@ -1152,8 +1152,14 @@ def ReleaseAccounts(request, pk):
             customer_detail = UserDetail.objects.get(user=customer[0].customer)
             # enviamos un request a un webhook
             webhook_url = os.environ.get("N8N_WEBHOOK_URL_CHANGE_PASSWORD")
+            # Convertir el objeto Service a string legible (usa .name o .description si existe)
+            account_name_str = str(data_account.account_name)
+            if hasattr(data_account.account_name, 'name'):
+                account_name_str = data_account.account_name.name
+            elif hasattr(data_account.account_name, 'description'):
+                account_name_str = data_account.account_name.description
             payload = {
-                "account_name": data_account.account_name,
+                "account_name": account_name_str,
                 "email": email,
                 "password": password,
                 "message": message,
