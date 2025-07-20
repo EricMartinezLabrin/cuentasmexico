@@ -36,6 +36,7 @@ from adm.functions.duplicated import NoDuplicate
 from adm.functions.sales import Sales
 # from adm.functions.import_data import ImportData
 from adm.db.constants import URL
+import os
 
 def is_ajax(request):
     return request.META.get('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest'
@@ -1149,6 +1150,17 @@ def ReleaseAccounts(request, pk):
             message += f'El perfil, pin y fechas de vencimiento siguen siendo los mismos.\n'
             message += f'Por favor, si tiene alguna duda o comentario solo escribe Hablar con un Humano o envianos un whats app al número de siempre. Saludos.'
             customer_detail = UserDetail.objects.get(user=customer[0].customer)
+            # enviamos un request a un webhook
+            webhook_url = os.environ.get("N8N_WEBHOOK_URL_CHANGE_PASSWORD")
+            payload = {
+                "account_name": data_account.account_name,
+                "email": email,
+                "password": password,
+                "message": message,
+                "lada": customer_detail.lada,
+                "phone_number": customer_detail.phone_number
+            }
+            requests.post(webhook_url, json=payload)
             Notification.send_whatsapp_notification(message,customer_detail.lada,customer_detail.phone_number)
 
         for a in acc:
