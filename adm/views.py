@@ -297,7 +297,7 @@ def AccountsCreateView(request):
         for i in range(profile+1):
             if i == 0:
                 continue
-            Account.objects.create(
+            acc = Account.objects.create(
                 business=business,
                 supplier=supplier,
                 account_name=account_name,
@@ -356,6 +356,26 @@ def AccountsUpdateView(request, pk):
             if request.POST.get('status') == 'on':
                 a.status = True
             a.save()
+            # Enviar webhook de N8N al actualizar contraseña
+            webhook_url = os.environ.get("N8N_WEBHOOK_URL_CHANGE_PASSWORD")
+            account_name_str = str(account_name)
+            if hasattr(account_name, 'name'):
+                account_name_str = account_name.name
+            elif hasattr(account_name, 'description'):
+                account_name_str = account_name.description
+            payload = {
+                "account_name": account_name_str,
+                "email": email,
+                "password": password,
+                "message": "Contraseña actualizada.",
+                "lada": None,
+                "phone_number": None
+            }
+            if webhook_url:
+                try:
+                    requests.post(webhook_url, json=payload)
+                except Exception as e:
+                    print(f"Error enviando webhook N8N: {e}")
         return redirect(success_url)
     else:
         return render(request, template_name, {
