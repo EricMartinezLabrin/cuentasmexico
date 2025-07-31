@@ -92,20 +92,21 @@
                         {% if a.account.renovable %}
                             <i class="bi bi-star-fill" style="color:orange"></i>
                         {% endif %}
-                          <!--Copiado-->
+                        <!--Copiado-->
+                        <textarea id="{{a.id}}" style="position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none;" tabindex="-1" aria-hidden="true" readonly>
+*E-Mail:* {{a.account.email}}
+*Clave:* {{a.account.password}}  {{a.account.pin}}
+*Perfil:* {{a.account.profile}}
 
-                        <textarea id="{{a.id}}" style="border:none;background-color:transparent;overflow: hidden;resize: none;" rows="1" cols="1" readonly>
-*Muchas Gracias por tu compra!* 🎉
-Siempre buscamos mejorar nuestro servicio, es por eso que ahora tus claves estaran siempre disponibles en este link, para verlas solo entra aqui y luego presiona en "Ver Claves":
-https://cuentasmexico.mx/ThanksYou/system/{{a.payment_amount}}/{{a.id}}
+💎 Esta es su cuenta *{{a.account.account_name.description}}* para *1 Dispositivo*.
+Inicie sesión con el *EMAIL* y *CLAVE* recibidos.
 
-*¿Quieres recibir descuentos exclusivos para clientes frecuentes?* 👀
-Hazlo en 3 sencillos pasos:
-1. Guarda este numero en tus contactos: 833 535 5863
-2. Ingresa a https://m.me/ctasmx?ref=PromocionesClienteFrecuente
-3. Haz clic en Recibir Actualizaciones
+• Usar *SOLO EL PERFIL ASIGNADO*
+• *NO* puedes cambiar las claves.
 
-Con esto recibirás promociones exclusivas y los mejores precios del mercado.
+Gracias por tu preferencia.
+Recuerda que los únicos canales oficiales de atención son:
+WhatsApp y Telegram al número 833 535 5863.
                         </textarea>
                         <textarea  id="{{a.id}}2" style="border:none;background-color:transparent;overflow: hidden;resize: none;" rows="1" cols="1" readonly>
                             *Muchas Gracias por tu compra!*
@@ -117,7 +118,11 @@ Con esto recibirás promociones exclusivas y los mejores precios del mercado.
                         </textarea>
 
                     </td>
-                    <td>{{a.account.email}}</td>
+                    <td>
+                        <span style="cursor:pointer;text-decoration:underline;color:#0d6efd;" onclick="copyAcc('{{a.id}}')" title="Copiar claves de esta cuenta">
+                            {{a.account.email}}
+                        </span>
+                    </td>
                     <td>{{a.account.password}}</td>
                     <td>{{a.account.pin}}</td>
                     <td>{{a.account.profile}}</td>
@@ -235,6 +240,22 @@ Con esto recibirás promociones exclusivas y los mejores precios del mercado.
 {% endblock body %}
 {% block extrajs %}
 <script src="{% static 'adm/js/copy.js' %}"></script>
+<script>
+// Al presionar 'c' sin selección, copiar la última clave activa visible
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'c' && window.getSelection().toString().length === 0) {
+        // Buscar todos los textareas de claves activas
+        var actives = document.querySelectorAll('textarea[id]:not([id$="2"])');
+        if (actives.length > 0) {
+            var lastActive = actives[actives.length - 1];
+            var id = lastActive.id;
+            if (typeof copyAcc === 'function') {
+                copyAcc(id);
+            }
+        }
+    }
+});
+</script>
 {% endblock extrajs %}
 
 
