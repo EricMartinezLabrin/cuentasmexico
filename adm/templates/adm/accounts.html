@@ -1,4 +1,5 @@
 {% extends 'adm/base/base.html' %}
+{% load pagination_filters %}
 
 {% block title %}Cuentas Disponibles{% endblock title %}
 {% block body %}
@@ -30,7 +31,15 @@
             <label class="visually-hidden" for="inlineFormInputGroupUsername">{{form.account_name.label }}</label>
             <div class="input-group">
                 <div class="input-group-text">{{form.account_name.label }}</div>
-                {{form.account_name }}
+                {% if form_data.account_name %}
+                    <select name="account_name" class="form-select" id="inputGroupSelect01">
+                        {% for choice in form.account_name.field.choices %}
+                            <option value="{{ choice.0 }}" {% if form_data.account_name == choice.0|stringformat:"s" %}selected{% endif %}>{{ choice.1 }}</option>
+                        {% endfor %}
+                    </select>
+                {% else %}
+                    {{form.account_name }}
+                {% endif %}
             </div>
         </div>
 
@@ -39,7 +48,7 @@
             <label class="visually-hidden" for="inlineFormInputGroupUsername">{{form.email.label}}</label>
             <div class="input-group">
                 <div class="input-group-text">{{form.email.label }}</div>
-                <input type="text" id="email" name="{{form.email.name}}">
+                <input type="text" id="email" name="{{form.email.name}}" value="{% if form_data.email %}{{ form_data.email }}{% endif %}">
                 
             </div>
         </div>
@@ -49,10 +58,10 @@
             <label class="visually-hidden" for="inlineFormInputGroupUsername">Estado</label>
             <div class="input-group">
                 <div class="input-group-text">Estado</div>
-                <select name="status" name="status" class="form-control">
+                <select name="status" class="form-control">
                     <option value="">------</option>
-                    <option value="True">Activa</option>
-                    <option value="False">Inactiva</option>
+                    <option value="True" {% if form_data.status == "True" %}selected{% endif %}>Activa</option>
+                    <option value="False" {% if form_data.status == "False" %}selected{% endif %}>Inactiva</option>
                 </select>
             </div>
         </div>
@@ -161,11 +170,11 @@
                 <span class="page-link">{{venues.number}}</span>
             </li>
             <li class="page-item"><a class="page-link"
-                    href="?page={{venues.next_page_number}}">{{venues.next_page_number}}</a></li>
+                    href="{% filter_pagination_url venues.next_page_number filter_query %}">{{venues.next_page_number}}</a></li>
             <li class="page-item"><a class="page-link"
-                    href="?page={{venues.paginator.num_pages}}">{{venues.paginator.num_pages}}</a></li>
+                    href="{% filter_pagination_url venues.paginator.num_pages filter_query %}">{{venues.paginator.num_pages}}</a></li>
             <li class="page-item">
-                <a class="page-link" href="?page={{venues.next_page_number}}">Siguiente</a>
+                <a class="page-link" href="{% filter_pagination_url venues.next_page_number filter_query %}">Siguiente</a>
             </li>
         </ul>
     </nav>
@@ -174,27 +183,27 @@
     <nav aria-label="...">
         <ul class="pagination">
             <li class="page-item">
-                <a class="page-link" href="?page={{venues.previous_page_number}}">Anterior</a>
+                <a class="page-link" href="{% filter_pagination_url venues.previous_page_number filter_query %}">Anterior</a>
             </li>
             {% if venues.previous_page_number != 1 %}
             <li class="page-item">
-                <a class="page-link" href="?page=1">1</a></li>
+                <a class="page-link" href="{% filter_pagination_url 1 filter_query %}">1</a></li>
             <li class="page-item active" aria-current="page">
 
             {% endif %}
             <li class="page-item">
-                <a class="page-link" href="?page={{venues.previous_page_number}}">{{venues.previous_page_number}}</a></li>
+                <a class="page-link" href="{% filter_pagination_url venues.previous_page_number filter_query %}">{{venues.previous_page_number}}</a></li>
             <li class="page-item active" aria-current="page">
                 <a class="page-link" href="#">{{venues.number}}</a>
             </li>
             <li class="page-item"><a class="page-link"
-                    href="?page={{venues.next_page_number}}">{{venues.next_page_number}}</a></li>
+                    href="{% filter_pagination_url venues.next_page_number filter_query %}">{{venues.next_page_number}}</a></li>
             {% if  venues.paginator.num_pages != venues.next_page_number %}
             <li class="page-item"><a class="page-link"
-                    href="?page={{venues.paginator.num_pages}}">{{venues.paginator.num_pages}}</a></li>
+                    href="{% filter_pagination_url venues.paginator.num_pages filter_query %}">{{venues.paginator.num_pages}}</a></li>
             {% endif %}
             <li class="page-item">
-                <a class="page-link" href="?page={{venues.next_page_number}}">Siguiente</a>
+                <a class="page-link" href="{% filter_pagination_url venues.next_page_number filter_query %}">Siguiente</a>
             </li>
         </ul>
     </nav>
@@ -206,15 +215,15 @@
     <nav aria-label="...">
         <ul class="pagination">
             <li class="page-item">
-                <a class="page-link" href="?page={{venues.previous_page_number}}">Anterior</a>
+                <a class="page-link" href="{% filter_pagination_url venues.previous_page_number filter_query %}">Anterior</a>
             </li>
             {% if  venues.previous_page != 1 %}
             <li class="page-item">
-                <a class="page-link" href="?page=1">1</a>
+                <a class="page-link" href="{% filter_pagination_url 1 filter_query %}">1</a>
             </li>
             {% endif %}
             <li class="page-item"><a class="page-link"
-                    href="?page={{venues.previous_page_number}}">{{venues.previous_page_number}}</a></li>
+                    href="{% filter_pagination_url venues.previous_page_number filter_query %}">{{venues.previous_page_number}}</a></li>
             <li class="page-item active" aria-current="page">
                 <a class="page-link" href="#">{{venues.number}}</a>
             </li>

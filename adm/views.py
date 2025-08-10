@@ -216,47 +216,60 @@ def AccountsView(request):
     template_name = 'adm/accounts.html'
     form = FilterAccountForm()
     today = timezone.now().date()
-    if request.method == 'POST':
-        account_name = request.POST['account_name']
-        email = request.POST['email'].replace(" ", "")
-        status = request.POST['status']
-        if not email:
-            if not status:
-                accounts = Account.objects.filter(
-                    business=business_id,
-                    account_name=account_name
-                ).order_by('-created_at', 'profile')
-            else:
-                accounts = Account.objects.filter(
-                    business=business_id,
-                    account_name=account_name,
-                    status=status
-                ).order_by('-created_at', 'profile')
-        else:
-            if not status:
-                accounts = Account.objects.filter(
-                    business=business_id,
-                    account_name=account_name,
-                    email=email,
-                ).order_by('-created_at', 'profile')
-            else:
-                accounts = Account.objects.filter(
-                    business=business_id,
-                    account_name=account_name,
-                    email=email,
-                    status=status
-                ).order_by('profile', '-created_at')
-            # Set Up Pagination
+    
+    # Obtener filtros de POST o GET (para mantener filtros en paginación)
+    account_name = request.POST.get('account_name') or request.GET.get('account_name', '')
+    email = (request.POST.get('email') or request.GET.get('email', '')).replace(" ", "")
+    status = request.POST.get('status') or request.GET.get('status', '')
+    
+    # Si hay filtros aplicados
+    if request.method == 'POST' or any([account_name, email, status]):
+        # Construir filtros base
+        filters = {'business': business_id}
+        
+        if account_name:
+            filters['account_name'] = account_name
+        if email:
+            filters['email'] = email
+        if status:
+            filters['status'] = status == 'True'
+        
+        accounts = Account.objects.filter(**filters).order_by('-created_at', 'profile')
+        
+        # Preparar datos del formulario para mostrar en el template
+        form_data = {
+            'account_name': account_name,
+            'email': email,
+            'status': status
+        }
+        
+        # Set Up Pagination
         p = Paginator(accounts, 10)
         page = request.GET.get('page')
         venues = p.get_page(page)
+        
+        # Crear query string para preservar filtros en paginación
+        filter_params = []
+        if account_name:
+            filter_params.append(f'account_name={account_name}')
+        if email:
+            filter_params.append(f'email={email}')
+        if status:
+            filter_params.append(f'status={status}')
+        
+        filter_query = '&'.join(filter_params)
+        
         return render(request, template_name, {
             "accounts": accounts,
             "venues": venues,
             "form": form,
-            "today": today
+            "today": today,
+            "form_data": form_data,
+            "filter_query": filter_query,
+            "has_filters": True
         })
     else:
+        # Sin filtros - mostrar cuentas activas disponibles
         active = 1
         accounts = Account.objects.filter(status=active, business=business_id, customer=None).order_by(
             '-created_at', 'profile', 'account_name', 'email', 'profile', 'expiration_date')
@@ -268,7 +281,8 @@ def AccountsView(request):
             "accounts": accounts,
             "venues": venues,
             "form": form,
-            "today": today
+            "today": today,
+            "has_filters": False
         })
 
 @permission_required('is_staff', 'adm:no-permission')
