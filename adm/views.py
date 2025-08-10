@@ -538,6 +538,16 @@ def SalesView(request):
         except AttributeError:
             return Sales.render_view(request, customer.id)
     else:
+        # Manejar navegación de paginación con cliente específico
+        customer_id = request.GET.get('customer')
+        if customer_id:
+            try:
+                customer_detail = UserDetail.objects.get(pk=customer_id)
+                return Sales.render_view(request, customer=customer_detail.user.id)
+            except (UserDetail.DoesNotExist, ValueError):
+                # Si el customer_id no es válido, mostrar vista sin cliente
+                pass
+        
         return render(request, template_name, {
             'availables': Sales.availables()[0]
         })

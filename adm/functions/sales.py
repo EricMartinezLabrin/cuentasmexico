@@ -367,24 +367,37 @@ class Sales():
         active = Sale.objects.filter(
             customer=customer,
             status=True
-        )
+        ).select_related('account__account_name', 'account', 'user_seller')
         return active
 
-    def customer_sales_inactive(customer):
+    def customer_sales_inactive(customer, page=1):
+        from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
+        
         inactive = Sale.objects.filter(
             customer=customer,
             status=False
-        )
-        return inactive
+        ).select_related('account__account_name', 'account', 'user_seller').order_by('-created_at')
+        
+        # Paginación para inactivos (15 por página)
+        paginator = Paginator(inactive, 15)
+        
+        try:
+            inactive_page = paginator.page(page)
+        except (PageNotAnInteger, EmptyPage):
+            inactive_page = paginator.page(1)
+            
+        return inactive_page
 
     def render_view(request, customer=None, message=None, copy=None):
-
+        # Obtener parámetro de página para inactivos
+        inactive_page = request.GET.get('inactive_page', 1)
+        
         if customer == None:
             my_dict = {
                 'availables': Sales.availables()[0],
                 'message': message,
                 'active': Sales.customer_sales_active(customer),
-                'inactive': Sales.customer_sales_inactive(customer)
+                'inactive': Sales.customer_sales_inactive(customer, inactive_page)
             }
             return render(request, 'adm/sale.html', my_dict)
         else:
@@ -398,7 +411,7 @@ class Sales():
                 'message': message,
                 'copy': copy,
                 'active': Sales.customer_sales_active(customer),
-                'inactive': Sales.customer_sales_inactive(customer)
+                'inactive': Sales.customer_sales_inactive(customer, inactive_page)
             }
             return render(request, 'adm/sale.html', my_dict)
 
