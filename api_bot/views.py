@@ -9,6 +9,7 @@ local_url = 'https://cuentasmexico.mx/api'
 pyc_url = 'https://bdpyc.cl/api'
 
 # Create your views here.
+@csrf_exempt
 def get_active_sales_by_user_api(request,customer):
     if request.method == 'GET':
         #get customer data using requests to the API get_active_sales_by_user_api
