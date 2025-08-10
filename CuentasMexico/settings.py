@@ -183,6 +183,27 @@ DATE_INPUT_FORMATS = ('%d-%m-%Y')
 # EMAIL_BACKEND = "naomi.mail.backends.naomi.NaomiBackend"
 # EMAIL_FILE_PATH = "/Users/luinmack/Documents/Proyectos/CuentasMexico/tmp"
 
+# Configuración de sesiones para permitir múltiples sesiones concurrentes
+SESSION_SAVE_EVERY_REQUEST = True
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False
+SESSION_COOKIE_AGE = 604800 * 4  # 7 días (una semana)
+SESSION_COOKIE_SECURE = DEBUG 
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = 'Lax'
+
+# Configuración de caché para mejorar rendimiento
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'unique-snowflake',
+        'TIMEOUT': 300,  # 5 minutos por defecto
+        'OPTIONS': {
+            'MAX_ENTRIES': 1000,
+            'CULL_FREQUENCY': 3,
+        }
+    }
+}
+
 CORS_ORIGIN_ALLOW_ALL = True
 
 #CORS_ALLOWED_ORIGINS = [

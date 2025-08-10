@@ -1,5 +1,6 @@
 {% extends 'adm/base/base.html' %}
 {% load static %}
+{% load pagination_filters %}
 {% block title %}Ventas{% endblock title %}
 {% block head %}
 <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1307198861567997"
@@ -210,6 +211,43 @@ WhatsApp y Telegram al número 833 535 5863.
                 {% endfor %}
             </tbody>
         </table>
+        
+        <!-- Paginación para inactivos -->
+        {% if inactive.has_other_pages %}
+        <nav aria-label="Paginación de ventas inactivas">
+            <ul class="pagination justify-content-center">
+                {% if inactive.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?inactive_page=1{% if customer %}&customer={{ customer.userdetail.id }}{% endif %}">&laquo; Primera</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?inactive_page={{ inactive.previous_page_number }}{% if customer %}&customer={{ customer.userdetail.id }}{% endif %}">Anterior</a>
+                    </li>
+                {% endif %}
+                
+                {% for num in inactive.paginator.page_range %}
+                    {% if num == inactive.number %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ num }}</span>
+                        </li>
+                    {% elif num > inactive.number|add:-3 and num < inactive.number|add:3 %}
+                        <li class="page-item">
+                            <a class="page-link" href="?inactive_page={{ num }}{% if customer %}&customer={{ customer.userdetail.id }}{% endif %}">{{ num }}</a>
+                        </li>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if inactive.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?inactive_page={{ inactive.next_page_number }}{% if customer %}&customer={{ customer.userdetail.id }}{% endif %}">Siguiente</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?inactive_page={{ inactive.paginator.num_pages }}{% if customer %}&customer={{ customer.userdetail.id }}{% endif %}">Última &raquo;</a>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
     {% endif %}
 {% endif %}
 
