@@ -8,7 +8,7 @@
 <a href="{% url 'adm:accounts_expired' %}" class="btn btn-primary mb-3">Vencidos</a>
 <a href="{% url 'adm:SearchRenewAcc' %}" class="btn btn-cm-cancel mb-3">Renovaciones</a>
 
-{% if not accounts %}
+{% if not venues.object_list %}
 <p><strong>No Hay Cuentas Disponibles</strong></p>
 <a href=" {% url 'adm:accounts' %} ">Volver</a>
 {% else %}
@@ -28,11 +28,11 @@
 
         {% comment %} Account {% endcomment %}
         <div class="col-12">
-            <label class="visually-hidden" for="inlineFormInputGroupUsername">{{form.account_name.label }}</label>
+            <label class="visually-hidden" for="account_name_select">{{form.account_name.label }}</label>
             <div class="input-group">
                 <div class="input-group-text">{{form.account_name.label }}</div>
                 {% if form_data.account_name %}
-                    <select name="account_name" class="form-select" id="inputGroupSelect01">
+                    <select name="account_name" class="form-select" id="account_name_select">
                         {% for choice in form.account_name.field.choices %}
                             <option value="{{ choice.0 }}" {% if form_data.account_name == choice.0|stringformat:"s" %}selected{% endif %}>{{ choice.1 }}</option>
                         {% endfor %}
@@ -45,20 +45,19 @@
 
         {% comment %} E-Mail {% endcomment %}
         <div class="col-12">
-            <label class="visually-hidden" for="inlineFormInputGroupUsername">{{form.email.label}}</label>
+            <label class="visually-hidden" for="email_input">{{form.email.label}}</label>
             <div class="input-group">
                 <div class="input-group-text">{{form.email.label }}</div>
-                <input type="text" id="email" name="{{form.email.name}}" value="{% if form_data.email %}{{ form_data.email }}{% endif %}">
-                
+                <input type="text" id="email_input" name="{{form.email.name}}" value="{% if form_data.email %}{{ form_data.email }}{% endif %}" autocomplete="off">
             </div>
         </div>
 
         {% comment %} Status {% endcomment %}
         <div class="col-12">
-            <label class="visually-hidden" for="inlineFormInputGroupUsername">Estado</label>
+            <label class="visually-hidden" for="status_select">Estado</label>
             <div class="input-group">
                 <div class="input-group-text">Estado</div>
-                <select name="status" class="form-control">
+                <select name="status" class="form-control" id="status_select">
                     <option value="">------</option>
                     <option value="True" {% if form_data.status == "True" %}selected{% endif %}>Activa</option>
                     <option value="False" {% if form_data.status == "False" %}selected{% endif %}>Inactiva</option>
@@ -94,64 +93,50 @@
     <tbody>
         {% for active in venues %}
         <tr class="t-img">
-            <td><img src="/media/{{active.account_name.logo}}" alt="{{active.account_name.description}}" width="40"></td>
+            <td>
+                {% if active.account_name.logo %}
+                    <img src="/media/{{active.account_name.logo}}" alt="{{active.account_name.description}}" width="40" loading="lazy">
+                {% else %}
+                    <span>{{active.account_name.description|truncatechars:10}}</span>
+                {% endif %}
+            </td>
             <td>{{active.created_at|date:"d-M-Y"}}</td>
             <td>
-                {% if active.expiration_date|date:"d-M-Y" <= today %}
+                {% if active.expiration_date|date:"Y-m-d" <= today|date:"Y-m-d" %}
                     <span style="color: red">{{active.expiration_date|date:"d-M-Y"}}</span>
                 {% else %}
                     {{active.expiration_date|date:"d-M-Y"}}
                 {% endif %}
             </td>
-            <td>{{active.created_by}}</td>
-            <td>{{active.modified_by}}</td>
-            <td>{{active.supplier}}</td>
+            <td>{{active.created_by.username|default:"N/A"}}</td>
+            <td>{{active.modified_by.username|default:"N/A"}}</td>
+            <td>{{active.supplier.name|default:"N/A"}}</td>
             <td>
                 {{active.email}}
-                {% if active.renovable == True %}
-                <i class="bi bi-star-fill" style="color:gold"></i>
+                {% if active.renovable %}
+                    <i class="bi bi-star-fill" style="color:gold" title="Renovable"></i>
                 {% endif %}
-
-                {% if active.status == False %}
-                <i class="bi bi-x-circle-fill" style="color:red"></i>
+                {% if not active.status %}
+                    <i class="bi bi-x-circle-fill" style="color:red" title="Inactiva"></i>
                 {% endif %}
             </td>
             <td>{{active.password}}</td>
+            <td>{{active.customer.username|default:"Disponible"}}</td>
+            <td>{{active.profile|default:"1"}}</td>
+            <td>{{active.pin|default:""}}</td>
+            <td>{{active.comments|default:""|truncatechars:30}}</td>
             <td>
-                {{active.customer.username}}
-                {% comment %} 
-                Show Disponible if account is unnasigned to a Customer or Ocupado if account is Asigned to
-                a
-                Customer 
-                {% if not active.customer_id %}
-                Disponible
-                {% else %}
-                Ocupado
-                {% endif %}{% endcomment %}
-            </td>
-            <td>{{active.profile}}</td>
-            <td>{{active.pin}}</td>
-            <td>{{active.comments}}</td>
-            <td>
-                {% comment %} edit {% endcomment %}
-                <a href="{% url 'adm:accounts_update' active.id %}" title="Editar">
-                    <i class="bi bi-pencil-square"></i> 
-                </a>
-                {% comment %} suspender/editar {% endcomment %}
-                <a href="{% url 'adm:accounts_active' active.status active.id %}">
-                    {% if active.status == True %}
-                    <i class="bi bi-file-earmark-minus"></i>
-                    {% else %}
-                    <i class="bi bi-file-earmark-plus"></i>
-                    {% endif %}
-                </a>
-                <a href="{% url 'adm:accounts_update_profile' active.id %}">
-                    <i class="bi bi-person-badge"></i>
-                </a>
-                {% comment %} Detalles {% endcomment %}
-                <a href="#" title="Detalles">
-                    <i class="bi bi-eye"></i>
-                </a>
+                <div class="btn-group" role="group">
+                    <a href="{% url 'adm:accounts_update' active.id %}" class="btn btn-sm btn-outline-primary" title="Editar">
+                        <i class="bi bi-pencil-square"></i>
+                    </a>
+                    <a href="{% url 'adm:accounts_active' active.status active.id %}" class="btn btn-sm btn-outline-warning" title="{% if active.status %}Desactivar{% else %}Activar{% endif %}">
+                        <i class="bi bi-file-earmark-{% if active.status %}minus{% else %}plus{% endif %}"></i>
+                    </a>
+                    <a href="{% url 'adm:accounts_update_profile' active.id %}" class="btn btn-sm btn-outline-info" title="Perfil">
+                        <i class="bi bi-person-badge"></i>
+                    </a>
+                </div>
             </td>
         </tr>
         {% endfor %}
@@ -254,9 +239,41 @@
 
 {% block extrajs %}
 <script>
-    const email = document.getElementById("email")
-    email.addEventListener("change",()=>{
-       email.value = email.value.trim();
-    });
+    // Optimización del input de email
+    const emailInput = document.getElementById("email_input");
+    if (emailInput) {
+        let timeoutId;
+        emailInput.addEventListener("input", function() {
+            // Debounce para evitar múltiples ejecuciones
+            clearTimeout(timeoutId);
+            timeoutId = setTimeout(() => {
+                this.value = this.value.trim();
+            }, 300);
+        });
+    }
+    
+    // Mejorar UX con loading states
+    const filterForm = document.querySelector('.filter form');
+    if (filterForm) {
+        filterForm.addEventListener('submit', function() {
+            const submitBtn = this.querySelector('input[type="submit"]');
+            if (submitBtn) {
+                submitBtn.value = 'Filtrando...';
+                submitBtn.disabled = true;
+            }
+        });
+    }
+    
+    // Lazy loading de imágenes si el navegador no lo soporta
+    if ('loading' in HTMLImageElement.prototype === false) {
+        const images = document.querySelectorAll('img[loading="lazy"]');
+        images.forEach(img => {
+            img.style.opacity = '0';
+            img.onload = function() {
+                this.style.opacity = '1';
+                this.style.transition = 'opacity 0.3s';
+            };
+        });
+    }
 </script>
 {% endblock extrajs %}

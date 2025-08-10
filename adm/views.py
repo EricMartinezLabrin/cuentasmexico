@@ -7,9 +7,9 @@ from django.urls import reverse, reverse_lazy
 from django.contrib.auth.decorators import permission_required
 from django.contrib.auth.models import User
 from django.shortcuts import redirect
-from django.core.paginator import Paginator
+from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
 from django.http import JsonResponse
-from django.db.models import Sum
+from django.db.models import Sum, Prefetch
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.db.models import DateTimeField, ExpressionWrapper, F
@@ -211,44 +211,57 @@ def ActiveInactiveService(request, status, pk):
 def AccountsView(request):
     """
     Show all active accounts filtered by Bussiness ID of person are looking for And Pagintate by 10
+    Ultra-optimized version with select_related and minimal queries (cache disabled for form objects)
     """
     business_id = request.user.userdetail.business
     template_name = 'adm/accounts.html'
-    form = FilterAccountForm()
     today = timezone.now().date()
     
     # Obtener filtros de POST o GET (para mantener filtros en paginación)
     account_name = request.POST.get('account_name') or request.GET.get('account_name', '')
     email = (request.POST.get('email') or request.GET.get('email', '')).replace(" ", "")
     status = request.POST.get('status') or request.GET.get('status', '')
+    page = request.GET.get('page', 1)
+    
+    # Base queryset optimizado con select_related para evitar consultas N+1
+    base_queryset = Account.objects.select_related(
+        'account_name',     # Service
+        'business',         # Business  
+        'supplier',         # Supplier
+        'customer',         # User (puede ser None)
+        'created_by',       # User
+        'modified_by'       # User
+    ).filter(business=business_id)
     
     # Si hay filtros aplicados
     if request.method == 'POST' or any([account_name, email, status]):
-        # Construir filtros base
-        filters = {'business': business_id}
-        
+        # Aplicar filtros de manera eficiente
         if account_name:
-            filters['account_name'] = account_name
+            base_queryset = base_queryset.filter(account_name=account_name)
         if email:
-            filters['email'] = email
+            base_queryset = base_queryset.filter(email__icontains=email)
         if status:
-            filters['status'] = status == 'True'
+            base_queryset = base_queryset.filter(status=status == 'True')
         
-        accounts = Account.objects.filter(**filters).order_by('-created_at', 'profile')
+        # Ordenar de manera eficiente
+        accounts = base_queryset.order_by('-created_at', 'profile')
         
-        # Preparar datos del formulario para mostrar en el template
+        # Preparar datos del formulario
         form_data = {
             'account_name': account_name,
             'email': email,
             'status': status
         }
         
-        # Set Up Pagination
-        p = Paginator(accounts, 10)
-        page = request.GET.get('page')
-        venues = p.get_page(page)
+        # Paginación optimizada
+        p = Paginator(accounts, 20)
         
-        # Crear query string para preservar filtros en paginación
+        try:
+            venues = p.page(page)
+        except (PageNotAnInteger, EmptyPage):
+            venues = p.page(1)
+        
+        # Query string optimizado
         filter_params = []
         if account_name:
             filter_params.append(f'account_name={account_name}')
@@ -259,31 +272,41 @@ def AccountsView(request):
         
         filter_query = '&'.join(filter_params)
         
-        return render(request, template_name, {
-            "accounts": accounts,
+        # Crear contexto sin objetos que no se pueden serializar
+        context = {
             "venues": venues,
-            "form": form,
+            "form": FilterAccountForm(),
             "today": today,
             "form_data": form_data,
             "filter_query": filter_query,
             "has_filters": True
-        })
+        }
+        
+        return render(request, template_name, context)
+    
     else:
-        # Sin filtros - mostrar cuentas activas disponibles
-        active = 1
-        accounts = Account.objects.filter(status=active, business=business_id, customer=None).order_by(
-            '-created_at', 'profile', 'account_name', 'email', 'profile', 'expiration_date')
-        # Set Up Pagination
-        p = Paginator(accounts, 7)
-        page = request.GET.get('page')
-        venues = p.get_page(page)
-        return render(request, template_name, {
-            "accounts": accounts,
+        # Sin filtros - caso más común, altamente optimizado
+        accounts = base_queryset.filter(
+            status=True, 
+            customer__isnull=True
+        ).order_by('-created_at', 'profile')
+        
+        # Paginación
+        p = Paginator(accounts, 20)
+        
+        try:
+            venues = p.page(page)
+        except (PageNotAnInteger, EmptyPage):
+            venues = p.page(1)
+        
+        context = {
             "venues": venues,
-            "form": form,
+            "form": FilterAccountForm(),
             "today": today,
             "has_filters": False
-        })
+        }
+        
+        return render(request, template_name, context)
 
 @permission_required('is_staff', 'adm:no-permission')
 def AccountsCreateView(request):
