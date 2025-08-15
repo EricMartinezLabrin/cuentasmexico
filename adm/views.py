@@ -376,10 +376,15 @@ def AccountsUpdateView(request, pk):
         else:
             renovable = False
         old = Account.objects.get(pk=pk)
+        # Guardar la contraseña anterior para comparar
+        old_password = old.password
         acc = Account.objects.filter(
             account_name=old.account_name,
             email=old.email
         )
+        # Verificar si la contraseña cambió
+        password_changed = old_password != password
+        
         for a in acc:
             a.supplier = supplier
             a.modified_by = modified_by
@@ -393,7 +398,9 @@ def AccountsUpdateView(request, pk):
             if request.POST.get('status') == 'on':
                 a.status = True
             a.save()
-            # Enviar webhook de N8N al actualizar contraseña
+            
+        # Enviar webhook de N8N solo si la contraseña cambió
+        if password_changed:
             webhook_url = os.environ.get("N8N_WEBHOOK_URL_CHANGE_PASSWORD")
             account_name_str = str(account_name)
             if hasattr(account_name, 'name'):
@@ -1204,37 +1211,43 @@ def ReleaseAccounts(request, pk):
         else:
             renovable = False
         old = Account.objects.get(pk=data_account.id)
+        # Guardar la contraseña anterior para comparar
+        old_password = old.password
         acc = Account.objects.filter(
             account_name=old.account_name,
             email=old.email
         )
+        # Verificar si la contraseña cambió
+        password_changed = old_password != password
         
-        #Notificar a los clientes
-        for customer in sales_to_report:
-            message = f'Le informamos que por su seguridad las claves de su cuenta {data_account.account_name} fueron cambiadas. A continuación le dejo sus nuevas claves:\n'
-            message += f'Email: {email}\n'
-            message += f'Contraseña: {password}\n'
-            message += f'El perfil, pin y fechas de vencimiento siguen siendo los mismos.\n'
-            message += f'Por favor, si tiene alguna duda o comentario solo escribe Hablar con un Humano o envianos un whats app al número de siempre. Saludos.'
-            customer_detail = UserDetail.objects.get(user=customer[0].customer)
-            # enviamos un request a un webhook
-            webhook_url = os.environ.get("N8N_WEBHOOK_URL_CHANGE_PASSWORD")
-            # Convertir el objeto Service a string legible (usa .name o .description si existe)
-            account_name_str = str(data_account.account_name)
-            if hasattr(data_account.account_name, 'name'):
-                account_name_str = data_account.account_name.name
-            elif hasattr(data_account.account_name, 'description'):
-                account_name_str = data_account.account_name.description
-            payload = {
-                "account_name": account_name_str,
-                "email": email,
-                "password": password,
-                "message": message,
-                "lada": customer_detail.lada,
-                "phone_number": customer_detail.phone_number
-            }
-            requests.post(webhook_url, json=payload)
-            Notification.send_whatsapp_notification(message,customer_detail.lada,customer_detail.phone_number)
+        #Notificar a los clientes solo si cambió la contraseña
+        if password_changed:
+            for customer in sales_to_report:
+                message = f'Le informamos que por su seguridad las claves de su cuenta {data_account.account_name} fueron cambiadas. A continuación le dejo sus nuevas claves:\n'
+                message += f'Email: {email}\n'
+                message += f'Contraseña: {password}\n'
+                message += f'El perfil, pin y fechas de vencimiento siguen siendo los mismos.\n'
+                message += f'Por favor, si tiene alguna duda o comentario solo escribe Hablar con un Humano o envianos un whats app al número de siempre. Saludos.'
+                customer_detail = UserDetail.objects.get(user=customer[0].customer)
+                # enviamos un request a un webhook solo si cambió la contraseña
+                webhook_url = os.environ.get("N8N_WEBHOOK_URL_CHANGE_PASSWORD")
+                # Convertir el objeto Service a string legible (usa .name o .description si existe)
+                account_name_str = str(data_account.account_name)
+                if hasattr(data_account.account_name, 'name'):
+                    account_name_str = data_account.account_name.name
+                elif hasattr(data_account.account_name, 'description'):
+                    account_name_str = data_account.account_name.description
+                payload = {
+                    "account_name": account_name_str,
+                    "email": email,
+                    "password": password,
+                    "message": message,
+                    "lada": customer_detail.lada,
+                    "phone_number": customer_detail.phone_number
+                }
+                if webhook_url:
+                    requests.post(webhook_url, json=payload)
+                Notification.send_whatsapp_notification(message,customer_detail.lada,customer_detail.phone_number)
 
         for a in acc:
             a.supplier = supplier
@@ -1246,19 +1259,21 @@ def ReleaseAccounts(request, pk):
             a.comments = comments
             a.renovable = renovable
             a.save()
-            try:
-                sale_expiration = Sale.objects.get(
-                    account=a.pk, customer=a.customer, status=True)
-                now = datetime.now()
-                if sale_expiration.expiration_date > now:
-                    token = UserDetail.objects.get(user=a.customer).token
-                    title = f"Las claves de tu {a.account_name} fueron actualizadas"
-                    body = f"Visita la sección Mi Cuenta para ver las nuevas claves"
-                    url = "MyAccount"
-                    notification = send_push_notification(
-                        token, title, body, url)
-            except:
-                continue
+            # Enviar notificación push solo si cambió la contraseña
+            if password_changed:
+                try:
+                    sale_expiration = Sale.objects.get(
+                        account=a.pk, customer=a.customer, status=True)
+                    now = datetime.now()
+                    if sale_expiration.expiration_date > now:
+                        token = UserDetail.objects.get(user=a.customer).token
+                        title = f"Las claves de tu {a.account_name} fueron actualizadas"
+                        body = f"Visita la sección Mi Cuenta para ver las nuevas claves"
+                        url = "MyAccount"
+                        notification = send_push_notification(
+                            token, title, body, url)
+                except:
+                    continue
         return redirect(success_url)
     return render(request, template_name, {
         'form': form_class
