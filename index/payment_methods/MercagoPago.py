@@ -1,10 +1,15 @@
 
+
 # Python
 from datetime import timedelta
 import mercadopago
 import json
 import requests
 from adm.functions.sales import Sales
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Django
 from django.utils import timezone
@@ -20,7 +25,7 @@ class MercadoPago():
 
 	def __init__(self, request):
 		self.request = request
-		self.mp_sdk = Business.objects.get(pk=1).mp_customer_key
+		self.mp_sdk = os.environ.get('MERCADOPAGO_ACCESS_TOKEN')
 
 	def Mp_ExpressCheckout(self, cart_id):
 		cart = self.request.session.get('cart_number')
@@ -40,7 +45,7 @@ class MercadoPago():
 			new_cart.append(cart_items)
 
 		# Inicializa Mercado Pago
-		ck = Business.objects.get(pk=1).flow_customer_key
+		ck = self.mp_sdk
 		# print(ck)
 		sdk = mercadopago.SDK(ck)
 
