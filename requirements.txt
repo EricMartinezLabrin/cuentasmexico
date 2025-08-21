@@ -9,6 +9,7 @@ django-smtp-ssl==1.0
 dotenv==0.9.9
 gunicorn==22.0.0
 idna==3.6
+mercadopago==2.3.0
 naomi==0.1.2
 packaging==24.0
 pycparser==2.21

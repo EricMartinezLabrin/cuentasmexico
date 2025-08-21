@@ -11,7 +11,7 @@ urlpatterns = [
     path('', views.index, name='index'),
     path('no-permission', views.NoPermissionView.as_view(), name='no-permission'),
     path('detail/<int:pk>', views.ServiceDetailView.as_view(), name='service_detail'),
-#     path('cart', login_required(views.CartView.as_view()), name='cart'),
+     path('cart', login_required(views.CartView.as_view()), name='cart'),
     path('shop', views.ShopListView.as_view(), name='shop'),
     path('redeem', login_required(views.RedeemView.as_view()), name='redeem'),
     path('redeem/confirm', login_required(views.RedeemConfirmView.as_view()),

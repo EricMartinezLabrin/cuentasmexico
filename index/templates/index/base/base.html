@@ -61,14 +61,14 @@
                             {% endif %}
                             
                             {% if request.session.cart_quantity > 0 %}
-                              <a href="#" class="cm position-relative">
+                              <a href="{% url 'cart' %}" class="cm position-relative">
                                 <i class="bi bi-bag"></i>
                                 <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
                                   {{request.session.cart_quantity}}
                                 </span>
                               </a>
                             {% else %}
-                              <a href="#" class="cm position-relative"><i class="bi bi-bag"></i></a>
+                              <a href="{% url 'cart' %}" class="cm position-relative"><i class="bi bi-bag"></i></a>
                             {% endif %}
                         </div>
                     </div>
