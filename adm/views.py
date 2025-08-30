@@ -529,6 +529,7 @@ def SalesView(request, phone_number=None):
     if not validate_iframe_token(iframe_token) and not request.user.is_staff:
         return redirect('adm:no-permission')
     template_name = 'adm/sale.html'
+    print(request.GET)
     
     response = None
     
