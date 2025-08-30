@@ -524,12 +524,14 @@ def validate_iframe_token(token):
     return token and valid_token and token == valid_token
 
 def SalesView(request, phone_number=None):
+    # Imprimir todos los query parameters al inicio
+    print("Query parameters:", dict(request.GET))
+    
     # Verificar el token primero
     iframe_token = request.GET.get('token')
     if not validate_iframe_token(iframe_token) and not request.user.is_staff:
         return redirect('adm:no-permission')
     template_name = 'adm/sale.html'
-    print(request.GET)
     
     response = None
     
