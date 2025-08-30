@@ -543,9 +543,12 @@ def SalesView(request, phone_number=None):
         except NameError:
             message = "Número de telefono invalido, tiene más carácteres de los permitidos."
             response = Sales.render_view(request, message=message)
+            response.delete_header('X-Frame-Options')
+            return response
         except TypeError:
             message = 'El email ingresado no tiene el formato correcto, debe incluir "@"'
             response = Sales.render_view(request, message=message)
+            response.delete_header('X-Frame-Options')
         if customer == 'phone':
             template_name = 'adm/user_new_customer.html'
             customer = request.POST.get('customer').replace(" ", "")
@@ -598,8 +601,8 @@ def SalesView(request, phone_number=None):
         response = render(request, template_name, {
             'availables': Sales.availables()[0]
         })
-        # Permitir que la vista se muestre en iframes eliminando X-Frame-Options
-        response.headers['X-Frame-Options'] = 'ALLOW-FROM https://chat.fadetechs.com'
+        # Permitir que la vista se muestre en iframes desde cualquier origen
+        response.delete_header('X-Frame-Options')
         return response
 
 def key_adjust(request, pk):

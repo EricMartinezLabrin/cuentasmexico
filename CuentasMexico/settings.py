@@ -79,8 +79,17 @@ MIDDLEWARE = [
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
-    'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'CuentasMexico.middleware.RemoveXFrameOptionsMiddleware',  # Nuestro nuevo middleware
 ]
+
+# Configuración de login para permitir iframe
+LOGIN_REDIRECT_URL = '/adm/sales'
+LOGIN_URL = '/login'
+LOGOUT_REDIRECT_URL = '/login'
+
+# Configuración de CORS para permitir credenciales
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_ALL_ORIGINS = True
 
 ROOT_URLCONF = 'CuentasMexico.urls'
 

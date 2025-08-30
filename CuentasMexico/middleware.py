@@ -5,6 +5,17 @@ from django.urls import reverse
 from django.conf import settings
 
 
+class RemoveXFrameOptionsMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        response = self.get_response(request)
+        if 'X-Frame-Options' in response.headers:
+            del response.headers['X-Frame-Options']
+        return response
+
+
 class SingleSessionMiddleware:
     """
     Middleware que permite controlar sesiones concurrentes

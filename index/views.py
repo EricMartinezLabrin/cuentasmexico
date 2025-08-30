@@ -343,6 +343,25 @@ class LoginPageView(LoginView):
     Login a user and redirect to a verifier of permission on RedirectOnLoginView
     """
     template_name = "index/login.html"
+
+    def get(self, request, *args, **kwargs):
+        response = super().get(request, *args, **kwargs)
+        if 'X-Frame-Options' in response.headers:
+            del response.headers['X-Frame-Options']
+        return response
+
+    def post(self, request, *args, **kwargs):
+        response = super().post(request, *args, **kwargs)
+        if 'X-Frame-Options' in response.headers:
+            del response.headers['X-Frame-Options']
+        return response
+        return response
+
+    def post(self, request, *args, **kwargs):
+        response = super().post(request, *args, **kwargs)
+        if 'X-Frame-Options' in response.headers:
+            del response.headers['X-Frame-Options']
+        return response
     model = User
 
     def get_context_data(self, **kwargs):
