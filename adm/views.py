@@ -524,8 +524,31 @@ def validate_iframe_token(token):
     return token and valid_token and token == valid_token
 
 def SalesView(request, phone_number=None):
-    # Imprimir todos los query parameters al inicio
-    print("Query parameters:", dict(request.GET))
+    import logging
+    import sys
+    from datetime import datetime
+    
+    # Múltiples métodos de logging para asegurar visibilidad
+    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    log_msg = f"[{timestamp}] SalesView - GET: {dict(request.GET)} - URL: {request.get_full_path()}"
+    
+    # 1. Print normal
+    print("=== SALESVIEW CALLED ===")
+    print(log_msg)
+    
+    # 2. Print a stderr
+    print(log_msg, file=sys.stderr)
+    
+    # 3. Logging de Django
+    logger = logging.getLogger('django')
+    logger.error(log_msg)  # Usar error para que sea más visible
+    
+    # 4. Archivo de log
+    try:
+        with open('/tmp/django_debug.log', 'a') as f:
+            f.write(log_msg + '\n')
+    except:
+        pass
     
     # Verificar el token primero
     iframe_token = request.GET.get('token')
