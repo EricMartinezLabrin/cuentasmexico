@@ -494,23 +494,45 @@ def ActiveInactiveAccount(request, status, pk):
     account.save()
     return redirect(reverse('adm:accounts'))
 
+def clean_phone_number(phone):
+    """
+    Limpia y formatea el número de teléfono según el país
+    +521XXXXXXXXXX -> últimos 10 dígitos (México)
+    +56XXXXXXXX -> últimos 8 dígitos (Chile)
+    Otros -> últimos 10 dígitos
+    """
+    if not phone:
+        return None
+        
+    # Eliminar espacios y caracteres no numéricos excepto '+'
+    phone = ''.join(c for c in str(phone) if c.isdigit() or c == '+')
+    
+    if phone.startswith('+521'):  # México
+        return phone[-10:] if len(phone) >= 10 else phone
+    elif phone.startswith('+56'):  # Chile
+        return phone[-8:] if len(phone) >= 8 else phone
+    else:  # Otros países
+        return phone[-10:] if len(phone) >= 10 else phone
+
 @permission_required('is_staff', 'adm:no-permission')
 def SalesView(request, phone_number=None):
     template_name = 'adm/sale.html'
     # Permitir que la vista se muestre en iframes
     response = None
     
-    # Obtener número de teléfono ya sea de path parameter o query parameter
-    phone_number = phone_number or request.GET.get('phone_number')
+    # Obtener número de teléfono ya sea de path parameter o query parameter y limpiarlo
+    phone_number = clean_phone_number(phone_number or request.GET.get('phone_number'))
     
     # Manejar número de teléfono si existe
     if phone_number:
         try:
+            # Convertir a entero para la búsqueda en la base de datos
+            phone_number_int = int(phone_number)
             # Buscar usuario por número de teléfono
-            customer_detail = UserDetail.objects.get(phone_number=phone_number)
+            customer_detail = UserDetail.objects.get(phone_number=phone_number_int)
             return Sales.render_view(request, customer=customer_detail.user.id)
-        except UserDetail.DoesNotExist:
-            # Si no existe el usuario, simular un POST con el número de teléfono
+        except (UserDetail.DoesNotExist, ValueError):
+            # Si no existe el usuario o el número no es válido, simular un POST
             request.method = 'POST'
             request.POST = request.POST.copy()
             request.POST['customer'] = str(phone_number)
