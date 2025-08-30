@@ -10,7 +10,7 @@ app_name = "adm"
 urlpatterns = [
     # Sales paths
     # Sales paths
-    path('sales/<str:phone_number>/', login_required(views.SalesView), name='sales_with_phone'),
+    path('sales/<str:phone_number>/', views.SalesView, name='sales_with_phone'),
 #     Scripts
 
      path('scripts/duplicateaccounts', login_required(views.duplicate_account), name='duplicateaccounts'),
@@ -84,7 +84,7 @@ urlpatterns = [
          login_required(views.SupplierUpdateView.as_view()), name='supplier_update'),
     path('supplier/delete/<int:pk>',
          login_required(views.SupplierDeleteView.as_view()), name='supplier_delete'),
-    path('sales', login_required(views.SalesView), name='sales'),
+    path('sales', views.SalesView, name='sales'),
     path('sales/create/<int:pk>',
          login_required(views.SalesCreateView), name='sales_create'),
     path('sales/search', login_required(views.SalesSearchView), name='sales_search'),

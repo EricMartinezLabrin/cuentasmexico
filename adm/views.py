@@ -514,10 +514,22 @@ def clean_phone_number(phone):
     else:  # Otros países
         return phone[-10:] if len(phone) >= 10 else phone
 
-@permission_required('is_staff', 'adm:no-permission')
+# Función para validar el token de iframe
+def validate_iframe_token(token):
+    """
+    Valida si el token recibido es válido para acceso iframe
+    """
+    from django.conf import settings
+    valid_token = getattr(settings, 'IFRAME_ACCESS_TOKEN', None)
+    return token and valid_token and token == valid_token
+
 def SalesView(request, phone_number=None):
+    # Verificar el token primero
+    iframe_token = request.GET.get('token')
+    if not validate_iframe_token(iframe_token) and not request.user.is_staff:
+        return redirect('adm:no-permission')
     template_name = 'adm/sale.html'
-    # Permitir que la vista se muestre en iframes
+    
     response = None
     
     # Obtener número de teléfono ya sea de path parameter o query parameter y limpiarlo

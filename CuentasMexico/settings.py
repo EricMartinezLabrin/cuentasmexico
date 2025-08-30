@@ -18,6 +18,9 @@ from pathlib import Path
 import os
 from dotenv import load_dotenv
 
+# Token para acceso a iframe de ventas (debe cambiarse en producción)
+IFRAME_ACCESS_TOKEN = os.environ.get('IFRAME_ACCESS_TOKEN', '7145fd4e-9f73-44e2-b733-8a18fb2bb377')
+
 
 import pymysql
 pymysql.version_info = (1, 4, 5, "final", 0)  # Ajusta la versión según la que tengas instalada
