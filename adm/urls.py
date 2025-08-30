@@ -8,6 +8,8 @@ from . import views
 app_name = "adm"
 
 urlpatterns = [
+    # Sales paths
+    path('sales/<int:phone_number>/', login_required(views.SalesView), name='sales_with_phone'),
 #     Scripts
 
      path('scripts/duplicateaccounts', login_required(views.duplicate_account), name='duplicateaccounts'),

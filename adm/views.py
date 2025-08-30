@@ -495,17 +495,35 @@ def ActiveInactiveAccount(request, status, pk):
     return redirect(reverse('adm:accounts'))
 
 @permission_required('is_staff', 'adm:no-permission')
-def SalesView(request):
+def SalesView(request, phone_number=None):
     template_name = 'adm/sale.html'
+    # Permitir que la vista se muestre en iframes
+    response = None
+    
+    # Obtener número de teléfono ya sea de path parameter o query parameter
+    phone_number = phone_number or request.GET.get('phone_number')
+    
+    # Manejar número de teléfono si existe
+    if phone_number:
+        try:
+            # Buscar usuario por número de teléfono
+            customer_detail = UserDetail.objects.get(phone_number=phone_number)
+            return Sales.render_view(request, customer=customer_detail.user.id)
+        except UserDetail.DoesNotExist:
+            # Si no existe el usuario, simular un POST con el número de teléfono
+            request.method = 'POST'
+            request.POST = request.POST.copy()
+            request.POST['customer'] = str(phone_number)
+            request.POST._mutable = False
     if request.method == 'POST':
         try:
             customer = Sales.is_email(request, request.POST.get('customer'))
         except NameError:
             message = "Número de telefono invalido, tiene más carácteres de los permitidos."
-            return Sales.render_view(request, message=message)
+            response = Sales.render_view(request, message=message)
         except TypeError:
             message = 'El email ingresado no tiene el formato correcto, debe incluir "@"'
-            return Sales.render_view(request, message=message)
+            response = Sales.render_view(request, message=message)
         if customer == 'phone':
             template_name = 'adm/user_new_customer.html'
             customer = request.POST.get('customer').replace(" ", "")
@@ -555,9 +573,12 @@ def SalesView(request):
                 # Si el customer_id no es válido, mostrar vista sin cliente
                 pass
         
-        return render(request, template_name, {
+        response = render(request, template_name, {
             'availables': Sales.availables()[0]
         })
+        # Permitir que la vista se muestre en iframes eliminando X-Frame-Options
+        response.headers['X-Frame-Options'] = 'ALLOW-FROM https://chat.fadetechs.com'
+        return response
 
 def key_adjust(request, pk):
     template_name = 'adm/key_adjust.html'
