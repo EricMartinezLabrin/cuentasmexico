@@ -346,14 +346,16 @@ class LoginPageView(LoginView):
 
     def get(self, request, *args, **kwargs):
         response = super().get(request, *args, **kwargs)
-        if 'X-Frame-Options' in response.headers:
-            del response.headers['X-Frame-Options']
+        response.xframe_options_exempt = True
+        if 'X-Frame-Options' in response:
+            del response['X-Frame-Options']
         return response
 
     def post(self, request, *args, **kwargs):
         response = super().post(request, *args, **kwargs)
-        if 'X-Frame-Options' in response.headers:
-            del response.headers['X-Frame-Options']
+        response.xframe_options_exempt = True
+        if 'X-Frame-Options' in response:
+            del response['X-Frame-Options']
         return response
         return response
 

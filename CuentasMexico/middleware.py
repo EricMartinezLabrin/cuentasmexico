@@ -11,8 +11,9 @@ class RemoveXFrameOptionsMiddleware:
 
     def __call__(self, request):
         response = self.get_response(request)
-        if 'X-Frame-Options' in response.headers:
-            del response.headers['X-Frame-Options']
+        response.xframe_options_exempt = True
+        if 'X-Frame-Options' in response:
+            del response['X-Frame-Options']
         return response
 
 

@@ -602,7 +602,8 @@ def SalesView(request, phone_number=None):
             'availables': Sales.availables()[0]
         })
         # Permitir que la vista se muestre en iframes desde cualquier origen
-        response.delete_header('X-Frame-Options')
+        response.xframe_options_exempt = True
+        del response['X-Frame-Options']
         return response
 
 def key_adjust(request, pk):
