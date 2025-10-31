@@ -1421,8 +1421,15 @@ def ActiveInactiveAccount(request, status, pk):
             new_status = account.status  # fallback
     else:
         new_status = bool(status)
-    account.status = new_status
-    account.save()
+
+    # Cambiar el estado a todas las cuentas con mismo account_name, email y password
+    accounts_to_update = Account.objects.filter(
+        account_name=account.account_name,
+        email=account.email,
+        password=account.password
+    )
+    accounts_to_update.update(status=new_status)
+
     if request.headers.get('x-requested-with') == 'XMLHttpRequest':
         # Respuesta para AJAX
         return JsonResponse({'success': True, 'new_status': new_status})
