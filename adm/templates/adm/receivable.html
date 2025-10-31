@@ -193,6 +193,26 @@ Buenas tardes amig@, le recuerdo que su cuenta  {{rece.account.account_name}} ya
                     // Cambia el data-url para el próximo toggle
                     const newUrl = url.replace(/(true|false)/, data.new_status ? 'false' : 'true');
                     form.setAttribute('data-url', newUrl);
+
+                    // Actualiza la vista previa de cuentas similares
+                    const previewBox = form.parentElement.querySelector('.preview-hover-box');
+                    if (previewBox) {
+                        // Cambia todos los badges de la tabla de preview
+                        previewBox.querySelectorAll('tr').forEach(function(row) {
+                            const badge = row.querySelector('.badge');
+                            if (badge) {
+                                if (data.new_status) {
+                                    badge.classList.remove('bg-danger');
+                                    badge.classList.add('bg-success');
+                                    badge.textContent = 'Activa';
+                                } else {
+                                    badge.classList.remove('bg-success');
+                                    badge.classList.add('bg-danger');
+                                    badge.textContent = 'Inactiva';
+                                }
+                            }
+                        });
+                    }
                 }
             });
         });
