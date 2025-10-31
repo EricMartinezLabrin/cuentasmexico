@@ -39,14 +39,16 @@
             </tr>
         </thead>
         <tbody>
-            {% for rece in object_list %}
+        {% for rece in object_list %}
             <tr class="text-center">
                 <td>
                     {% if rece.account.account_name.logo %}
-                        <img src="/media/{{rece.account.account_name.logo}}" alt="{{rece.account.account_name.description}}" width="36" title="{{rece.account.account_name.description}}">
+                        <img src="/media/{{rece.account.account_name.logo}}" alt="{{rece.account.account_name.name}}" width="36" class="rounded-circle border" title="{{rece.account.account_name.description}}">
                     {% else %}
-                        <span title="{{rece.account.account_name.description}}" class="fw-bold">{{rece.account.account_name.description}}</span>
+                        <span title="{{rece.account.account_name.description}}" class="fw-bold">{{rece.account.account_name.name}}</span>
                     {% endif %}
+                </td>
+
                 </td>
                 <td>
                     {% if rece.account.renovable == True %}
@@ -58,12 +60,42 @@
                 <td>{{rece.account.profile}}</td>
                 <td>{{rece.expiration_date|date:'d-m-Y'}}</td>
                 <td>{{rece.account.expiration_date|date:'d-m-Y'}}</td>
-                <td>
-                    {% if rece.account.status %}
-                        <span class="badge bg-success">Activa</span>
-                    {% else %}
-                        <span class="badge bg-danger">Inactiva</span>
-                    {% endif %}
+                <td class="position-relative preview-hover-cell">
+                    <span class="preview-hover-trigger">
+                        {% if rece.account.status %}
+                            <span class="badge bg-success">Activa</span>
+                        {% else %}
+                            <span class="badge bg-danger">Inactiva</span>
+                        {% endif %}
+                    </span>
+                    <div class="preview-hover-box shadow border bg-white p-2" style="display:none; position:absolute; left:110%; top:0; min-width:320px; z-index:1000;">
+                        <table class="table table-sm table-bordered mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Email</th>
+                                    <th>Perfil</th>
+                                    <th>Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for acc in rece.account.account_name.account_set.all %}
+                                    {% if acc.email == rece.account.email and acc.password == rece.account.password %}
+                                    <tr>
+                                        <td>{{acc.email}}</td>
+                                        <td>{{acc.profile}}</td>
+                                        <td>
+                                            {% if acc.status %}
+                                                <span class="badge bg-success">Activa</span>
+                                            {% else %}
+                                                <span class="badge bg-danger">Inactiva</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endif %}
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
                     <form method="post" class="toggle-status-form" data-url="{% url 'adm:accounts_active' rece.account.status|yesno:'false,true' rece.account.id %}" style="display:inline;">
                         {% csrf_token %}
                         <button type="submit" class="btn btn-sm btn-warning ms-2" title="Cambiar estado">
@@ -88,13 +120,37 @@ Buenas tardes amig@, le recuerdo que su cuenta  {{rece.account.account_name}} ya
                     </textarea>
                 </td>
             </tr>
-            {% endfor %}
+        {% endfor %}
         </tbody>
     </table>
 </div>
 
 {% include 'adm/base/paginator.html' %}
 {% endblock body %}
+{% block head %}
+    {{ block.super }}
+    <style>
+        .table-responsive {
+            overflow: visible !important;
+        }
+        .preview-hover-cell {
+            position: relative;
+            overflow: visible !important;
+        }
+        .preview-hover-box {
+            display: none;
+            position: absolute;
+            left: 110%;
+            top: 0;
+            min-width: 320px;
+            z-index: 2000;
+            background: #fff;
+            border: 1px solid #dee2e6;
+            border-radius: 0.5rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+    </style>
+{% endblock %}
 {% block extrajs %}
 <script>
     function copyAcc(copyId){
@@ -139,6 +195,27 @@ Buenas tardes amig@, le recuerdo que su cuenta  {{rece.account.account_name}} ya
                     form.setAttribute('data-url', newUrl);
                 }
             });
+        });
+    });
+
+    // Mostrar/ocultar la vista previa de cuentas similares
+    document.querySelectorAll('.preview-hover-trigger').forEach(function(trigger) {
+        trigger.addEventListener('mouseenter', function() {
+            const box = this.parentElement.querySelector('.preview-hover-box');
+            if (box) box.style.display = 'block';
+        });
+        trigger.addEventListener('mouseleave', function() {
+            const box = this.parentElement.querySelector('.preview-hover-box');
+            if (box) box.style.display = 'none';
+        });
+        // Para accesibilidad con teclado
+        trigger.addEventListener('focus', function() {
+            const box = this.parentElement.querySelector('.preview-hover-box');
+            if (box) box.style.display = 'block';
+        });
+        trigger.addEventListener('blur', function() {
+            const box = this.parentElement.querySelector('.preview-hover-box');
+            if (box) box.style.display = 'none';
         });
     });
 </script>
