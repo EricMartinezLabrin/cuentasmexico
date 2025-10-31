@@ -42,7 +42,11 @@
             {% for rece in object_list %}
             <tr class="text-center">
                 <td>
-                    <img src="/media/{{rece.account.account_name.logo}}" alt="{{rece.account.account_name.name}}" width="36" class="rounded-circle border">
+                    {% if rece.account.account_name.logo %}
+                        <img src="/media/{{rece.account.account_name.logo}}" alt="{{rece.account.account_name.description}}" width="36" title="{{rece.account.account_name.description}}">
+                    {% else %}
+                        <span title="{{rece.account.account_name.description}}" class="fw-bold">{{rece.account.account_name.description}}</span>
+                    {% endif %}
                 </td>
                 <td>
                     {% if rece.account.renovable == True %}
