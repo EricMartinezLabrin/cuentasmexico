@@ -1,17 +1,20 @@
 {% extends 'adm/base/base.html' %}
-{% block title %}Actualizar Profile{% endblock title %}
+{% block title %}
+    Actualizar Profile
+{% endblock title %}
 {% block body %}
-<h1>Actualizar Perfil a {{object.account_name}} {{object.email}}</h1>
-
-<form method="post">
-    {% csrf_token %}
-    <p>
-    {{form.profile.label}}
-    <input type="text" name="{{form.profile.name}}" value="{{form.profile.value}}" id="{{form.profile.id}}" class="form-control">        
-    </p>
-
-    <input type="submit" value="Terminar" class="btn btn-cm">
-    <a href="{% url 'adm:accounts' %}" class="btn btn-cm-cancel">Cancelar</a>
-</form>
-
+    <h1>Actualizar Perfil a {{ object.account_name }} {{ object.email }}</h1>
+    <form method="post">
+        {% csrf_token %}
+        <p>
+            {{ form.profile.label }}
+            <input type="text"
+                   name="{{ form.profile.name }}"
+                   value="{{ form.profile.value }}"
+                   id="{{ form.profile.id }}"
+                   class="form-control">
+        </p>
+        <input type="submit" value="Terminar" class="btn btn-cm">
+        <a href="{% url 'adm:accounts' %}" class="btn btn-cm-cancel">Cancelar</a>
+    </form>
 {% endblock body %}

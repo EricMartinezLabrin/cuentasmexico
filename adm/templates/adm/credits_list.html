@@ -1,43 +1,41 @@
 {% extends 'adm/base/base.html' %}
-{% block title %}Creditos disponibles{% endblock title %}
+{% block title %}
+    Creditos disponibles
+{% endblock title %}
 {% block body %}
-<h1>Creditos disponibles por cliente</h1>
-<table class="table table-hover">
-    <thead>
-        <th>Cliente</th>
-        <th>Creditos</th>
-        <th>Acciones</th>
-    </thead>
-    <tbody>
-        {% for data in object_list %}
-            <tr>
-                <td>{{data.customer__username}}</td>
-                <td>{{data.suma}}</td>
-                <td>
-                    <a href="{% url 'adm:credits' data.customer %}" class="cm" title="Agregar / Quitar Creditos"><i class="bi bi-coin"></i></a>
-                    <a href="{% url 'adm:credits_customer_list' data.customer %}" class="cm"><i class="bi bi-eye-fill"></i></a>
-                </td>            
-            </tr>
-        {% endfor %}
-    </tbody>
-</table>
-
-<div class="pagination">
-    <span class="step-links">
-        {% if page_obj.has_previous %}
-            <a href="?page=1">&laquo; first</a>
-            <a href="?page={{ page_obj.previous_page_number }}">previous</a>
-        {% endif %}
-
-        <span class="current">
-            Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}.
+    <h1>Creditos disponibles por cliente</h1>
+    <table class="table table-hover">
+        <thead>
+            <th>Cliente</th>
+            <th>Creditos</th>
+            <th>Acciones</th>
+        </thead>
+        <tbody>
+            {% for data in object_list %}
+                <tr>
+                    <td>{{ data.customer__username }}</td>
+                    <td>{{ data.suma }}</td>
+                    <td>
+                        <a href="{% url 'adm:credits' data.customer %}"
+                           class="cm"
+                           title="Agregar / Quitar Creditos"><i class="bi bi-coin"></i></a>
+                        <a href="{% url 'adm:credits_customer_list' data.customer %}" class="cm"><i class="bi bi-eye-fill"></i></a>
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <div class="pagination">
+        <span class="step-links">
+            {% if page_obj.has_previous %}
+                <a href="?page=1">&laquo; first</a>
+                <a href="?page={{ page_obj.previous_page_number }}">previous</a>
+            {% endif %}
+            <span class="current">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}.</span>
+            {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}">next</a>
+                <a href="?page={{ page_obj.paginator.num_pages }}">last &raquo;</a>
+            {% endif %}
         </span>
-
-        {% if page_obj.has_next %}
-            <a href="?page={{ page_obj.next_page_number }}">next</a>
-            <a href="?page={{ page_obj.paginator.num_pages }}">last &raquo;</a>
-        {% endif %}
-    </span>
-</div>
-
+    </div>
 {% endblock body %}

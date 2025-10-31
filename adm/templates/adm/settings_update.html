@@ -1,12 +1,13 @@
 {% extends 'adm/base/base.html' %}
-{% block title %}Crear Empresa{% endblock title %}
+{% block title %}
+    Crear Empresa
+{% endblock title %}
 {% block body %}
-<h1>Configuración</h1>
-<form method="post" enctype="multipart/form-data">
-    {% csrf_token %}
-    {{form.as_p}}
-    <input type="submit" value="Terminar" class="btn btn-cm">
-    <a href="{% url 'adm:settings' %}" class="btn btn-cm-cancel">Cancelar</a>
-</form>
-
+    <h1>Configuración</h1>
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <input type="submit" value="Terminar" class="btn btn-cm">
+        <a href="{% url 'adm:settings' %}" class="btn btn-cm-cancel">Cancelar</a>
+    </form>
 {% endblock body %}

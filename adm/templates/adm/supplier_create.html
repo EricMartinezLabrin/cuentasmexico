@@ -1,11 +1,13 @@
 {% extends 'adm/base/base.html' %}
-{% block title %}Proveedores{% endblock title %}
+{% block title %}
+    Proveedores
+{% endblock title %}
 {% block body %}
-<h1>Proveedores</h1>
-<form method="post">
-    {% csrf_token %}
-    {{form.as_p}}
-    <input type="submit" value="Terminar" class="btn btn-cm">
-    <a href="{% url 'adm:supplier' %}" class="btn btn-cm-cancel">Cancelar</a>
-</form>
-{% endblock body  %}
+    <h1>Proveedores</h1>
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <input type="submit" value="Terminar" class="btn btn-cm">
+        <a href="{% url 'adm:supplier' %}" class="btn btn-cm-cancel">Cancelar</a>
+    </form>
+{% endblock body %}

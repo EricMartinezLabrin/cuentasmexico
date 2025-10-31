@@ -1,25 +1,19 @@
 {% extends 'adm/base/base.html' %}
-{% block title %}Asignar Referencia{% endblock title %}
+{% block title %}
+    Asignar Referencia
+{% endblock title %}
 {% block body %}
-<h1>Un cliente nuevo!</h1>
-<h3>Preguntale al nuevo cliente si fue recomendado por algun cliente</h3>
-
-{% if message %}
-<div class="alert alert-danger" role="alert">
-   {{message}}
-</div>
-
-{% endif %}
-
-<form method="post">
-  {% csrf_token %}
-  <p>
-  <label for="reference">Número de celular de quien nos recomendó:</label>
-  <input type="number" class="form-control" name="reference" id="reference">
-  </p>
-  <input type="hidden" name="customer-detail" value="{{customer_reference}}">
-  <input type="submit" value="Continuar" class="btn btn-cm">
-  <a href="{% url 'adm:user_update' pk %}" class="btn btn-cm-cancel">Continuar sin referencia</a>
-</form>
-
+    <h1>Un cliente nuevo!</h1>
+    <h3>Preguntale al nuevo cliente si fue recomendado por algun cliente</h3>
+    {% if message %}<div class="alert alert-danger" role="alert">{{ message }}</div>{% endif %}
+    <form method="post">
+        {% csrf_token %}
+        <p>
+            <label for="reference">Número de celular de quien nos recomendó:</label>
+            <input type="number" class="form-control" name="reference" id="reference">
+        </p>
+        <input type="hidden" name="customer-detail" value="{{ customer_reference }}">
+        <input type="submit" value="Continuar" class="btn btn-cm">
+        <a href="{% url 'adm:user_update' pk %}" class="btn btn-cm-cancel">Continuar sin referencia</a>
+    </form>
 {% endblock body %}

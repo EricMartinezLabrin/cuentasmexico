@@ -1,49 +1,53 @@
 {% extends 'adm/base/base.html' %}
-{% block title %}Usuarios{% endblock title %}
+{% block title %}
+    Usuarios
+{% endblock title %}
 {% block body %}
-<h1>Usuarios</h1>
-<a href="#" class="btn btn-cm mt-2 mb-4">Crear Nuevo Usuario</a>
-<table class="table">
-    <thead>
-        <th>Nombre</th>
-        <th>Usuario</th>
-        <th>Email</th>
-        <th>Es Trabajador</th>
-        <th>Es Administrador</th>
-        <th>Esta Activo</th>
-        <th>Acciones</th>
-    </thead>
-    <tbody>
-        {% for user in object_list %}
-        <tr>
-            <td>{{user.first_name}} {{user.last_name}}</td>
-            <td>{{user.username}}</td>
-            <td>{{user.email}}</td>
-            <td>{{user.is_staff}}</td>
-            <td>{{user.is_superuser}}</td>
-            <td>{{user.is_active}}</td>
-            <td>
-                {% if user.is_active == True %}
-                    <a href="#" class="pyc-color" title="Suspender">
-                        <i class="bi bi-file-minus"></i>
-                    </a>
-                {% else %}
-                    <a href="#" class="pyc-color" title="Activar">
-                        <i class="bi bi-plus-square"></i>
-                    </a>                           
-                {% endif %}                
-                <a href="{% url 'adm:user_mainupdate' user.id %}" class="pyc-color" title="Editar">
-                    <i class="bi bi-pencil"></i>
-                </a>
-                {% comment %} <a href="{% url 'adm:user_update' user.userdetail.id %}" class="pyc-color" title="Cambiar Telefono">
+    <h1>Usuarios</h1>
+    <a href="#" class="btn btn-cm mt-2 mb-4">Crear Nuevo Usuario</a>
+    <table class="table">
+        <thead>
+            <th>Nombre</th>
+            <th>Usuario</th>
+            <th>Email</th>
+            <th>Es Trabajador</th>
+            <th>Es Administrador</th>
+            <th>Esta Activo</th>
+            <th>Acciones</th>
+        </thead>
+        <tbody>
+            {% for user in object_list %}
+                <tr>
+                    <td>{{ user.first_name }} {{ user.last_name }}</td>
+                    <td>{{ user.username }}</td>
+                    <td>{{ user.email }}</td>
+                    <td>{{ user.is_staff }}</td>
+                    <td>{{ user.is_superuser }}</td>
+                    <td>{{ user.is_active }}</td>
+                    <td>
+                        {% if user.is_active == True %}
+                            <a href="#" class="pyc-color" title="Suspender">
+                                <i class="bi bi-file-minus"></i>
+                            </a>
+                        {% else %}
+                            <a href="#" class="pyc-color" title="Activar">
+                                <i class="bi bi-plus-square"></i>
+                            </a>
+                        {% endif %}
+                        <a href="{% url 'adm:user_mainupdate' user.id %}"
+                           class="pyc-color"
+                           title="Editar">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                        {% comment %} <a href="{% url 'adm:user_update' user.userdetail.id %}" class="pyc-color" title="Cambiar Telefono">
                     <i class="bi bi-telephone"></i>
-                </a>  {% endcomment %}
-                <a href="#" class="pyc-color" title="Eliminar">
-                    <i class="bi bi-trash3"></i>
-                </a>
-                </td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+                        </a>  {% endcomment %}
+                        <a href="#" class="pyc-color" title="Eliminar">
+                            <i class="bi bi-trash3"></i>
+                        </a>
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
 {% endblock body %}

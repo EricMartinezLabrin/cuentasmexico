@@ -1,16 +1,15 @@
 {% extends 'adm/base/base.html' %}
-{% block title %}Asignar Referencia{% endblock title %}
+{% block title %}
+    Asignar Referencia
+{% endblock title %}
 {% block body %}
-<h1>Un cliente nuevo!</h1>
-<h3>Deseas crear el cliente {{customer}}</h3>
-
-
-<form method="post">
-  {% csrf_token %}
-  <input type="hidden" name="new-customer" value="yes">
-  <input type="hidden" name="customer" value="{{customer}}">
-  <input type="submit" name="" value="Crear" class="btn btn-cm">
-  <a href="{% url 'adm:sales' %}" class="btn btn-cm-cancel">Cancelar</a>
-</form>
-
+    <h1>Un cliente nuevo!</h1>
+    <h3>Deseas crear el cliente {{ customer }}</h3>
+    <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="new-customer" value="yes">
+        <input type="hidden" name="customer" value="{{ customer }}">
+        <input type="submit" name="" value="Crear" class="btn btn-cm">
+        <a href="{% url 'adm:sales' %}" class="btn btn-cm-cancel">Cancelar</a>
+    </form>
 {% endblock body %}

@@ -1,35 +1,40 @@
 {% extends 'adm/base/base.html' %}
 {% load static %}
-{% block title %}Ventas{% endblock title %}
+{% block title %}
+    Ventas
+{% endblock title %}
 {% block body %}
-<h1>Venta a {{customer.username}}</h1>
-<!--Available Account-->
-<div class="d-flex mb-4">
-    {% for key,value in availables.items %}
-        <b class="ms-2">{{key}}:</b> {{value}} 
-    {% endfor %}    
-</div>
-<h4>Selecciona uno o más Servicios</h4>
+    <h1>Venta a {{ customer.username }}</h1>
+    <!--Available Account-->
+    <div class="d-flex mb-4">
+        {% for key,value in availables.items %}<b class="ms-2">{{ key }}:</b> {{ value }}{% endfor %}
+    </div>
+    <h4>Selecciona uno o más Servicios</h4>
     <form action="{% url 'adm:sales_create' customer.id %}" method="post">
-        <input type="hidden" name="customer" id='customer' value="{{customer.id}}">
+        <input type="hidden" name="customer" id='customer' value="{{ customer.id }}">
         <div class="d-flex">
             <div class="service m-2">
                 {% csrf_token %}
                 {% for s in services %}
                     <div class="form-check pb-2" id="service-group">
-                        <input class="form-check-input serv " type="checkbox" value="{{s.id}}" name="service" id="{{s.id}}" onclick="services()">
-                        <label class="form-check-label" for="{{s.id}}">
-                        {{s.description}}
-                        </label>
+                        <input class="form-check-input serv "
+                               type="checkbox"
+                               value="{{ s.id }}"
+                               name="service"
+                               id="{{ s.id }}"
+                               onclick="services()">
+                        <label class="form-check-label" for="{{ s.id }}">{{ s.description }}</label>
                     </div>
                 {% endfor %}
             </div>
-
             <div class="price m-2">
                 <label for="created_at">Fecha Venta</label>
-                <input type="datetime" class="form-control" name="created_at" id="created_at" value="{{created_at|date:"Y-m-d H:i:sO"}}">
+                <input type="datetime"
+                       class="form-control"
+                       name="created_at"
+                       id="created_at"
+                       value="{{ created_at|date:"Y-m-d H:i:sO" }}">
             </div>
-
             <div class="price m-2">
                 <label for="price">Precio:</label>
                 <input type="number" name="price" id="price" class="form-control" required>
@@ -62,23 +67,23 @@
                 <input name="bank" id="bank" class="form-control" list="banklist" required>
                 <datalist id="banklist">
                     {% for b in bank %}
-                        <option value="{{b.id}}">{{b.headline}} - {{b.bank_name}} - {{b.card_number}}</option>
+                        <option value="{{ b.id }}">{{ b.headline }} - {{ b.bank_name }} - {{ b.card_number }}</option>
                     {% endfor %}
                 </datalist>
             </div>
             <div class="method m-2">
                 <label for="method">Metodo de Pago:</label>
-                <input name="method" id="method" class="form-control" list="paymentlist" required>
+                <input name="method"
+                       id="method"
+                       class="form-control"
+                       list="paymentlist"
+                       required>
                 <datalist id="paymentlist">
-                    {% for pay in payment %}
-                        <option value="{{pay.id}}">{{pay.description}}</option>
-                    {% endfor %}
+                    {% for pay in payment %}<option value="{{ pay.id }}">{{ pay.description }}</option>{% endfor %}
                 </datalist>
             </div>
             <input type="submit" id="end" value="terminar" class="btn btn-cm" disabled>
-
         </div>
-
         <div id="accounts" class="not-visible">
             <div class="d-flex">
                 <div class="accfree">
@@ -109,12 +114,11 @@
                             <!--Rellenado Automaticamente-->
                         </tbody>
                     </table>
-                </div>  
+                </div>
             </div>
-        </div>    
+        </div>
     </form>
-
 {% endblock body %}
 {% block extrajs %}
-<script src="{% static 'adm/js/sales.js' %}"></script>
+    <script src="{% static 'adm/js/sales.js' %}"></script>
 {% endblock extrajs %}

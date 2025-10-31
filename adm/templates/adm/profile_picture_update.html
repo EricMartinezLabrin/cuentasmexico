@@ -1,39 +1,50 @@
 {% extends 'adm/base/base.html' %}
-{% block title %}Cambiar Foto de Perfil{% endblock title %}
+{% block title %}
+    Cambiar Foto de Perfil
+{% endblock title %}
 {% block body %}
-<h1>Foto de perfil de {{request.user.username}}</h1>
-<form method="post" enctype="multipart/form-data">
-    {% csrf_token %}
-    <p>
-        {{form.phone_number.label}}
-        {{form.phone_number}}  
-    </p>
-    <p>
-        <label for="country">{{form.country.label}}</label>
-        <input type="text" name="{{form.country.name}}" id="country" class="form-control" list="countries" value="{{form.country.value}}">
+    <h1>Foto de perfil de {{ request.user.username }}</h1>
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <p>
+            {{ form.phone_number.label }}
+            {{ form.phone_number }}
+        </p>
+        <p>
+            <label for="country">{{ form.country.label }}</label>
+            <input type="text"
+                   name="{{ form.country.name }}"
+                   id="country"
+                   class="form-control"
+                   list="countries"
+                   value="{{ form.country.value }}">
             <datalist id="countries">
-                {% for key,value in country.items %}
-                    <option value="{{key}}">
-                {% endfor %}
-            </datalist>
-        </select>
-    </p>
-    <p>
-        <label for="lada">{{form.lada.label}}</label>
-        <input name="{{form.lada.name}}" id="lada" class="form-control" list="ladas" value="{{form.lada.value}}">
+                {% for key,value in country.items %}<option value="{{ key }}">{% endfor %}
+                </datalist>
+            </select>
+        </p>
+        <p>
+            <label for="lada">{{ form.lada.label }}</label>
+            <input name="{{ form.lada.name }}"
+                   id="lada"
+                   class="form-control"
+                   list="ladas"
+                   value="{{ form.lada.value }}">
             <datalist id="ladas">
-                {% for key,value in country.items %}
-                    <option value="{{value}}">{{key}}</option>
-                {% endfor %}
+                {% for key,value in country.items %}<option value="{{ value }}">{{ key }}</option>{% endfor %}
             </datalist>
         </input>
     </p>
-
-    <label for="{{form.picture.label}}" clas="bold">{{form.picture.label}}</label>
-    <input type="file" class="form-control mb-3" name="{{form.picture.name}}" id="{{form.picture.label}}">
-    <input type="hidden" name="{{form.user.name}}" value="{{request.user.id}}">
-    <input type="hidden" name="{{form.id.name}}" value="{{request.user.id}}">
-    <input type="submit" value="Guardar Foto de Perfil" class="btn btn-cm"> 
+    <label for="{{ form.picture.label }}" clas="bold">{{ form.picture.label }}</label>
+    <input type="file"
+           class="form-control mb-3"
+           name="{{ form.picture.name }}"
+           id="{{ form.picture.label }}">
+    <input type="hidden"
+           name="{{ form.user.name }}"
+           value="{{ request.user.id }}">
+    <input type="hidden" name="{{ form.id.name }}" value="{{ request.user.id }}">
+    <input type="submit" value="Guardar Foto de Perfil" class="btn btn-cm">
     <a href="{% url 'adm:profile' %}" class="btn btn-cm-cancel">Cancelar</a>
 </form>
 {% endblock body %}

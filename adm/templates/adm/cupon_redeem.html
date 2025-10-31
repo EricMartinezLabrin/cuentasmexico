@@ -1,77 +1,84 @@
 {% extends 'adm/base/base.html' %}
 {% load static %}
-{% block title %}Canjear Codigo{% endblock title %}
+{% block title %}
+    Canjear Codigo
+{% endblock title %}
 {% block body %}
-    <h1>Canjear Cupon {{cupon.name}}</h1>
-    <input type="hidden" name="long" id="long" value="{{months}}">
-        {% if error %}
+    <h1>Canjear Cupon {{ cupon.name }}</h1>
+    <input type="hidden" name="long" id="long" value="{{ months }}">
+    {% if error %}
         <div class="alert alert-danger" role="alert">
-            <i class="bi bi-exclamation-triangle-fill"></i> {{error}}
+            <i class="bi bi-exclamation-triangle-fill"></i> {{ error }}
         </div>
-            
-        {% endif %}
-        {% if services %}
-            <h5>Duración {{cupon.long}} me{{ cupon.long|pluralize:"s,ses" }}</h5>
-            <h3>Selecciona un servicio</h3>
-            
-            <div class="d-flex flex-wrap">
-                {% for service in services %}
-                    <form method="post">
-                        {% csrf_token %}
-                        <input type="hidden" name="service" value="{{service.id}}">
-                        <input type="hidden" name="code" value="{{cupon.name}}">
-                        <input type="hidden" name="price" value="{{cupon.price}}">
-                        <input type="hidden" name="customer" value="{{customer}}">
-                        <input type="image" src="/media/{{service.logo}}" alt="{{service}}" width="150px">
-                    </form>
-                {% endfor %}    
-            </div>
-        {% endif %}  
-        {% if service %}
-            <div onload="sendSearchData()">
-                <h4>Selecciona una cuenta {{customer}}</h4>
-                <form method="post" action="{% url 'adm:cupon_redeem_end' %}">
+    {% endif %}
+    {% if services %}
+        <h5>Duración {{ cupon.long }} me{{ cupon.long|pluralize:"s,ses" }}</h5>
+        <h3>Selecciona un servicio</h3>
+        <div class="d-flex flex-wrap">
+            {% for service in services %}
+                <form method="post">
                     {% csrf_token %}
-                    <input type="hidden" name="code" value="{{cupon.name}}">
-                    <input type="hidden" value="{{service}}" id="redeem">      
-                    <input type="hidden" name="customer" value="{{customer}}">
-                    <input type="submit" value="Terminar" class="btn btn-cm" id="submit" disabled> 
-                    <a href="{% url 'adm:sales' %}" class="btn btn-cm-cancel">Cancelar</a>
-                    <div class="d-flex">
-                        <div>
-                            <table class="table table-hover">
-                                <thead>
-                                    <th></th>
-                                    <th></th>
-                                    <th>E-mail</th>
-                                    <th>Cliente</th>
-                                    <th>Vencimient Cliente</th>
-                                    <th>Perfil</th>
-                                </thead>
-                                <tbody class="t-img" id="resultsBox">
-                                    <!--Rellenado Automaticamente-->
-                                </tbody>
-                            </table>
-                        </div>
-                        <div id="main-accdetail" class="ms-5 not-visible">
-                            <table class="table table-hover">
-                                <thead>
-                                    <th></th>
-                                    <th>E-mail</th>
-                                    <th>Cliente</th>
-                                    <th>Vencimient Cliente</th>
-                                    <th>Perfil</th>
-                                </thead>
-                                <tbody class="t-img" id="accdetail">
-                                    <!--Rellenado Automaticamente-->
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
+                    <input type="hidden" name="service" value="{{ service.id }}">
+                    <input type="hidden" name="code" value="{{ cupon.name }}">
+                    <input type="hidden" name="price" value="{{ cupon.price }}">
+                    <input type="hidden" name="customer" value="{{ customer }}">
+                    <input type="image"
+                           src="/media/{{ service.logo }}"
+                           alt="{{ service }}"
+                           width="150px">
                 </form>
-            </div>
-        {% endif %}  
+            {% endfor %}
+        </div>
+    {% endif %}
+    {% if service %}
+        <div onload="sendSearchData()">
+            <h4>Selecciona una cuenta {{ customer }}</h4>
+            <form method="post" action="{% url 'adm:cupon_redeem_end' %}">
+                {% csrf_token %}
+                <input type="hidden" name="code" value="{{ cupon.name }}">
+                <input type="hidden" value="{{ service }}" id="redeem">
+                <input type="hidden" name="customer" value="{{ customer }}">
+                <input type="submit"
+                       value="Terminar"
+                       class="btn btn-cm"
+                       id="submit"
+                       disabled>
+                <a href="{% url 'adm:sales' %}" class="btn btn-cm-cancel">Cancelar</a>
+                <div class="d-flex">
+                    <div>
+                        <table class="table table-hover">
+                            <thead>
+                                <th></th>
+                                <th></th>
+                                <th>E-mail</th>
+                                <th>Cliente</th>
+                                <th>Vencimient Cliente</th>
+                                <th>Perfil</th>
+                            </thead>
+                            <tbody class="t-img" id="resultsBox">
+                                <!--Rellenado Automaticamente-->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="main-accdetail" class="ms-5 not-visible">
+                        <table class="table table-hover">
+                            <thead>
+                                <th></th>
+                                <th>E-mail</th>
+                                <th>Cliente</th>
+                                <th>Vencimient Cliente</th>
+                                <th>Perfil</th>
+                            </thead>
+                            <tbody class="t-img" id="accdetail">
+                                <!--Rellenado Automaticamente-->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </form>
+        </div>
+    {% endif %}
 {% endblock body %}
 {% block extrajs %}
-<script src="{% static 'adm/js/cupon.js' %}"></script>
+    <script src="{% static 'adm/js/cupon.js' %}"></script>
 {% endblock extrajs %}

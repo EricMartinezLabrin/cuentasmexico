@@ -1,11 +1,13 @@
 {% extends 'adm/base/base.html' %}
-{% block title %}Servicio{% endblock title %}
+{% block title %}
+    Servicio
+{% endblock title %}
 {% block body %}
-<h1>Servicio</h1>
-<form method="post" enctype="multipart/form-data">
-    {% csrf_token %}
-    {{form.as_p}}
-    <input type="submit" value="Terminar" class="btn btn-cm">
-    <input type="submit" value="Cancelar" class="btn btn-cm-cancel ">
-</form>
+    <h1>Servicio</h1>
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <input type="submit" value="Terminar" class="btn btn-cm">
+        <input type="submit" value="Cancelar" class="btn btn-cm-cancel ">
+    </form>
 {% endblock body %}

@@ -1,26 +1,27 @@
 {% extends 'adm/base/base.html' %}
-{% block title %}Proveedores{% endblock title %}
+{% block title %}
+    Proveedores
+{% endblock title %}
 {% block body %}
-<h1>Proveedores</h1>
-<a href="{% url 'adm:supplier_create' %}" class="btn btn-cm">Crear Nuevo</a>
-
-<table class="table t-img mt-4">
-    <thead>
-        <th>Proveedor</th>
-        <th>Número de Teléfono</th>
-        <th>Acciones</th>
-    </thead>
-    <tbody>
-        {% for data in object_list %}
-            <tr>
-                <td>{{data.name}}</td>
-                <td>{{data.phone_number}}</td>
-                <td>
-                    <a href="{% url 'adm:supplier_update' data.id %}"><i class="bi bi-pencil-square"></i></a>
-                    <a href="{% url 'adm:supplier_delete' data.id %}"><i class="bi bi-trash"></i></a>
-                </td>
-            </tr>
-        {% endfor %}
-    </tbody>
-</table>
+    <h1>Proveedores</h1>
+    <a href="{% url 'adm:supplier_create' %}" class="btn btn-cm">Crear Nuevo</a>
+    <table class="table t-img mt-4">
+        <thead>
+            <th>Proveedor</th>
+            <th>Número de Teléfono</th>
+            <th>Acciones</th>
+        </thead>
+        <tbody>
+            {% for data in object_list %}
+                <tr>
+                    <td>{{ data.name }}</td>
+                    <td>{{ data.phone_number }}</td>
+                    <td>
+                        <a href="{% url 'adm:supplier_update' data.id %}"><i class="bi bi-pencil-square"></i></a>
+                        <a href="{% url 'adm:supplier_delete' data.id %}"><i class="bi bi-trash"></i></a>
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
 {% endblock body %}

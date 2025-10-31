@@ -1,0 +1,41 @@
+/* Estilos movidos desde cuentas_create.html */
+
+.cuentas-max-width {
+  max-width: 98vw;
+  margin: 0 auto;
+}
+
+.cuentas-card-max {
+  max-width: 100%;
+}
+
+.cuentas-table-min {
+  min-width: 300px;
+}
+
+.cuentas-table-full {
+  width: 100%;
+}
+
+/* Mejoras visuales para la tabla de perfiles relacionados */
+.cuentas-related-card {
+  margin-top: 2rem;
+  margin-bottom: 2rem;
+  border-radius: 0.75rem;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+}
+.cuentas-related-table thead {
+  background: #e3f0fa;
+}
+.cuentas-related-table th,
+.cuentas-related-table td {
+  vertical-align: middle;
+  text-align: center;
+}
+.cuentas-related-table td {
+  padding: 0.75rem 0.5rem;
+}
+.cuentas-related-table .badge {
+  font-size: 1rem;
+  padding: 0.5em 1em;
+}

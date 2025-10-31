@@ -1,130 +1,152 @@
 {% extends 'adm/base/base.html' %}
 {% load static %}
-{% block title %}Por Cobrar{% endblock title %}
+{% block title %}
+    Por Cobrar
+{% endblock title %}
 {% block body %}
-
-<h2 class="mb-4 text-cm">Quedan <span class="fw-bold">{{left}}</span> cuenta{{left|pluralize:",s"}} por liberar</h2>
-<div class="row mb-3 align-items-end">
-    <div class="col-md-5">
-        <form method="GET" class="d-flex gap-2">
-            <label for="date" class="form-label me-2">Fecha de vencimiento</label>
-            <input type="date" name="date" id="date" class="form-control">
-            <button type="submit" class="btn btn-cm">Buscar</button>
-        </form>
+    <h2 class="mb-4 text-cm">
+        Quedan <span class="fw-bold">{{ left }}</span> cuenta{{ left|pluralize:",s" }} por liberar
+    </h2>
+    <div class="row mb-3 align-items-end">
+        <div class="col-md-5">
+            <form method="GET" class="d-flex gap-2">
+                <label for="date" class="form-label me-2">Fecha de vencimiento</label>
+                <input type="date" name="date" id="date" class="form-control">
+                <button type="submit" class="btn btn-cm">Buscar</button>
+            </form>
+        </div>
+        <div class="col-md-3">
+            <form method="get">
+                <input type="hidden" name="date" value="{{ tomorrow|date:'Y-m-d' }}">
+                <button type="submit" class="btn btn-primary w-100">Vence Mañana</button>
+            </form>
+        </div>
+        <div class="col-md-2">
+            <a href="{% url 'adm:receivable' %}" class="btn btn-cm-cancel w-100">Limpiar Filtro</a>
+        </div>
     </div>
-    <div class="col-md-3">
-        <form method="get">
-            <input type="hidden" name="date" value="{{tomorrow|date:'Y-m-d'}}">
-            <button type="submit" class="btn btn-primary w-100">Vence Mañana</button>
-        </form>
-    </div>
-    <div class="col-md-2">
-        <a href="{% url 'adm:receivable' %}" class="btn btn-cm-cancel w-100">Limpiar Filtro</a>
-    </div>
-</div>
-
-<div class="table-responsive">
-    <table class="table table-striped table-hover align-middle shadow-sm">
-        <thead class="table-light text-center">
-            <tr>
-                <th></th>
-                <th></th>
-                <th>Cliente</th>
-                <th>Email</th>
-                <th>Perfil</th>
-                <th>Vencimiento Cliente</th>
-                <th>Vencimiento Cuenta</th>
-                <th>Estado</th>
-                <th>Acciones</th>
-            </tr>
-        </thead>
-        <tbody>
-        {% for rece in object_list %}
-            <tr class="text-center">
-                <td>
-                    {% if rece.account.account_name.logo %}
-                        <img src="/media/{{rece.account.account_name.logo}}" alt="{{rece.account.account_name.name}}" width="36" class="rounded-circle border" title="{{rece.account.account_name.description}}">
-                    {% else %}
-                        <span title="{{rece.account.account_name.description}}" class="fw-bold">{{rece.account.account_name.name}}</span>
-                    {% endif %}
-                </td>
-
-                </td>
-                <td>
-                    {% if rece.account.renovable == True %}
-                        <i class="bi bi-star-fill" style='color:orange' title="Renovable"></i>
-                    {% endif %}
-                </td>
-                <td class="fw-semibold">{{rece.customer.username}}</td>
-                <td>{{rece.account.email}}</td>
-                <td>{{rece.account.profile}}</td>
-                <td>{{rece.expiration_date|date:'d-m-Y'}}</td>
-                <td>{{rece.account.expiration_date|date:'d-m-Y'}}</td>
-                <td class="position-relative preview-hover-cell">
-                    <span class="preview-hover-trigger">
-                        {% if rece.account.status %}
-                            <span class="badge bg-success">Activa</span>
-                        {% else %}
-                            <span class="badge bg-danger">Inactiva</span>
+    <div class="table-responsive">
+        <table class="table table-striped table-hover align-middle shadow-sm">
+            <thead class="table-light text-center">
+                <tr>
+                    <th></th>
+                    <th></th>
+                    <th>Cliente</th>
+                    <th>Email</th>
+                    <th>Perfil</th>
+                    <th>Vencimiento Cliente</th>
+                    <th>Vencimiento Cuenta</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for rece in object_list %}
+                    <tr class="text-center">
+                        <td>
+                            {% if rece.account.account_name.logo %}
+                                <img src="/media/{{ rece.account.account_name.logo }}"
+                                     alt="{{ rece.account.account_name.name }}"
+                                     width="36"
+                                     class="rounded-circle border"
+                                     title="{{ rece.account.account_name.description }}">
+                            {% else %}
+                                <span title="{{ rece.account.account_name.description }}" class="fw-bold">{{ rece.account.account_name.name }}</span>
+                            {% endif %}
+                        </td>
+                    </td>
+                    <td>
+                        {% if rece.account.renovable == True %}
+                            <i class="bi bi-star-fill" style='color:orange' title="Renovable"></i>
                         {% endif %}
-                    </span>
-                    <div class="preview-hover-box shadow border bg-white p-2" style="display:none; position:absolute; left:110%; top:0; min-width:320px; z-index:1000;">
-                        <table class="table table-sm table-bordered mb-0">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Email</th>
-                                    <th>Perfil</th>
-                                    <th>Estado</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for acc in rece.account.account_name.account_set.all %}
-                                    {% if acc.email == rece.account.email and acc.password == rece.account.password %}
+                    </td>
+                    <td class="fw-semibold">{{ rece.customer.username }}</td>
+                    <td>{{ rece.account.email }}</td>
+                    <td>{{ rece.account.profile }}</td>
+                    <td>{{ rece.expiration_date|date:'d-m-Y' }}</td>
+                    <td>{{ rece.account.expiration_date|date:'d-m-Y' }}</td>
+                    <td class="position-relative preview-hover-cell">
+                        <span class="preview-hover-trigger">
+                            {% if rece.account.status %}
+                                <span class="badge bg-success">Activa</span>
+                            {% else %}
+                                <span class="badge bg-danger">Inactiva</span>
+                            {% endif %}
+                        </span>
+                        <div class="preview-hover-box shadow border bg-white p-2"
+                             style="display:none;
+                                    position:absolute;
+                                    left:110%;
+                                    top:0;
+                                    min-width:320px;
+                                    z-index:1000">
+                            <table class="table table-sm table-bordered mb-0">
+                                <thead class="table-light">
                                     <tr>
-                                        <td>{{acc.email}}</td>
-                                        <td>{{acc.profile}}</td>
-                                        <td>
-                                            {% if acc.status %}
-                                                <span class="badge bg-success">Activa</span>
-                                            {% else %}
-                                                <span class="badge bg-danger">Inactiva</span>
-                                            {% endif %}
-                                        </td>
+                                        <th>Email</th>
+                                        <th>Perfil</th>
+                                        <th>Estado</th>
                                     </tr>
-                                    {% endif %}
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                    <form method="post" class="toggle-status-form" data-url="{% url 'adm:accounts_active' rece.account.status|yesno:'false,true' rece.account.id %}" style="display:inline;">
-                        {% csrf_token %}
-                        <button type="submit" class="btn btn-sm btn-warning ms-2" title="Cambiar estado">
-                            <i class="bi bi-arrow-repeat"></i>
-                        </button>
-                    </form>
-                </td>
-                <td>
-                    <div class="d-flex gap-2 justify-content-center">
-                        <a href="{% url 'adm:release' rece.id %}" class="btn btn-outline-success btn-sm" title="Liberar">
-                            <i class="bi bi-check-circle"></i>
-                        </a>
-                        <a href="#" onclick="copyAcc('{{rece.id}}')" class="btn btn-outline-secondary btn-sm" title="Copiar mensaje">
-                            <i class="bi bi-clipboard"></i>
-                        </a>
-                        <a href="{% url 'adm:receivable' %}?email={{rece.account.email}}" class="btn btn-outline-info btn-sm" title="Ver detalles">
-                            <i class="bi bi-eye"></i>
-                        </a>
-                    </div>
-                    <textarea id="{{rece.id}}" style="border:none;background-color:transparent;overflow: hidden;resize: none;" rows="1" cols="1" readonly class="visually-hidden">
+                                </thead>
+                                <tbody>
+                                    {% for acc in rece.account.account_name.account_set.all %}
+                                        {% if acc.email == rece.account.email and acc.password == rece.account.password %}
+                                            <tr>
+                                                <td>{{ acc.email }}</td>
+                                                <td>{{ acc.profile }}</td>
+                                                <td>
+                                                    {% if acc.status %}
+                                                        <span class="badge bg-success">Activa</span>
+                                                    {% else %}
+                                                        <span class="badge bg-danger">Inactiva</span>
+                                                    {% endif %}
+                                                </td>
+                                            </tr>
+                                        {% endif %}
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        <form method="post"
+                              class="toggle-status-form"
+                              data-url="{% url 'adm:accounts_active' rece.account.status|yesno:'false,true' rece.account.id %}"
+                              style="display:inline">
+                            {% csrf_token %}
+                            <button type="submit"
+                                    class="btn btn-sm btn-warning ms-2"
+                                    title="Cambiar estado">
+                                <i class="bi bi-arrow-repeat"></i>
+                            </button>
+                        </form>
+                    </td>
+                    <td>
+                        <div class="d-flex gap-2 justify-content-center">
+                            <a href="{% url 'adm:release' rece.id %}"
+                               class="btn btn-outline-success btn-sm"
+                               title="Liberar">
+                                <i class="bi bi-check-circle"></i>
+                            </a>
+                            <a href="#"
+                               onclick="copyAcc('{{ rece.id }}')"
+                               class="btn btn-outline-secondary btn-sm"
+                               title="Copiar mensaje">
+                                <i class="bi bi-clipboard"></i>
+                            </a>
+                            <a href="{% url 'adm:receivable' %}?email={{ rece.account.email }}"
+                               class="btn btn-outline-info btn-sm"
+                               title="Ver detalles">
+                                <i class="bi bi-eye"></i>
+                            </a>
+                        </div>
+                        <textarea id="{{rece.id}}" style="border:none;background-color:transparent;overflow: hidden;resize: none;" rows="1" cols="1" readonly class="visually-hidden">
 Buenas tardes amig@, le recuerdo que su cuenta  {{rece.account.account_name}} ya venció, para seguir utilizándola debe renovar. Por ser cliente frecuente tendrás un 10% de descuento si renuevas por 3 meses o más el día de hoy.
                     </textarea>
-                </td>
-            </tr>
-        {% endfor %}
+                    </td>
+                </tr>
+            {% endfor %}
         </tbody>
     </table>
 </div>
-
 {% include 'adm/base/paginator.html' %}
 {% endblock body %}
 {% block head %}
@@ -152,7 +174,7 @@ Buenas tardes amig@, le recuerdo que su cuenta  {{rece.account.account_name}} ya
     </style>
 {% endblock %}
 {% block extrajs %}
-<script>
+    <script>
     function copyAcc(copyId){
         const codigoACopiar = document.getElementById(copyId);
         codigoACopiar.classList.remove('visually-hidden');
@@ -238,5 +260,5 @@ Buenas tardes amig@, le recuerdo que su cuenta  {{rece.account.account_name}} ya
             if (box) box.style.display = 'none';
         });
     });
-</script>
+    </script>
 {% endblock extrajs %}

@@ -1,107 +1,148 @@
-{% extends 'adm/base/base.html' %}
-{% block title %}Cuentas{% endblock title %}
+{% extends "adm/base/base.html" %}
+{% block title %}
+    Cuentas
+{% endblock title %}
 {% block body %}
-<h1>Cuentas</h1>
+    <div class="container-fluid bg-light py-5 min-vh-100">
+        <div class="row justify-content-center">
+            <div class="col-12 cuentas-max-width">
+                <div class="d-flex align-items-center mb-5 mt-2 ps-2">
+                    <i class="bi bi-person-plus-fill display-4 text-primary me-3"></i>
+                    <div>
+                        <h1 class="fw-bold mb-1 text-primary">Gestión de Cuentas</h1>
+                        <div class="text-muted fs-6">Crea o edita cuentas y perfiles de manera sencilla y rápida</div>
+                    </div>
+                </div>
 
-{# Tabla de perfiles relacionados #}
-{% if related_accounts %}
-<div class="mb-4">
-    <h5>Perfiles relacionados</h5>
-    <table class="table table-sm table-bordered table-hover align-middle">
-        <thead class="table-light">
-            <tr>
-                <th>Email</th>
-                <th>Perfil</th>
-                <th>Estado</th>
-                <th>Vencimiento</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for acc in related_accounts %}
-            <tr>
-                <td>{{ acc.email }}</td>
-                <td>{{ acc.profile }}</td>
-                <td>
-                    {% if acc.status %}
-                        <span class="badge bg-success">Activa</span>
-                    {% else %}
-                        <span class="badge bg-danger">Inactiva</span>
-                    {% endif %}
-                </td>
-                <td>{{ acc.expiration_date|date:'d-m-Y' }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-</div>
-{% endif %}
-
-<form method="POST">
-    {% csrf_token %}
-    <div class="d-flex w-100">
-        <div class="w-100">
-            <p>
-                {{form.supplier.label}}
-                {{form.supplier}}                
-            </p>
-            <p>
-                {{form.account_name.label}}
-                {{form.account_name}}              
-            </p>
-            <p>
-                {{form.expiration_date.label}}
-                {% comment %} {{form.expiration_date}}             {% endcomment %}
-                <input type="date" name="{{form.expiration_date.name}}" id="newExpiration" value="{{form.expiration_date.value|date:"Y-m-d"}}" class="form-control">
-            </p>
-            <p>
-                <label for="renewal_date">Fecha de Renovación</label>
-                <input type="date" name="renewal_date" id="renewal_date" value="{{form.renewal_date.value|date:"Y-m-d"}}" class="form-control">
-            </p>
-
-            <p>
-                <label for="status">¿Reactivar suspendidas?</label>
-                <input type="checkbox" name="status" id="status" checked >
-            </p>
-
+                <div class="card border-0 mb-5 cuentas-card-max">
+                    <div class="card-body p-5">
+                        <form method="post" autocomplete="off">
+                            {% csrf_token %}
+                            <div class="row g-4">
+                                <div class="col-12 col-md-6">
+                                    <div class="mb-4">
+                                        <label class="form-label fw-semibold">{{ form.supplier.label }}</label>
+                                        {{ form.supplier }}
+                                    </div>
+                                    <div class="mb-4">
+                                        <label class="form-label fw-semibold">{{ form.account_name.label }}</label>
+                                        {{ form.account_name }}
+                                    </div>
+                                    <div class="mb-4">
+                                        <label class="form-label fw-semibold">{{ form.expiration_date.label }}</label>
+                                        <input type="date"
+                                               name="{{ form.expiration_date.name }}"
+                                               id="newExpiration"
+                                               value="{{ form.expiration_date.value|date:'Y-m-d' }}"
+                                               class="form-control">
+                                    </div>
+                                    <div class="mb-4">
+                                        <label for="renewal_date" class="form-label fw-semibold">Fecha de Renovación</label>
+                                        <input type="date"
+                                               name="renewal_date"
+                                               id="renewal_date"
+                                               value="{{ form.renewal_date.value|date:'Y-m-d' }}"
+                                               class="form-control">
+                                    </div>
+                                    <div class="form-check mb-4 ps-0">
+                                        <input type="checkbox"
+                                               name="status"
+                                               id="status"
+                                               class="form-check-input ms-1"
+                                               checked>
+                                        <label for="status" class="form-check-label ms-2">¿Reactivar suspendidas?</label>
+                                    </div>
+                                </div>
+                                <div class="col-12 col-md-6">
+                                    <div class="mb-4">
+                                        <label class="form-label fw-semibold">{{ form.email.label }}</label>
+                                        {{ form.email }}
+                                    </div>
+                                    <div class="mb-4">
+                                        <label class="form-label fw-semibold">{{ form.password.label }}</label>
+                                        {{ form.password }}
+                                    </div>
+                                    <div class="mb-4">
+                                        <label class="form-label fw-semibold">{{ form.comments.label }}</label>
+                                        {{ form.comments }}
+                                    </div>
+                                    <div class="form-check mb-4 ps-0">
+                                        {{ form.renovable }}
+                                        <label class="form-check-label ms-2">{{ form.renovable.label }}</label>
+                                    </div>
+                                    <div id="sugested"></div>
+                                </div>
+                            </div>
+                            {{ form.business }}
+                            <input type="hidden"
+                                   name="last_expiration_date"
+                                   id="last_expiration_date"
+                                   value="{{ form.expiration_date.value|date:'Y-m-d' }}">
+                            <input type="hidden"
+                                   name="{{ form.created_by.name }}"
+                                   value="{{ request.user.id }}">
+                            <input type="hidden"
+                                   name="{{ form.modified_by.name }}"
+                                   value="{{ request.user.id }}">
+                            <div class="d-flex flex-wrap gap-3 justify-content-end mt-5">
+                                <button type="submit" class="btn btn-primary px-5 py-2 fw-bold fs-5">
+                                    <i class="bi bi-check2-circle me-2"></i>Terminar
+                                </button>
+                                <a href="{% url 'adm:accounts' %}"
+                                   class="btn btn-outline-secondary px-5 py-2 fw-bold fs-5"><i class="bi bi-x-circle me-2"></i>Cancelar</a>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                                {% if related_accounts %}
+                    <div class="cuentas-related-card">
+                        <div class="card border-0 cuentas-card-max">
+                            <div class="card-body p-4">
+                                <h5 class="fw-bold mb-3 text-primary">
+                                    <i class="bi bi-people-fill me-2"></i>Perfiles relacionados
+                                </h5>
+                                <div class="table-responsive rounded cuentas-table-min">
+                                    <table class="table cuentas-related-table table-hover align-middle mb-0 bg-white cuentas-table-full">
+                                        <thead>
+                                            <tr>
+                                                <th scope="col">Email</th>
+                                                <th scope="col">Perfil</th>
+                                                <th scope="col">Estado</th>
+                                                <th scope="col">Vencimiento</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for acc in related_accounts %}
+                                                <tr>
+                                                    <td class="text-break">{{ acc.email }}</td>
+                                                    <td>
+                                                        <span class="badge bg-info text-dark">{{ acc.profile }}</span>
+                                                    </td>
+                                                    <td>
+                                                        {% if acc.status %}
+                                                            <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Activa</span>
+                                                        {% else %}
+                                                            <span class="badge bg-danger"><i class="bi bi-x-circle me-1"></i>Inactiva</span>
+                                                        {% endif %}
+                                                    </td>
+                                                    <td>
+                                                        <span class="badge bg-light text-dark border border-1 border-primary">{{ acc.expiration_date|date:'d-m-Y' }}</span>
+                                                    </td>
+                                                </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
         </div>
-        <div class="w-100 ms-3">
-            <p>
-                {{form.email.label}}
-                {{form.email}}                
-            </p>
-            <p>
-                {{form.password.label}}
-                {{form.password}}                
-            </p>
-            <p>
-                {{form.comments.label}}
-                {{form.comments}}                
-            </p>
-
-            <p>
-                {{form.renovable.label}}
-                {{form.renovable}}   
-            </p>
-
-            <p id="sugested"></p>
-
-        </div>
-
-
     </div>
-    {{form.business}}
-    <input type="hidden" name="last_expiration_date" id="last_expiration_date" value={{form.expiration_date.value|date:"Y-m-d"}}>
-    <input type="hidden" name="{{form.created_by.name}}" value="{{request.user.id}}">
-    <input type="hidden" name="{{form.modified_by.name}}" value="{{request.user.id}}">
-    <input type="submit" value="Terminar" class="btn btn-cm">
-    <a href="{% url 'adm:accounts' %}" class="btn btn-cm-cancel">Cancelar</a>
-</form>
-
 {% endblock body %}
-
 {% block extrajs %}
-
-<script>
+    <script>
     let sugested = document.getElementById('sugested');
     let lastExpirationDateInput = document.getElementById('last_expiration_date');
     let newExpirationInput = document.getElementById('newExpiration');
@@ -140,5 +181,4 @@
         `;
     });
     </script>
-    
 {% endblock extrajs %}

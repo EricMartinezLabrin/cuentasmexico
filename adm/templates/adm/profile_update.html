@@ -1,11 +1,13 @@
 {% extends 'adm/base/base.html' %}
-{% block title %}Editar Perfil{% endblock title %}
+{% block title %}
+    Editar Perfil
+{% endblock title %}
 {% block body %}
-<h1>Actualizar datos de {{request.user}}</h1>
-<form method="POST">
-    {% csrf_token %}
-    {{form.as_p}}
-    <input type="submit" value="Editar" class="btn btn-cm">
-    <a href="{% url 'adm:profile' %}" class="btn btn-cm-cancel">Cancelar</a>
-</form>
+    <h1>Actualizar datos de {{ request.user }}</h1>
+    <form method="POST">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <input type="submit" value="Editar" class="btn btn-cm">
+        <a href="{% url 'adm:profile' %}" class="btn btn-cm-cancel">Cancelar</a>
+    </form>
 {% endblock body %}

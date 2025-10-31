@@ -1,37 +1,40 @@
 {% extends 'adm/base/base.html' %}
-    {% load humanize %}
-{% block title %}Bancos Disponibles{% endblock title %}
+{% load humanize %}
+{% block title %}
+    Bancos Disponibles
+{% endblock title %}
 {% block body %}
-<h1>Bancos</h1>
-<a href="{% url 'adm:bank_create' %}" class="btn btn-pyc">Crear Nuevo</a>
-
-<table class="table t-img">
-    <thead>
-        <th></th>
-        <th>Banco</th>
-        <th>Titular</th>
-        <th>Tarjeta</th>
-        <th>Clabe</th>
-        <th>Total Mes</th>
-        <th>Status</th>
-        <th>Acciones</th>
-    </thead>
-    <tbody>
-        {% for data in object_list %}
-            <tr>
-                <td><img src="/media/{{data.logo}}" alt="{{data.bank_name}}" width="40"></td>
-                <td>{{data.bank_name}}</td>
-                <td>{{data.headline}}</td>
-                <td>{{data.card_number}}</td>
-                <td>{{data.clabe}}</td>
-                <td>${{data.total|intcomma}}</td>
-                <td>{{data.status}}</td>
-                <td>
-                    <a href="{% url 'adm:bank_update' data.pk %}"><i class="bi bi-pencil-square"></i></a>
-                    <a href="{% url 'adm:bank_delete' data.pk %}"><i class="bi bi-trash"></i></a>
-                </td>
-            </tr>
-        {% endfor %}
-    </tbody>
-</table>
+    <h1>Bancos</h1>
+    <a href="{% url 'adm:bank_create' %}" class="btn btn-pyc">Crear Nuevo</a>
+    <table class="table t-img">
+        <thead>
+            <th></th>
+            <th>Banco</th>
+            <th>Titular</th>
+            <th>Tarjeta</th>
+            <th>Clabe</th>
+            <th>Total Mes</th>
+            <th>Status</th>
+            <th>Acciones</th>
+        </thead>
+        <tbody>
+            {% for data in object_list %}
+                <tr>
+                    <td>
+                        <img src="/media/{{ data.logo }}" alt="{{ data.bank_name }}" width="40">
+                    </td>
+                    <td>{{ data.bank_name }}</td>
+                    <td>{{ data.headline }}</td>
+                    <td>{{ data.card_number }}</td>
+                    <td>{{ data.clabe }}</td>
+                    <td>${{ data.total|intcomma }}</td>
+                    <td>{{ data.status }}</td>
+                    <td>
+                        <a href="{% url 'adm:bank_update' data.pk %}"><i class="bi bi-pencil-square"></i></a>
+                        <a href="{% url 'adm:bank_delete' data.pk %}"><i class="bi bi-trash"></i></a>
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
 {% endblock body %}
