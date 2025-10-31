@@ -1,15 +1,15 @@
-{% extends 'adm/base/base.html' %}
+{% extends "adm/base/base.html" %}
 {% load static %}
 {% block title %}
     Por Cobrar
 {% endblock title %}
 {% block body %}
     <h2 class="mb-4 text-cm">
-        Quedan <span class="fw-bold">{{ left }}</span> cuenta{{ left|pluralize:",s" }} por liberar
+    Quedan <span class="fw-bold">{{ left }}</span> cuenta{{ left|pluralize:",s" }} por liberar
     </h2>
     <div class="row mb-3 align-items-end">
         <div class="col-md-5">
-            <form method="GET" class="d-flex gap-2">
+            <form method="get" class="d-flex gap-2">
                 <label for="date" class="form-label me-2">Fecha de vencimiento</label>
                 <input type="date" name="date" id="date" class="form-control">
                 <button type="submit" class="btn btn-cm">Buscar</button>
@@ -43,21 +43,23 @@
             <tbody>
                 {% for rece in object_list %}
                     <tr class="text-center">
-                        <td>
+                        <td class="text-center">
                             {% if rece.account.account_name.logo %}
-                                <img src="/media/{{ rece.account.account_name.logo }}"
-                                     alt="{{ rece.account.account_name.name }}"
+                           <img src="/media/{{ rece.account.account_name.logo }}"
+                               alt="{{ rece.account.account_name.name }}"
                                      width="36"
-                                     class="rounded-circle border"
-                                     title="{{ rece.account.account_name.description }}">
+                                     height="36"
+                                     class="d-block mx-auto"
+                               title="{{ rece.account.account_name.description }}">
+                           <div class="small mt-1 fw-semibold">{{ rece.account.account_name.name }}</div>
                             {% else %}
                                 <span title="{{ rece.account.account_name.description }}" class="fw-bold">{{ rece.account.account_name.name }}</span>
                             {% endif %}
                         </td>
-                    </td>
+                    
                     <td>
                         {% if rece.account.renovable == True %}
-                            <i class="bi bi-star-fill" style='color:orange' title="Renovable"></i>
+                            <i class="bi bi-star-fill star-renovable" title="Renovable"></i>
                         {% endif %}
                     </td>
                     <td class="fw-semibold">{{ rece.customer.username }}</td>
@@ -73,13 +75,7 @@
                                 <span class="badge bg-danger">Inactiva</span>
                             {% endif %}
                         </span>
-                        <div class="preview-hover-box shadow border bg-white p-2"
-                             style="display:none;
-                                    position:absolute;
-                                    left:110%;
-                                    top:0;
-                                    min-width:320px;
-                                    z-index:1000">
+                    <div class="preview-hover-box shadow border bg-white p-2">
                             <table class="table table-sm table-bordered mb-0">
                                 <thead class="table-light">
                                     <tr>
@@ -108,9 +104,8 @@
                             </table>
                         </div>
                         <form method="post"
-                              class="toggle-status-form"
-                              data-url="{% url 'adm:accounts_active' rece.account.status|yesno:'false,true' rece.account.id %}"
-                              style="display:inline">
+                            class="toggle-status-form d-inline"
+                            data-url="{% url 'adm:accounts_active' rece.account.status|yesno:'false,true' rece.account.id %}">
                             {% csrf_token %}
                             <button type="submit"
                                     class="btn btn-sm btn-warning ms-2"
@@ -126,8 +121,8 @@
                                title="Liberar">
                                 <i class="bi bi-check-circle"></i>
                             </a>
-                            <a href="#"
-                               onclick="copyAcc('{{ rece.id }}')"
+                                     <a href="#"
+                                         onclick="copyAcc('{{ rece.id }}')"
                                class="btn btn-outline-secondary btn-sm"
                                title="Copiar mensaje">
                                 <i class="bi bi-clipboard"></i>
@@ -138,41 +133,18 @@
                                 <i class="bi bi-eye"></i>
                             </a>
                         </div>
-                        <textarea id="{{rece.id}}" style="border:none;background-color:transparent;overflow: hidden;resize: none;" rows="1" cols="1" readonly class="visually-hidden">
-Buenas tardes amig@, le recuerdo que su cuenta  {{rece.account.account_name}} ya venció, para seguir utilizándola debe renovar. Por ser cliente frecuente tendrás un 10% de descuento si renuevas por 3 meses o más el día de hoy.
-                    </textarea>
+                        <textarea id="{{ rece.id }}" rows="1" cols="1" readonly class="visually-hidden textarea-copy-message">Buenas tardes amig@, le recuerdo que su cuenta  {{ rece.account.account_name }} ya venció, para seguir utilizándola debe renovar. Por ser cliente frecuente tendrás un 10% de descuento si renuevas por 3 meses o más el día de hoy.</textarea>
                     </td>
                 </tr>
             {% endfor %}
         </tbody>
     </table>
 </div>
-{% include 'adm/base/paginator.html' %}
+{% include "adm/base/paginator.html" %}
 {% endblock body %}
 {% block head %}
-    {{ block.super }}
-    <style>
-        .table-responsive {
-            overflow: visible !important;
-        }
-        .preview-hover-cell {
-            position: relative;
-            overflow: visible !important;
-        }
-        .preview-hover-box {
-            display: none;
-            position: absolute;
-            left: 110%;
-            top: 0;
-            min-width: 320px;
-            z-index: 2000;
-            background: #fff;
-            border: 1px solid #dee2e6;
-            border-radius: 0.5rem;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-        }
-    </style>
-{% endblock %}
+    <link rel="stylesheet" href="{% static 'adm/css/receivable.css' %}">
+{% endblock head %}
 {% block extrajs %}
     <script>
     function copyAcc(copyId){
