@@ -1403,13 +1403,30 @@ class CreditCustomerListView(UserAccessMixin, ListView):
         context['customer'] = User.objects.get(pk=self.kwargs.get('pk'))
         return context
 
-# @permission_required('is_staff', 'adm:no-permission')
 # def ImportView(request):
-#     # ImportData.services()
-#     # ImportData.customers()
-#     # ImportData.accounts(request)
-#     # ImportData.sales(request)
-#     # ImportData.bank()
+
+from django.views.decorators.http import require_POST
+
+@permission_required('is_staff', 'adm:no-permission')
+@require_POST
+def ActiveInactiveAccount(request, status, pk):
+    account = Account.objects.get(pk=pk)
+    # Convertir el string 'true'/'false' a booleano
+    if isinstance(status, str):
+        if status.lower() == 'true':
+            new_status = True
+        elif status.lower() == 'false':
+            new_status = False
+        else:
+            new_status = account.status  # fallback
+    else:
+        new_status = bool(status)
+    account.status = new_status
+    account.save()
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        # Respuesta para AJAX
+        return JsonResponse({'success': True, 'new_status': new_status})
+    return redirect(reverse('adm:accounts'))
 #     # ImportData.invoices()
 #     # ImportData.update_country()
 #     ImportData.shop()
