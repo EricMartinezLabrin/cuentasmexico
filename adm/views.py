@@ -316,15 +316,24 @@ def AccountsCreateView(request):
     template_name = 'adm/accounts_create.html'
     form_class = AccountsForm(request.POST or None)
     success_url = reverse_lazy('adm:accounts')
+    related_accounts = None
+    # Determinar datos para buscar cuentas relacionadas
     if request.method == 'POST':
+        account_name_id = request.POST.get('account_name')
+        email = request.POST.get('email')
+        password = request.POST.get('password')
+        if account_name_id and email and password:
+            try:
+                account_name = Service.objects.get(pk=account_name_id)
+                related_accounts = Account.objects.filter(account_name=account_name, email=email, password=password)
+            except Service.DoesNotExist:
+                related_accounts = None
         business = Business.objects.get(pk=request.POST.get('business'))
         supplier = Supplier.objects.get(pk=request.POST.get('supplier'))
         created_by = User.objects.get(pk=request.POST.get('created_by'))
         modified_by = User.objects.get(pk=request.POST.get('modified_by'))
         account_name = Service.objects.get(pk=request.POST.get('account_name'))
         expiration_date = request.POST.get('expiration_date')
-        email = request.POST.get('email')
-        password = request.POST.get('password')
         comments = request.POST.get('comments')
         if request.POST.get('renovable') == 'on':
             renovable = True
@@ -349,9 +358,20 @@ def AccountsCreateView(request):
             )
         return redirect(success_url)
     else:
-        return render(request, template_name, {
-            'form': form_class
-        })
+        # GET: Si hay datos en el formulario, buscar relacionados
+        account_name_id = request.GET.get('account_name') or None
+        email = request.GET.get('email') or None
+        password = request.GET.get('password') or None
+        if account_name_id and email and password:
+            try:
+                account_name = Service.objects.get(pk=account_name_id)
+                related_accounts = Account.objects.filter(account_name=account_name, email=email, password=password)
+            except Service.DoesNotExist:
+                related_accounts = None
+    return render(request, template_name, {
+        'form': form_class,
+        'related_accounts': related_accounts
+    })
 
 @permission_required('is_staff', 'adm:no-permission')
 def AccountsUpdateView(request, pk):
@@ -1246,39 +1266,39 @@ def ReleaseAccounts(request, pk):
     template_name = 'adm/accounts_create.html'
     success_url = reverse('adm:receivable')
     sale = Sale.objects.get(pk=pk)
-    sale_email=sale.account.email
-    sale_password=sale.account.password
-    sale_account_mame_id=sale.account.account_name.id
+    sale_email = sale.account.email
+    sale_password = sale.account.password
+    sale_account_mame_id = sale.account.account_name.id
     acc_list = Account.objects.filter(
         email=sale_email,
         password=sale_password,
         account_name=sale_account_mame_id
     )
+    related_accounts = acc_list
     sales_to_release = []
     sales_to_report = []
 
     for acc in acc_list:
-        data_release = Sale.objects.filter(account=acc,status=True,expiration_date__lte=datetime.now().replace(hour=23, minute=59, second=59, microsecond=999999))
-        data_report = Sale.objects.filter(account=acc,status=True,expiration_date__gte=datetime.now().replace(hour=23, minute=59, second=59, microsecond=999999))
+        data_release = Sale.objects.filter(account=acc, status=True, expiration_date__lte=datetime.now().replace(hour=23, minute=59, second=59, microsecond=999999))
+        data_report = Sale.objects.filter(account=acc, status=True, expiration_date__gte=datetime.now().replace(hour=23, minute=59, second=59, microsecond=999999))
         if data_release:
             sales_to_release.append(data_release)
         if data_report:
             sales_to_report.append(data_report)
         # Change Sale Status
-    for sales in sales_to_release:   
+    for sales in sales_to_release:
         sales[0].status = False
         sales[0].save()
         message = f'Le informamos que su cuenta {sales[0].account.account_name.description} con email {sales[0].account.email} fue suspendida por falta de pago. Aún está a tiempo de recuperarla renovando su cuenta. Por favor, si tiene alguna duda o comentario solo escribe Hablar con un Humano o envianos un whats app al número de siempre. Saludos.'
         customer_detail_released = UserDetail.objects.get(user=sales[0].customer)
-        Notification.send_whatsapp_notification(message,customer_detail_released.lada,customer_detail_released.phone_number)
-
+        Notification.send_whatsapp_notification(message, customer_detail_released.lada, customer_detail_released.phone_number)
 
         # ReleaseProfile
         account = sales[0].account
         account.customer = None
         account.modified_by = request.user
         account.save()
-    
+
     data_account = sale.account
 
     # Update Password
@@ -1304,8 +1324,8 @@ def ReleaseAccounts(request, pk):
         )
         # Verificar si la contraseña cambió
         password_changed = old_password != password
-        
-        #Notificar a los clientes solo si cambió la contraseña
+
+        # Notificar a los clientes solo si cambió la contraseña
         if password_changed:
             for customer in sales_to_report:
                 message = f'Le informamos que por su seguridad las claves de su cuenta {data_account.account_name} fueron cambiadas. A continuación le dejo sus nuevas claves:\n'
@@ -1332,7 +1352,7 @@ def ReleaseAccounts(request, pk):
                 }
                 if webhook_url:
                     requests.post(webhook_url, json=payload)
-                Notification.send_whatsapp_notification(message,customer_detail.lada,customer_detail.phone_number)
+                Notification.send_whatsapp_notification(message, customer_detail.lada, customer_detail.phone_number)
 
         for a in acc:
             a.supplier = supplier
@@ -1361,7 +1381,8 @@ def ReleaseAccounts(request, pk):
                     continue
         return redirect(success_url)
     return render(request, template_name, {
-        'form': form_class
+        'form': form_class,
+        'related_accounts': related_accounts
     })
 
 @permission_required('is_staff', 'adm:no-permission')
