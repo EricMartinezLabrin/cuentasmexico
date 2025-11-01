@@ -1,0 +1,33 @@
+.star-renovable {
+  color: orange;
+}
+
+.d-inline {
+  display: inline;
+}
+
+.textarea-copy-message {
+  border: none;
+  background-color: transparent;
+  overflow: hidden;
+  resize: none;
+}
+.table-responsive {
+  overflow: visible !important;
+}
+.preview-hover-cell {
+  position: relative;
+  overflow: visible !important;
+}
+.preview-hover-box {
+  display: none;
+  position: absolute;
+  right: 110%;
+  top: 0;
+  min-width: 320px;
+  z-index: 2000;
+  background: #fff;
+  border: 1px solid #dee2e6;
+  border-radius: 0.5rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
