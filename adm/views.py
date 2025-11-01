@@ -1275,9 +1275,33 @@ def ReleaseAccounts(request, pk):
         account_name=sale_account_mame_id
     )
     related_accounts = acc_list
+
+    # AJAX para suspender/reactivar todas
+    if request.method == 'POST' and request.headers.get('x-requested-with') == 'XMLHttpRequest' and request.GET.get('toggle_all'):
+        # Determinar si todas están activas o no
+        all_active = all(acc.status for acc in related_accounts)
+        # Cambiar el estado de todas
+        for acc in related_accounts:
+            acc.status = not all_active
+            acc.save()
+        # Devolver el nuevo estado de cada cuenta
+        return JsonResponse({
+            'success': True,
+            'all_active': not all_active,
+            'related_accounts': [
+                {
+                    'id': acc.id,
+                    'email': acc.email,
+                    'profile': acc.profile,
+                    'status': acc.status,
+                    'expiration_date': acc.expiration_date.strftime('%d-%m-%Y') if acc.expiration_date else ''
+                } for acc in related_accounts
+            ]
+        })
+
+    # Lógica original (formulario normal)
     sales_to_release = []
     sales_to_report = []
-
     for acc in acc_list:
         data_release = Sale.objects.filter(account=acc, status=True, expiration_date__lte=datetime.now().replace(hour=23, minute=59, second=59, microsecond=999999))
         data_report = Sale.objects.filter(account=acc, status=True, expiration_date__gte=datetime.now().replace(hour=23, minute=59, second=59, microsecond=999999))
@@ -1285,23 +1309,17 @@ def ReleaseAccounts(request, pk):
             sales_to_release.append(data_release)
         if data_report:
             sales_to_report.append(data_report)
-        # Change Sale Status
     for sales in sales_to_release:
         sales[0].status = False
         sales[0].save()
         message = f'Le informamos que su cuenta {sales[0].account.account_name.description} con email {sales[0].account.email} fue suspendida por falta de pago. Aún está a tiempo de recuperarla renovando su cuenta. Por favor, si tiene alguna duda o comentario solo escribe Hablar con un Humano o envianos un whats app al número de siempre. Saludos.'
         customer_detail_released = UserDetail.objects.get(user=sales[0].customer)
         Notification.send_whatsapp_notification(message, customer_detail_released.lada, customer_detail_released.phone_number)
-
-        # ReleaseProfile
         account = sales[0].account
         account.customer = None
         account.modified_by = request.user
         account.save()
-
     data_account = sale.account
-
-    # Update Password
     form_class = AccountsForm(request.POST or None, instance=data_account)
     if request.method == 'POST':
         supplier = Supplier.objects.get(pk=request.POST.get('supplier'))

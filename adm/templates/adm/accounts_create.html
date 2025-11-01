@@ -133,6 +133,11 @@
                                         </tbody>
                                     </table>
                                 </div>
+                                <div class="mt-4 text-end">
+                                    <button id="toggle-all-status" class="btn btn-warning">
+                                        <span id="toggle-all-status-text">Suspender/Reactivar todas</span>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -143,6 +148,53 @@
 {% endblock body %}
 {% block extrajs %}
     <script>
+    // Botón AJAX para suspender/reactivar todas las cuentas relacionadas
+    document.addEventListener('DOMContentLoaded', function() {
+        const btn = document.getElementById('toggle-all-status');
+        if (btn) {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                btn.disabled = true;
+                fetch(window.location.pathname + '?toggle_all=1', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ toggle_all: true })
+                })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        // Actualizar la tabla de perfiles relacionados
+                        data.related_accounts.forEach(function(acc, idx) {
+                            const row = document.querySelectorAll('.cuentas-related-table tbody tr')[idx];
+                            if (row) {
+                                const statusCell = row.querySelector('td:nth-child(3) span');
+                                if (statusCell) {
+                                    if (acc.status) {
+                                        statusCell.className = 'badge bg-success';
+                                        statusCell.innerHTML = '<i class="bi bi-check-circle me-1"></i>Activa';
+                                    } else {
+                                        statusCell.className = 'badge bg-danger';
+                                        statusCell.innerHTML = '<i class="bi bi-x-circle me-1"></i>Inactiva';
+                                    }
+                                }
+                            }
+                        });
+                        btn.disabled = false;
+                        btn.classList.remove('btn-warning');
+                        btn.classList.add('btn-success');
+                        document.getElementById('toggle-all-status-text').textContent = data.all_active ? 'Suspender todas' : 'Reactivar todas';
+                    } else {
+                        btn.disabled = false;
+                    }
+                })
+                .catch(() => { btn.disabled = false; });
+            });
+        }
+    });
     let sugested = document.getElementById('sugested');
     let lastExpirationDateInput = document.getElementById('last_expiration_date');
     let newExpirationInput = document.getElementById('newExpiration');
