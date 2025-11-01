@@ -139,7 +139,8 @@ GitHub.sublime-settings
 venv/
 tmp/
 staticfiles/
-static/
+!adm/static/adm/css/
+!adm/static/adm/css/receivable.css
 
 # Django migrations
 */migrations/*
