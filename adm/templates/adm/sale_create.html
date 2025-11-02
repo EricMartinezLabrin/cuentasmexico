@@ -1,4 +1,4 @@
-{% extends 'adm/base/base.html' %}
+{% extends "adm/base/base.html" %}
 {% load static %}
 {% block title %}
     Ventas
@@ -11,7 +11,7 @@
     </div>
     <h4>Selecciona uno o más Servicios</h4>
     <form action="{% url 'adm:sales_create' customer.id %}" method="post">
-        <input type="hidden" name="customer" id='customer' value="{{ customer.id }}">
+        <input type="hidden" name="customer" id="customer" value="{{ customer.id }}">
         <div class="d-flex">
             <div class="service m-2">
                 {% csrf_token %}

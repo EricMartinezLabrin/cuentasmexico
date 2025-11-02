@@ -334,6 +334,22 @@ def AccountsCreateView(request):
         modified_by = User.objects.get(pk=request.POST.get('modified_by'))
         account_name = Service.objects.get(pk=request.POST.get('account_name'))
         expiration_date = request.POST.get('expiration_date')
+        # Convertir a datetime aware si es necesario
+        if expiration_date:
+            if isinstance(expiration_date, str):
+                try:
+                    expiration_date_dt = datetime.strptime(expiration_date, "%Y-%m-%d %H:%M:%S")
+                except ValueError:
+                    try:
+                        expiration_date_dt = datetime.strptime(expiration_date, "%Y-%m-%d")
+                    except ValueError:
+                        expiration_date_dt = None
+                if expiration_date_dt:
+                    if timezone.is_naive(expiration_date_dt):
+                        expiration_date = timezone.make_aware(expiration_date_dt)
+                    else:
+                        expiration_date = expiration_date_dt
+        # Si no es string, se asume que ya es datetime
         comments = request.POST.get('comments')
         if request.POST.get('renovable') == 'on':
             renovable = True
@@ -387,6 +403,22 @@ def AccountsUpdateView(request, pk):
         modified_by = User.objects.get(pk=request.POST.get('modified_by'))
         account_name = Service.objects.get(pk=request.POST.get('account_name'))
         expiration_date = request.POST.get('expiration_date')
+        # Convertir a datetime aware si es necesario
+        if expiration_date:
+            if isinstance(expiration_date, str):
+                try:
+                    expiration_date_dt = datetime.strptime(expiration_date, "%Y-%m-%d %H:%M:%S")
+                except ValueError:
+                    try:
+                        expiration_date_dt = datetime.strptime(expiration_date, "%Y-%m-%d")
+                    except ValueError:
+                        expiration_date_dt = None
+                if expiration_date_dt:
+                    if timezone.is_naive(expiration_date_dt):
+                        expiration_date = timezone.make_aware(expiration_date_dt)
+                    else:
+                        expiration_date = expiration_date_dt
+        # Si no es string, se asume que ya es datetime
         email = request.POST.get('email')
         password = request.POST.get('password')
         comments = request.POST.get('comments')
@@ -409,6 +441,20 @@ def AccountsUpdateView(request, pk):
             a.supplier = supplier
             a.modified_by = modified_by
             a.account_name = account_name
+            # Asegurar aware
+            if expiration_date and isinstance(expiration_date, str):
+                try:
+                    expiration_date_dt = datetime.strptime(expiration_date, "%Y-%m-%d %H:%M:%S")
+                except ValueError:
+                    try:
+                        expiration_date_dt = datetime.strptime(expiration_date, "%Y-%m-%d")
+                    except ValueError:
+                        expiration_date_dt = None
+                if expiration_date_dt:
+                    if timezone.is_naive(expiration_date_dt):
+                        expiration_date = timezone.make_aware(expiration_date_dt)
+                    else:
+                        expiration_date = expiration_date_dt
             a.expiration_date = expiration_date
             a.email = email
             a.password = password
@@ -671,6 +717,9 @@ def key_adjust(request, pk):
         sale = Sale.objects.get(pk=pk)
         expiration_date = sale.expiration_date
         new_date = expiration_date + timedelta(days=days)
+        # Asegurar aware
+        if timezone.is_naive(new_date):
+            new_date = timezone.make_aware(new_date)
         sale.expiration_date = new_date
         sale.save()
         account_name = sale.account.account_name
@@ -686,6 +735,8 @@ def key_adjust(request, pk):
 def SalesAddFreeDaysView(request, pk, days):
     sale = Sale.objects.get(pk=pk)
     new_expiration = sale.expiration_date + timedelta(days=days)
+    if timezone.is_naive(new_expiration):
+        new_expiration = timezone.make_aware(new_expiration)
     sale.expiration_date = new_expiration
     sale.save()
     customer = UserDetail.objects.get(user=sale.customer.id)
@@ -763,87 +814,52 @@ def SalesUpdateStatusView(request, pk, customer, status):
 @csrf_exempt
 @permission_required('is_staff', 'adm:no-permission')
 def SalesSearchView(request):
-    print('empezo')
     if is_ajax(request):
-        print('entro al ajax')
-        res = None
         services = request.POST.getlist('data[]', '')
-        print(services)
-        print(res)
+        max_results = 20
+        
+        if not services:
+            return JsonResponse({'data': "No hay cuentas seleccionadas"})
+        
         data = []
-        if services:
-            for s in services:
-                service = Service.objects.get(pk=int(json.loads(s)['service']))
-                acc = Account.objects.filter(
-                    account_name=service, customer=None, status=True).order_by('-expiration_date')
-                cuentas = []
-                seen_emails = set()
-                if not json.loads(s)['duration'] == 'None':
-                    better_acc_expiration_date = timezone.now() + relativedelta(months=int(json.loads(s)['duration']))
-                    better_acc = Sales.search_better_acc(service.id, better_acc_expiration_date)
-                    if better_acc and better_acc[0] == True:
-                        if better_acc[1].email not in seen_emails:
-                            cuentas.append({
-                                'id': better_acc[1].id,
-                                'logo': str(better_acc[1].account_name.logo),
-                                'acc_name': better_acc[1].account_name.description,
-                                'email': better_acc[1].email,
-                                'password': better_acc[1].password,
-                                'expiration_acc': better_acc[1].expiration_date,
-                                'profile': better_acc[1].profile
-                            })
-                            seen_emails.add(better_acc[1].email)
-                        for other_acc in acc:
-                            if other_acc.id != better_acc[1].id and other_acc.email not in seen_emails:
-                                item = {
-                                    'id': other_acc.id,
-                                    'logo': str(other_acc.account_name.logo),
-                                    'acc_name': other_acc.account_name.description,
-                                    'email': other_acc.email,
-                                    'password': other_acc.password,
-                                    'expiration_acc': other_acc.expiration_date,
-                                    'profile': other_acc.profile
-                                }
-                                cuentas.append(item)
-                                seen_emails.add(other_acc.email)
-                    else:
-                        for other_acc in acc:
-                            if other_acc.email not in seen_emails:
-                                item = {
-                                    'id': other_acc.id,
-                                    'logo': str(other_acc.account_name.logo),
-                                    'acc_name': other_acc.account_name.description,
-                                    'email': other_acc.email,
-                                    'password': other_acc.password,
-                                    'expiration_acc': other_acc.expiration_date,
-                                    'profile': other_acc.profile
-                                }
-                                cuentas.append(item)
-                                seen_emails.add(other_acc.email)
-                else:
-                    expiration_date = timezone.now() + relativedelta(months=2)
-                    for pos in acc:
-                        if pos.email not in seen_emails:
-                            item = {
-                                'id': pos.id,
-                                'logo': str(pos.account_name.image),
-                                'acc_name': pos.account_name.name,
-                                'email': pos.email,
-                                'password': pos.password,
-                                'expiration_acc': pos.expiration_date,
-                                'profile': pos.profile
-                            }
-                            cuentas.append(item)
-                            seen_emails.add(pos.email)
-                if len(cuentas) > 0:
-                    data.extend(cuentas)
-                else:
-                    res = "No hay cuentas disponibles"
-                    return JsonResponse({'data': res})
-            return JsonResponse({'data': data})
-        else:
-            res = "No hay cuentas seleccionadas"
-        return JsonResponse({'data': res})
+        
+        for s in services:
+            if len(data) >= max_results:
+                break
+            
+            service_data = json.loads(s)
+            service_id = service_data['service']
+            duration_str = service_data.get('duration', 'None')
+            
+            service = Service.objects.get(pk=int(service_id))
+            remaining = max_results - len(data)
+            
+            # Consulta optimizada: solo traer lo necesario
+            accounts = Account.objects.filter(
+                account_name=service, 
+                customer=None, 
+                status=True
+            ).select_related('account_name').only(
+                'id', 'email', 'password', 'expiration_date', 'profile', 'account_name'
+            ).order_by('-expiration_date')[:remaining]
+            
+            for acc in accounts:
+                if len(data) >= max_results:
+                    break
+                data.append({
+                    'id': acc.id,
+                    'logo': str(acc.account_name.logo),
+                    'acc_name': acc.account_name.description,
+                    'email': acc.email,
+                    'password': acc.password,
+                    'expiration_acc': acc.expiration_date,
+                    'profile': acc.profile
+                })
+        
+        if not data:
+            return JsonResponse({'data': "No hay cuentas disponibles"})
+        
+        return JsonResponse({'data': data})
     elif request.method == 'POST':
         data_array = []
         data = json.loads(request.body)
@@ -1292,8 +1308,9 @@ def ReleaseAccounts(request, pk):
     sales_to_release = []
     sales_to_report = []
     for acc in acc_list:
-        data_release = Sale.objects.filter(account=acc, status=True, expiration_date__lte=datetime.now().replace(hour=23, minute=59, second=59, microsecond=999999))
-        data_report = Sale.objects.filter(account=acc, status=True, expiration_date__gte=datetime.now().replace(hour=23, minute=59, second=59, microsecond=999999))
+        now_aware = timezone.localtime(timezone.now()).replace(hour=23, minute=59, second=59, microsecond=999999)
+        data_release = Sale.objects.filter(account=acc, status=True, expiration_date__lte=now_aware)
+        data_report = Sale.objects.filter(account=acc, status=True, expiration_date__gte=now_aware)
         if data_release:
             sales_to_release.append(data_release)
         if data_report:
@@ -1526,7 +1543,7 @@ def toogleRenewRenewal(request, id):
 def duplicate_account(request):
     account_name = Service.objects.get(id=21)
     # Search account to duplicate
-    accounts = Account.objects.filter(account_name=account_name,status=True,expiration_date__gte = datetime.now())
+    accounts = Account.objects.filter(account_name=account_name, status=True, expiration_date__gte=timezone.now())
     for account in accounts:
         print(account)
     return HttpResponse("listo")
