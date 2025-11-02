@@ -776,27 +776,25 @@ def SalesSearchView(request):
                 service = Service.objects.get(pk=int(json.loads(s)['service']))
                 acc = Account.objects.filter(
                     account_name=service, customer=None, status=True).order_by('-expiration_date')
+                cuentas = []
+                seen_emails = set()
                 if not json.loads(s)['duration'] == 'None':
-                    # Establece una fecha de expiración de dos meses
-                    better_acc_expiration_date = timezone.now(
-                    ) + relativedelta(months=int(json.loads(s)['duration']))
-                    # Busca la cuenta más adecuada
-                    better_acc = Sales.search_better_acc(
-                        service.id, better_acc_expiration_date)
-                    # Agrega los detalles de la cuenta más adecuada a la lista
-                    print(better_acc)
+                    better_acc_expiration_date = timezone.now() + relativedelta(months=int(json.loads(s)['duration']))
+                    better_acc = Sales.search_better_acc(service.id, better_acc_expiration_date)
                     if better_acc and better_acc[0] == True:
-                        data.append({
-                            'id': better_acc[1].id,
-                            'logo': str(better_acc[1].account_name.logo),
-                            'acc_name': better_acc[1].account_name.description,
-                            'email': better_acc[1].email,
-                            'password': better_acc[1].password,
-                            'expiration_acc': better_acc[1].expiration_date,
-                            'profile': better_acc[1].profile
-                        })
+                        if better_acc[1].email not in seen_emails:
+                            cuentas.append({
+                                'id': better_acc[1].id,
+                                'logo': str(better_acc[1].account_name.logo),
+                                'acc_name': better_acc[1].account_name.description,
+                                'email': better_acc[1].email,
+                                'password': better_acc[1].password,
+                                'expiration_acc': better_acc[1].expiration_date,
+                                'profile': better_acc[1].profile
+                            })
+                            seen_emails.add(better_acc[1].email)
                         for other_acc in acc:
-                            if other_acc.id != better_acc[1].id:
+                            if other_acc.id != better_acc[1].id and other_acc.email not in seen_emails:
                                 item = {
                                     'id': other_acc.id,
                                     'logo': str(other_acc.account_name.logo),
@@ -806,52 +804,43 @@ def SalesSearchView(request):
                                     'expiration_acc': other_acc.expiration_date,
                                     'profile': other_acc.profile
                                 }
-                                data.append(item)
+                                cuentas.append(item)
+                                seen_emails.add(other_acc.email)
                     else:
                         for other_acc in acc:
-                            item = {
-                                'id': other_acc.id,
-                                'logo': str(other_acc.account_name.logo),
-                                'acc_name': other_acc.account_name.description,
-                                'email': other_acc.email,
-                                'password': other_acc.password,
-                                'expiration_acc': other_acc.expiration_date,
-                                'profile': other_acc.profile
-                            }
-                            data.append(item)
-                # Si no tiene duración definida, establece una fecha de expiración de dos meses
+                            if other_acc.email not in seen_emails:
+                                item = {
+                                    'id': other_acc.id,
+                                    'logo': str(other_acc.account_name.logo),
+                                    'acc_name': other_acc.account_name.description,
+                                    'email': other_acc.email,
+                                    'password': other_acc.password,
+                                    'expiration_acc': other_acc.expiration_date,
+                                    'profile': other_acc.profile
+                                }
+                                cuentas.append(item)
+                                seen_emails.add(other_acc.email)
                 else:
                     expiration_date = timezone.now() + relativedelta(months=2)
-                    # Agrega los detalles de las cuentas disponibles a la lista
                     for pos in acc:
-                        item = {
-                            'id': pos.id,
-                            'logo': str(pos.account_name.image),
-                            'acc_name': pos.account_name.name,
-                            'email': pos.email,
-                            'password': pos.password,
-                            'expiration_acc': pos.expiration_date,
-                            'profile': pos.profile
-                        }
-                        data.append(item)
-                    # Establece el resultado como la lista de detalles de cuentas
-                    res = data
-                if len(acc) > 0 and len(services) > 0:
-                    for pos in acc:
-                        item = {
-                            'id': pos.id,
-                            'logo': str(pos.account_name.logo),
-                            'acc_name': pos.account_name.description,
-                            'email': pos.email,
-                            'password': pos.password,
-                            'expiration_acc': pos.expiration_date,
-                            'profile': pos.profile
-                        }
-                        data.append(item)
-                    res = data
+                        if pos.email not in seen_emails:
+                            item = {
+                                'id': pos.id,
+                                'logo': str(pos.account_name.image),
+                                'acc_name': pos.account_name.name,
+                                'email': pos.email,
+                                'password': pos.password,
+                                'expiration_acc': pos.expiration_date,
+                                'profile': pos.profile
+                            }
+                            cuentas.append(item)
+                            seen_emails.add(pos.email)
+                if len(cuentas) > 0:
+                    data.extend(cuentas)
                 else:
                     res = "No hay cuentas disponibles"
-            return JsonResponse({'data': res})
+                    return JsonResponse({'data': res})
+            return JsonResponse({'data': data})
         else:
             res = "No hay cuentas seleccionadas"
         return JsonResponse({'data': res})
