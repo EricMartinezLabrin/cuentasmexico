@@ -552,14 +552,6 @@ def AccountsExpiredView(request):
             "venues": venues,
             "form": form
         })
-
-@permission_required('is_staff', 'adm:no-permission')
-def ActiveInactiveAccount(request, status, pk):
-    account = Account.objects.get(pk=pk)
-    account.status = Active_Inactive.active_inactive(status)
-    account.save()
-    return redirect(reverse('adm:accounts'))
-
 def clean_phone_number(phone):
     """
     Limpia y formatea el número de teléfono según el país
@@ -1450,30 +1442,15 @@ class CreditCustomerListView(UserAccessMixin, ListView):
 
 # def ImportView(request):
 
-from django.views.decorators.http import require_POST
-
 @permission_required('is_staff', 'adm:no-permission')
-@require_POST
 def ActiveInactiveAccount(request, status, pk):
     account = Account.objects.get(pk=pk)
-    # Convertir el string 'true'/'false' a booleano
-    if isinstance(status, str):
-        if status.lower() == 'true':
-            new_status = True
-        elif status.lower() == 'false':
-            new_status = False
-        else:
-            new_status = account.status  # fallback
-    else:
-        new_status = bool(status)
-
-    # Cambiar el estado a todas las cuentas con mismo account_name, email y password
-    accounts_to_update = Account.objects.filter(
-        account_name=account.account_name,
-        email=account.email,
-        password=account.password
-    )
-    accounts_to_update.update(status=new_status)
+    # Invertir el estado actual de la cuenta
+    new_status = not account.status
+    
+    # Actualizar solo la cuenta específica seleccionada
+    account.status = new_status
+    account.save()
 
     if request.headers.get('x-requested-with') == 'XMLHttpRequest':
         # Respuesta para AJAX
