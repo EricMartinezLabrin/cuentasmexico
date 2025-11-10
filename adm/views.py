@@ -1452,7 +1452,9 @@ def ActiveInactiveAccount(request, status, pk):
     account.status = new_status
     account.save()
 
-    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+    # Verificar si es una petición AJAX
+    is_ajax = request.headers.get('x-requested-with', '').lower() == 'xmlhttprequest'
+    if is_ajax:
         # Respuesta para AJAX
         return JsonResponse({'success': True, 'new_status': new_status})
     return redirect(reverse('adm:accounts'))

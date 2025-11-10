@@ -134,7 +134,8 @@
                                     <i class="bi bi-pencil-square"></i>
                                 </a>
                                 <a href="{% url 'adm:accounts_active' active.status active.id %}"
-                                   class="btn btn-sm btn-outline-warning"
+                                   class="btn btn-sm btn-outline-warning toggle-status-btn"
+                                   data-account-id="{{ active.id }}"
                                    title="{% if active.status %}Desactivar{% else %}Activar{% endif %}">
                                     <i class="bi bi-file-earmark-{% if active.status %}minus{% else %}plus{% endif %}"></i>
                                 </a>
@@ -291,6 +292,96 @@
                 this.style.transition = 'opacity 0.3s';
             };
         });
+    }
+    
+    // Toggle de estado de cuenta sin recargar página
+    document.querySelectorAll('.toggle-status-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            const accountId = this.dataset.accountId;
+            const url = this.href;
+            const btn = this;
+            
+            // Mostrar estado de carga
+            btn.disabled = true;
+            const originalContent = btn.innerHTML;
+            btn.innerHTML = '<i class="bi bi-hourglass-split"></i>';
+            
+            fetch(url, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Encontrar la fila de la tabla
+                    const row = btn.closest('tr');
+                    
+                    // Actualizar el icono del botón
+                    const icon = btn.querySelector('i');
+                    if (data.new_status) {
+                        // Si ahora está activo, cambiar a icono de desactivar
+                        icon.className = 'bi bi-file-earmark-minus';
+                        btn.title = 'Desactivar';
+                        // Remover el icono de inactiva si existe
+                        const inactiveIcon = row.querySelector('td:nth-child(7) i.bi-x-circle-fill');
+                        if (inactiveIcon) {
+                            inactiveIcon.remove();
+                        }
+                    } else {
+                        // Si ahora está inactivo, cambiar a icono de activar
+                        icon.className = 'bi bi-file-earmark-plus';
+                        btn.title = 'Activar';
+                        // Agregar icono de inactiva
+                        const emailCell = row.querySelector('td:nth-child(7)');
+                        if (emailCell && !emailCell.querySelector('i.bi-x-circle-fill')) {
+                            const inactiveIcon = document.createElement('i');
+                            inactiveIcon.className = 'bi bi-x-circle-fill';
+                            inactiveIcon.style.color = 'red';
+                            inactiveIcon.title = 'Inactiva';
+                            emailCell.appendChild(inactiveIcon);
+                        }
+                    }
+                    
+                    // Mostrar notificación
+                    showNotification('Estado actualizado correctamente', 'success');
+                } else {
+                    showNotification('Error al actualizar el estado', 'danger');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showNotification('Error en la solicitud', 'danger');
+            })
+            .finally(() => {
+                // Restaurar botón
+                btn.disabled = false;
+                btn.innerHTML = originalContent;
+            });
+        });
+    });
+    
+    // Función para mostrar notificaciones
+    function showNotification(message, type) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+        alertDiv.role = 'alert';
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        `;
+        
+        // Insertar al inicio del contenedor principal
+        const mainContent = document.querySelector('.container-fluid') || document.querySelector('main') || document.body;
+        mainContent.insertBefore(alertDiv, mainContent.firstChild);
+        
+        // Auto-cerrar después de 5 segundos
+        setTimeout(() => {
+            alertDiv.remove();
+        }, 5000);
     }
         </script>
     {% endblock extrajs %}
