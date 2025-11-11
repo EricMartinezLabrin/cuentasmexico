@@ -54,5 +54,7 @@ urlpatterns = [
     path('my_account/',
          login_required(views.MyAccountView.as_view()), name='my_account'),
 #     path('test/', views.test, name='test'),
+    path('privacy/', views.PrivacyView.as_view(), name='privacy'),
+    path('tyc/', views.TermsAndConditionsView.as_view(), name='tyc'),
 ]
 

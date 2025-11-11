@@ -662,3 +662,27 @@ class MyAccountView(TemplateView):
 #                                  payment_type=cart_updated.payment_type_id, service_obj=service, expiration_date=expiration, unit_price=cart_detail.price, payment_id=cart_updated.payment_id)
 
 #     return HttpResponse(sale)
+
+
+class PrivacyView(TemplateView):
+    """
+    Política de privacidad
+    """
+    template_name = "index/privacy.html"
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['now'] = timezone.now()
+        return context
+
+
+class TermsAndConditionsView(TemplateView):
+    """
+    Términos y condiciones
+    """
+    template_name = "index/tyc.html"
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['now'] = timezone.now()
+        return context
