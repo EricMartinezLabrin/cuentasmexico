@@ -4,9 +4,11 @@ services:
   web:
     build: .
     container_name: cuentasmexico_web_dev
-    command: python manage.py runserver 0.0.0.0:8000
+    command: >
+      sh -c "chmod -R 755 /app/staticfiles /app/media &&
+             python manage.py runserver 0.0.0.0:8000"
     ports:
-      - '8000:8000'
+      - "8000:8000"
     environment:
       DEBUG: 'True'
       SECRET_KEY: dev-secret-key-not-for-production

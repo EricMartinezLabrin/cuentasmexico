@@ -5,7 +5,8 @@ services:
     build: .
     container_name: cuentasmexico_web
     command: >
-      sh -c "python manage.py collectstatic --noinput &&
+      sh -c "chmod -R 755 /app/staticfiles /app/media &&
+             python manage.py collectstatic --noinput &&
              gunicorn --bind 0.0.0.0:8000 --workers 4 --timeout 120 CuentasMexico.wsgi:application"
     ports:
       - '8000:8000'

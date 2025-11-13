@@ -5,11 +5,18 @@ from django.views.static import serve
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
 
 # Local
 from . import views
 
+# Health check view
+def health_check(request):
+    """Health check endpoint para Dokploy/Docker"""
+    return JsonResponse({'status': 'ok', 'message': 'Aplicación corriendo'})
+
 urlpatterns = [
+    path('health/', health_check, name='health_check'),
     path('', include('index.urls')),
     path('admin/', admin.site.urls),
     path('adm/', include('adm.urls')),

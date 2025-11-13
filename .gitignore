@@ -145,3 +145,8 @@ staticfiles/
 # Django migrations
 */migrations/*
 !*/migrations/__init__.py
+
+# Dokploy
+.dokploy/
+dokploy-compose.yml
+
