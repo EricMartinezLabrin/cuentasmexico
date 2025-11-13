@@ -1,0 +1,24 @@
+version: '3.9'
+
+services:
+  web:
+    build: .
+    container_name: cuentasmexico_web_dev
+    command: python manage.py runserver 0.0.0.0:8000
+    ports:
+      - '8000:8000'
+    environment:
+      DEBUG: 'True'
+      SECRET_KEY: dev-secret-key-not-for-production
+      ALLOWED_HOSTS: localhost,127.0.0.1,0.0.0.0
+      DB_ENGINE: django.db.backends.mysql
+      DB_NAME: cuentasmexico
+      DB_USER: luinmack
+      DB_PASSWORD: Tarkan11.-
+      DB_HOST: 187.136.94.242
+      DB_PORT: 3306
+    volumes:
+      - .:/app
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
