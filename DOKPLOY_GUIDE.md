@@ -1,4 +1,5 @@
 # Dokploy Configuration
+
 # Estructura para desplegar en Dokploy
 
 ## 📋 Configuración para Dokploy
@@ -8,13 +9,15 @@ Este proyecto está configurado para desplegarse en **Dokploy** usando el Docker
 ### 🚀 Pasos para desplegar en Dokploy
 
 #### 1. **Crear nuevo Proyecto en Dokploy**
-   - Ve a tu dashboard de Dokploy
-   - Click en "Nuevo Proyecto"
-   - Conecta tu repositorio de GitHub
+
+- Ve a tu dashboard de Dokploy
+- Click en "Nuevo Proyecto"
+- Conecta tu repositorio de GitHub
 
 #### 2. **Configurar la Aplicación**
 
 **Docker Settings:**
+
 - **Dockerfile Path**: `./Dockerfile`
 - **Docker Context Path**: `.`
 - **Docker Build Stage**: `production`
@@ -56,16 +59,20 @@ MERCADOPAGO_ACCESS_TOKEN=...
 ```
 
 #### 4. **Puertos**
+
 - Puerto: **8000** (Django/Gunicorn)
 
 #### 5. **Health Check (opcional pero recomendado)**
+
 - Endpoint: `http://localhost:8000/health/`
 - Intervalo: 30s
 - Timeout: 10s
 - Retries: 3
 
 #### 6. **Comandos de Build**
+
 Si Dokploy lo permite, agrega comando personalizado:
+
 ```bash
 python manage.py collectstatic --noinput
 ```
@@ -73,16 +80,19 @@ python manage.py collectstatic --noinput
 ## 📦 Características del Dockerfile
 
 ### Multi-Stage Build
+
 - **Builder Stage**: Compila todas las dependencias de Python
 - **Production Stage**: Imagen optimizada solo con lo necesario
 
 ### Optimizaciones de Seguridad
+
 ✅ Usuario no-root (`django`)
 ✅ Imagen slim para reducir tamaño
 ✅ Sin compiladores en producción
 ✅ Permisos correctamente configurados
 
 ### Optimizaciones de Rendimiento
+
 ✅ Capas bien organizadas para cache
 ✅ Health check integrado
 ✅ Gunicorn configurado para producción
@@ -98,20 +108,23 @@ python manage.py collectstatic --noinput
 ## 📝 Notas Importantes
 
 ⚠️ **No se crean migraciones automáticas** en el Dockerfile
-   - La BD es existente
-   - Si necesitas migrar manualmente:
-     ```bash
-     docker exec <container-id> python manage.py migrate
-     ```
+
+- La BD es existente
+- Si necesitas migrar manualmente:
+  ```bash
+  docker exec <container-id> python manage.py migrate
+  ```
 
 ✅ **Archivos estáticos**
-   - Se recolectan en la etapa de build
-   - Servidos por Nginx (si está configurado)
-   - O por Django en desarrollo
+
+- Se recolectan en la etapa de build
+- Servidos por Nginx (si está configurado)
+- O por Django en desarrollo
 
 ✅ **Base de datos**
-   - Conecta a BD externa (187.136.94.242)
-   - No incluye MySQL en Docker
+
+- Conecta a BD externa (187.136.94.242)
+- No incluye MySQL en Docker
 
 ## 🚨 Troubleshooting
 
@@ -123,6 +136,7 @@ python manage.py collectstatic --noinput
 4. Asegúrate que `SECRET_KEY` es única
 
 **Si falla health check:**
+
 - La aplicación necesita 40s para iniciarse
 - Aumenta el `start-period` si es necesario
 

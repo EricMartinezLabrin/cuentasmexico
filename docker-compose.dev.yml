@@ -8,7 +8,7 @@ services:
       sh -c "chmod -R 755 /app/staticfiles /app/media &&
              python manage.py runserver 0.0.0.0:8000"
     ports:
-      - "8000:8000"
+      - '8000:8000'
     environment:
       DEBUG: 'True'
       SECRET_KEY: dev-secret-key-not-for-production

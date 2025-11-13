@@ -3,6 +3,7 @@
 ## ✅ Lo que se hizo
 
 ### 1. **Multi-Stage Dockerfile**
+
 El Dockerfile ahora tiene dos etapas:
 
 ```dockerfile
@@ -23,23 +24,26 @@ FROM python:3.12-slim as production
 
 En tu panel de Dokploy, debes configurar:
 
-| Campo | Valor |
-|-------|-------|
-| **Dockerfile Path** | `./Dockerfile` |
-| **Docker Context Path** | `.` |
-| **Docker Build Stage** | `production` |
+| Campo                   | Valor          |
+| ----------------------- | -------------- |
+| **Dockerfile Path**     | `./Dockerfile` |
+| **Docker Context Path** | `.`            |
+| **Docker Build Stage**  | `production`   |
 
 ### 3. **Health Check**
+
 ✅ Endpoint: `GET /health/`
 ✅ Responde: `{"status": "ok", "message": "Aplicación corriendo"}`
 
 ### 4. **Seguridad**
+
 ✅ Usuario no-root (`django`)
 ✅ Imagen slim (tamaño reducido)
 ✅ Sin compiladores en producción
 ✅ Permisos correctamente configurados
 
 ### 5. **Optimizaciones**
+
 ✅ Multi-stage = imagen más pequeña
 ✅ Cache de capas = builds más rápidos
 ✅ Gunicorn optimizado para producción
@@ -47,11 +51,11 @@ En tu panel de Dokploy, debes configurar:
 
 ## 📝 Archivos Nuevos
 
-| Archivo | Propósito |
-|---------|-----------|
-| `DOKPLOY_GUIDE.md` | Guía completa para Dokploy |
+| Archivo                | Propósito                  |
+| ---------------------- | -------------------------- |
+| `DOKPLOY_GUIDE.md`     | Guía completa para Dokploy |
 | `DOKPLOY_CHECKLIST.md` | Checklist de configuración |
-| `Dockerfile` | Multi-stage optimizado |
+| `Dockerfile`           | Multi-stage optimizado     |
 
 ## 🔑 Variables de Entorno en Dokploy
 
@@ -71,9 +75,11 @@ DB_PORT=3306
 ## 🎯 Tamaño de Imagen
 
 Antes (single-stage):
+
 - ~500MB (incluye gcc, compiladores)
 
 Después (multi-stage):
+
 - ~200MB (solo runtime)
 
 ✅ **60% más pequeña**
@@ -96,10 +102,12 @@ docker build --target production -t cuentasmexico:latest .
 ## 🚨 Importante
 
 ⚠️ **NO cambies el Build Stage**
+
 - Mantén: `production`
 - Ésta es la etapa final optimizada
 
 ⚠️ **NO descomentar** `python manage.py collectstatic`
+
 - Los estáticos se recopilan en el build
 - Si está comentado, se hace en runtime
 
@@ -116,6 +124,7 @@ curl http://localhost:8000/health/
 ## 📞 Soporte
 
 Si tienes problemas:
+
 1. Revisa `DOKPLOY_GUIDE.md`
 2. Usa el checklist en `DOKPLOY_CHECKLIST.md`
 3. Verifica logs en Dokploy

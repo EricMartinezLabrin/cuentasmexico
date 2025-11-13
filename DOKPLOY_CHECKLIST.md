@@ -9,6 +9,7 @@
 ## 🔧 Configuración en Dokploy
 
 ### Paso 1: Docker Build
+
 ```
 Dockerfile Path:        ./Dockerfile
 Docker Context Path:    .
@@ -16,6 +17,7 @@ Docker Build Stage:     production
 ```
 
 ### Paso 2: Variables de Entorno
+
 ```env
 DEBUG=False
 SECRET_KEY=<generar-clave-segura>
@@ -33,11 +35,13 @@ IFRAME_ACCESS_TOKEN=7145fd4e-9f73-44e2-b733-8a18fb2bb377
 ```
 
 ### Paso 3: Puerto
+
 ```
 Port: 8000
 ```
 
 ### Paso 4: Health Check (Recomendado)
+
 ```
 Enabled:    ✓
 Path:       /health/
@@ -58,6 +62,7 @@ Retries:    3
 ## 📊 Monitoreo
 
 Ver logs en tiempo real:
+
 ```bash
 # Desde la consola de Dokploy
 docker logs -f <container-name>
@@ -65,12 +70,12 @@ docker logs -f <container-name>
 
 ## 🆘 Troubleshooting
 
-| Problema | Solución |
-|----------|----------|
-| Build falla | Revisa logs, verifica SECRET_KEY |
-| Health check falla | Espera 60s, aumenta timeout |
-| BD no conecta | Verifica IP/puerto desde Dokploy |
-| Estáticos no cargan | Agrega proxy inverso (Nginx) |
+| Problema            | Solución                         |
+| ------------------- | -------------------------------- |
+| Build falla         | Revisa logs, verifica SECRET_KEY |
+| Health check falla  | Espera 60s, aumenta timeout      |
+| BD no conecta       | Verifica IP/puerto desde Dokploy |
+| Estáticos no cargan | Agrega proxy inverso (Nginx)     |
 
 ## 📝 Comandos Útiles en Dokploy
 
