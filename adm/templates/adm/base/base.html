@@ -5,6 +5,9 @@
         <meta charset="UTF-8">
         <meta http-equiv="X-UA-Compatible" content="IE=edge">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta name="description" content="Cuentas México - Plataforma de gestión financiera">
+        <meta name="author" content="Fade Technologies">
+        <meta name="keywords" content="Cuentas México, Finanzas, Gestión Financiera, Contabilidad, México">
         <link rel="icon" href="/media/{{ user.userdetail.business.logo }}">
         <link rel="stylesheet" href="{% static 'adm/css/styles.css' %}">
         <link rel="stylesheet" href="{% static 'adm/css/sidebar.css' %}">
@@ -31,11 +34,10 @@
     {% endblock head %}
 </head>
 <body class="d-flex flex-nowrap">
-    <nav class="bg-dark" style="width:120px">
-        {% include 'adm/base/menu.html' %}
+    <nav class="bg-dark sidebar-nav-container">
+        {% include "adm/base/menu.html" %}
     </nav>
-    <main class="flex-grow-1 px-2 px-md-4 bg-white ms-2 ms-md-3"
-          style="min-height:100vh">
+    <main class="flex-grow-1 px-2 px-md-4 bg-white ms-2 ms-md-3 min-vh-100">
         {% block body %}
         {% endblock body %}
         <div class="modal fade" id="edicion" role="dialog"></div>

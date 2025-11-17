@@ -1,4 +1,4 @@
-{% extends 'adm/base/base.html' %}
+{% extends "adm/base/base.html" %}
 {% load pagination_filters %}
 {% block title %}
     Cuentas Disponibles
@@ -23,7 +23,7 @@
         {% comment %} Form Filters {% endcomment %}
         <section>
             <form class="row row-cols-lg-auto g-3 align-items-center filter"
-                  method="POST">
+                  method="post">
                 {% csrf_token %}
                 {% comment %} Account {% endcomment %}
                 <div class="col-12">
@@ -99,7 +99,7 @@
                             {% if active.account_name.logo %}
                                 <img src="/media/{{ active.account_name.logo }}"
                                      alt="{{ active.account_name.description }}"
-                                     width="40"
+                                     width="40" height="40"
                                      loading="lazy">
                             {% else %}
                                 <span>{{ active.account_name.description|truncatechars:10 }}</span>
@@ -108,7 +108,7 @@
                         <td>{{ active.created_at|date:"d-M-Y" }}</td>
                         <td>
                             {% if active.expiration_date|date:"Y-m-d" <= today|date:"Y-m-d" %}
-                                <span style="color: red">{{ active.expiration_date|date:"d-M-Y" }}</span>
+                                <span class="text-danger">{{ active.expiration_date|date:"d-M-Y" }}</span>
                             {% else %}
                                 {{ active.expiration_date|date:"d-M-Y" }}
                             {% endif %}
@@ -118,8 +118,8 @@
                         <td>{{ active.supplier.name|default:"N/A" }}</td>
                         <td>
                             {{ active.email }}
-                            {% if active.renovable %}<i class="bi bi-star-fill" style="color:gold" title="Renovable"></i>{% endif %}
-                            {% if not active.status %}<i class="bi bi-x-circle-fill" style="color:red" title="Inactiva"></i>{% endif %}
+                            {% if active.renovable %}<i class="bi bi-star-fill text-warning"  title="Renovable"></i>{% endif %}
+                            {% if not active.status %}<i class="bi bi-x-circle-fill text-danger" title="Inactiva"></i>{% endif %}
                         </td>
                         <td>{{ active.password }}</td>
                         <td>{{ active.customer.username|default:"Disponible" }}</td>
@@ -187,8 +187,7 @@
                             <li class="page-item">
                                 <a class="page-link" href="{% filter_pagination_url 1 filter_query %}">1</a>
                             </li>
-                            <li class="page-item active" aria-current="page">
-                            {% endif %}
+                        {% endif %}
                             <li class="page-item">
                                 <a class="page-link"
                                    href="{% filter_pagination_url venues.previous_page_number filter_query %}">{{ venues.previous_page_number }}</a>
@@ -200,7 +199,7 @@
                                 <a class="page-link"
                                    href="{% filter_pagination_url venues.next_page_number filter_query %}">{{ venues.next_page_number }}</a>
                             </li>
-                            {% if  venues.paginator.num_pages != venues.next_page_number %}
+                            {% if venues.paginator.num_pages != venues.next_page_number %}
                                 <li class="page-item">
                                     <a class="page-link"
                                        href="{% filter_pagination_url venues.paginator.num_pages filter_query %}">{{ venues.paginator.num_pages }}</a>
@@ -220,7 +219,7 @@
                                 <a class="page-link"
                                    href="{% filter_pagination_url venues.previous_page_number filter_query %}">Anterior</a>
                             </li>
-                            {% if  venues.previous_page != 1 %}
+                            {% if venues.previous_page != 1 %}
                                 <li class="page-item">
                                     <a class="page-link" href="{% filter_pagination_url 1 filter_query %}">1</a>
                                 </li>
