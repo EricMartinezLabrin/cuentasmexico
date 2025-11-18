@@ -37,7 +37,10 @@
     <nav class="bg-dark sidebar-nav-container">
         {% include "adm/base/menu.html" %}
     </nav>
-    <main class="flex-grow-1 px-2 px-md-4 bg-white ms-2 ms-md-3 min-vh-100">
+    <main class="flex-grow-1 bg-white min-vh-100">
+        <button class="btn btn-dark d-md-none my-3" type="button" id="sidebarToggle">
+            <i class="bi bi-list"></i> Menu
+        </button>
         {% block body %}
         {% endblock body %}
         <div class="modal fade" id="edicion" role="dialog"></div>
@@ -76,6 +79,23 @@
               $(this).modal('show');
           });
       }
+
+      $(document).ready(function() {
+          $('#sidebarToggle').on('click', function() {
+              $('.sidebar-nav-container').toggleClass('show');
+          });
+          
+          $('#sidebarClose').on('click', function() {
+              $('.sidebar-nav-container').removeClass('show');
+          });
+          
+          // Close sidebar when clicking outside on mobile
+          $(document).on('click', function(event) {
+              if (!$(event.target).closest('.sidebar-nav-container').length && !$(event.target).closest('#sidebarToggle').length && $('.sidebar-nav-container').hasClass('show')) {
+                  $('.sidebar-nav-container').removeClass('show');
+              }
+          });
+      });
     </script>
 </body>
 </html>

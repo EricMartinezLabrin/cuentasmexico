@@ -136,15 +136,15 @@
           },
           options: {
             scales: {
-              yAxes: [{
-                ticks: {
-                  beginAtZero: true
-                }
-              }]
+              y: {
+                beginAtZero: true
+              }
             },
-            title: {
+            plugins: {
+              title: {
                 display: true,
-                text: "Ventas a clientes nuevos"  // Cambiado aquí
+                text: "Ventas a clientes nuevos"
+              }
             }
           }
         });
@@ -174,15 +174,15 @@
           },
           options: {
             scales: {
-              yAxes: [{
-                ticks: {
-                  beginAtZero: true
-                }
-              }]
+              y: {
+                beginAtZero: true
+              }
             },
-            title: {
+            plugins: {
+              title: {
                 display: true,
-                text: "Otro título para el gráfico de barras"  // Cambiado aquí
+                text: "Clientes nuevos por mes"
+              }
             }
           }
         });
