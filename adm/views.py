@@ -1399,58 +1399,66 @@ def ReleaseAccounts(request, pk):
 
         # Notificar a los clientes solo si cambió la contraseña
         if password_changed:
+            # Pre-fetch todos los UserDetail en un solo query
+            customer_ids = [sale[0].customer.id for sale in sales_to_report if sale]
+            user_details = {ud.user_id: ud for ud in UserDetail.objects.filter(user_id__in=customer_ids)}
+            
             for customer in sales_to_report:
-                message = f'Le informamos que por su seguridad las claves de su cuenta {data_account.account_name} fueron cambiadas. A continuación le dejo sus nuevas claves:\n'
-                message += f'Email: {email}\n'
-                message += f'Contraseña: {password}\n'
-                message += f'El perfil, pin y fechas de vencimiento siguen siendo los mismos.\n'
-                message += f'Por favor, si tiene alguna duda o comentario solo escribe Hablar con un Humano o envianos un whats app al número de siempre. Saludos.'
-                customer_detail = UserDetail.objects.get(user=customer[0].customer)
-                # enviamos un request a un webhook solo si cambió la contraseña
-                webhook_url = os.environ.get("N8N_WEBHOOK_URL_CHANGE_PASSWORD")
-                # Convertir el objeto Service a string legible (usa .name o .description si existe)
-                account_name_str = str(data_account.account_name)
-                if hasattr(data_account.account_name, 'name'):
-                    account_name_str = data_account.account_name.name
-                elif hasattr(data_account.account_name, 'description'):
-                    account_name_str = data_account.account_name.description
-                payload = {
-                    "account_name": account_name_str,
-                    "email": email,
-                    "password": password,
-                    "message": message,
-                    "lada": customer_detail.lada,
-                    "phone_number": customer_detail.phone_number
-                }
-                if webhook_url:
-                    requests.post(webhook_url, json=payload)
-                Notification.send_whatsapp_notification(message, customer_detail.lada, customer_detail.phone_number)
-
-        for a in acc:
-            a.supplier = supplier
-            a.modified_by = modified_by
-            a.account_name = account_name
-            a.expiration_date = expiration_date
-            a.email = email
-            a.password = password
-            a.comments = comments
-            a.renovable = renovable
-            a.save()
-            # Enviar notificación push solo si cambió la contraseña
-            if password_changed:
                 try:
-                    sale_expiration = Sale.objects.get(
-                        account=a.pk, customer=a.customer, status=True)
-                    now = datetime.now()
-                    if sale_expiration.expiration_date > now:
-                        token = UserDetail.objects.get(user=a.customer).token
-                        title = f"Las claves de tu {a.account_name} fueron actualizadas"
-                        body = f"Visita la sección Mi Cuenta para ver las nuevas claves"
-                        url = "MyAccount"
-                        notification = send_push_notification(
-                            token, title, body, url)
-                except:
-                    continue
+                    sale_obj = customer[0]
+                    customer_detail = user_details.get(sale_obj.customer.id)
+                    if not customer_detail:
+                        continue
+                    
+                    message = f'Le informamos que por su seguridad las claves de su cuenta {data_account.account_name} fueron cambiadas. A continuación le dejo sus nuevas claves:\n'
+                    message += f'Email: {email}\n'
+                    message += f'Contraseña: {password}\n'
+                    message += f'El perfil, pin y fechas de vencimiento siguen siendo los mismos.\n'
+                    message += f'Por favor, si tiene alguna duda o comentario solo escribe Hablar con un Humano o envianos un whats app al número de siempre. Saludos.'
+                    
+                    account_name_str = str(data_account.account_name)
+                    if hasattr(data_account.account_name, 'name'):
+                        account_name_str = data_account.account_name.name
+                    elif hasattr(data_account.account_name, 'description'):
+                        account_name_str = data_account.account_name.description
+                    
+                    payload = {
+                        "account_name": account_name_str,
+                        "email": email,
+                        "password": password,
+                        "message": message,
+                        "lada": customer_detail.lada,
+                        "phone_number": customer_detail.phone_number
+                    }
+                    webhook_url = os.environ.get("N8N_WEBHOOK_URL_CHANGE_PASSWORD")
+                    if webhook_url:
+                        try:
+                            requests.post(webhook_url, json=payload, timeout=2)
+                        except:
+                            pass
+                    
+                    try:
+                        Notification.send_whatsapp_notification(message, customer_detail.lada, customer_detail.phone_number)
+                    except:
+                        pass
+                except Exception as e:
+                    pass
+
+        # Usar bulk_update para actualizar todas las cuentas de una vez (mucho más rápido)
+        if acc.exists():
+            for a in acc:
+                a.supplier = supplier
+                a.modified_by = modified_by
+                a.account_name = account_name
+                a.expiration_date = expiration_date
+                a.email = email
+                a.password = password
+                a.comments = comments
+                a.renovable = renovable
+            acc.model.objects.bulk_update(acc, [
+                'supplier', 'modified_by', 'account_name', 'expiration_date', 
+                'email', 'password', 'comments', 'renovable'
+            ], batch_size=100)
         return redirect(success_url)
     return render(request, template_name, {
         'form': form_class,
