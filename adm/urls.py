@@ -109,6 +109,8 @@ urlpatterns = [
          name='receivable'),
     path('receivable/<int:sale_id>',
          login_required(views.ReceivableCopyPass), name='receivable_copy'),
+    path('receivable/quick-release/<int:sale_id>',
+         login_required(views.QuickReleaseAccount), name='receivable_quick_release'),
     path('release/update/<int:pk>',
          login_required(views.ReleaseAccounts), name='release'),
     path('credits/<int:pk>', login_required(views.credits), name='credits'),

@@ -1220,33 +1220,54 @@ class ReceivableView(UserAccessMixin, ListView):
     permission_required = 'is_staff'
     model = Sale
     template_name = "adm/receivable.html"
-    paginate_by = 1000
+    paginate_by = 100  # Reduce la cantidad de objetos por página para mejorar la carga
     def get_queryset(self):
+        from datetime import datetime as dt
+        # Optimización: select_related y prefetch_related para evitar consultas N+1
+        qs = Sale.objects.select_related(
+            'account', 'customer', 'account__account_name'
+        ).prefetch_related(
+            'account__account_name__account_set'
+        )
         if self.request.GET.get('date') is not None:
-            return Sale.objects.filter(
-                expiration_date__lte=f"{self.request.GET.get('date')} 23:59:59",
-                expiration_date__gte=f"{self.request.GET.get('date')} 00:00:00",
+            # Convierte la fecha a datetime con zona horaria
+            date_str = self.request.GET.get('date')
+            start_date = timezone.make_aware(dt.strptime(date_str, '%Y-%m-%d').replace(hour=0, minute=0, second=0))
+            end_date = timezone.make_aware(dt.strptime(date_str, '%Y-%m-%d').replace(hour=23, minute=59, second=59))
+            qs = qs.filter(
+                expiration_date__gte=start_date,
+                expiration_date__lte=end_date,
                 status=True
             ).order_by('-expiration_date', 'account')
         elif self.request.GET.get('email'):
             email = self.request.GET.get('email')
             if self.request.GET.get('date') is not None:
                 exp_date = self.request.GET.get('date')
-                return Sale.objects.filter(
-                    expiration_date__gte=f'{exp_date} 00:00:00',
-                    expiration_date__lte=f'{exp_date} 23:59:59',
+                start_date = timezone.make_aware(dt.strptime(exp_date, '%Y-%m-%d').replace(hour=0, minute=0, second=0))
+                end_date = timezone.make_aware(dt.strptime(exp_date, '%Y-%m-%d').replace(hour=23, minute=59, second=59))
+                qs = qs.filter(
+                    expiration_date__gte=start_date,
+                    expiration_date__lte=end_date,
                     status=True
                 ).order_by('-expiration_date', 'account')
         else:
-            return Sale.objects.filter(
-                expiration_date__lte=f'{timezone.now().date()} 23:59:59',
+            # Mostrar todas las cuentas vencidas hoy o en el pasado respetando la zona horaria
+            today = timezone.now().date()
+            end_of_day = timezone.make_aware(dt.combine(today, dt.max.time()))
+            qs = qs.filter(
+                expiration_date__lte=end_of_day,
                 status=True
             ).order_by('-expiration_date', 'account__email')
+        return qs
     def get_context_data(self, **kwargs):
+        from datetime import datetime as dt
         context = super().get_context_data(**kwargs)
         context['tomorrow'] = timezone.now().date() + timedelta(days=1)
+        # Contar todas las cuentas vencidas (hoy y en el pasado)
+        today = timezone.now().date()
+        end_of_day = timezone.make_aware(dt.combine(today, dt.max.time()))
         context['left'] = Sale.objects.filter(
-            expiration_date__lte=f'{timezone.now().date()} 23:59:59',
+            expiration_date__lte=end_of_day,
             status=True
         ).count()
         return context
@@ -1257,6 +1278,41 @@ def ReceivableCopyPass(request, sale_id):
     message = f'Buenas tardes amig@, le recuerdo que su cuenta  {sale.account.account_name} ya venció, para seguir utilizándola debe renovar. Por ser cliente frecuente tendrás un 10% de descuento si renuevas por 3 meses o más el día de hoy.'
     clipboard.copy(message)
     return redirect(reverse('adm:receivable'))
+
+@permission_required('is_staff', 'adm:no-permission')
+def QuickReleaseAccount(request, sale_id):
+    """
+    Libera una cuenta directamente sin entrar en la vista de edición
+    """
+    if request.method == 'POST':
+        try:
+            sale = Sale.objects.get(pk=sale_id)
+            sale.status = False
+            sale.save()
+            
+            # Desasociar la cuenta del cliente y suspender la cuenta
+            account = sale.account
+            account.customer = None
+            account.status = False
+            account.modified_by = request.user
+            account.save()
+            
+            # Enviar notificación WhatsApp al cliente
+            message = f'Le informamos que su cuenta {account.account_name.description} con email {account.email} fue suspendida por falta de pago. Aún está a tiempo de recuperarla renovando su cuenta. Por favor, si tiene alguna duda o comentario solo escribe Hablar con un Humano o envianos un whats app al número de siempre. Saludos.'
+            customer_detail = UserDetail.objects.get(user=sale.customer)
+            Notification.send_whatsapp_notification(message, customer_detail.lada, customer_detail.phone_number)
+            
+            # Si es AJAX, devolver JSON
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({'success': True, 'message': 'Cuenta liberada exitosamente'})
+            
+            return redirect(reverse('adm:receivable'))
+        except Exception as e:
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({'success': False, 'message': str(e)})
+            return redirect(reverse('adm:receivable'))
+    
+    return JsonResponse({'success': False, 'message': 'Método no permitido'})
 
 @permission_required('is_staff', 'adm:no-permission')
 def ReleaseAccounts(request, pk):

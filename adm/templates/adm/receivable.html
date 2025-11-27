@@ -121,6 +121,12 @@
                                title="Liberar">
                                 <i class="bi bi-check-circle"></i>
                             </a>
+                            <button type="button"
+                               class="btn btn-outline-primary btn-sm quick-release-btn"
+                               data-sale-id="{{ rece.id }}"
+                               title="Liberar rápido">
+                                <i class="bi bi-lightning-fill"></i>
+                            </button>
                                      <a href="#"
                                          onclick="copyAcc('{{ rece.id }}')"
                                class="btn btn-outline-secondary btn-sm"
@@ -232,5 +238,61 @@
             if (box) box.style.display = 'none';
         });
     });
+
+    // Liberar cuenta sin recargar la página (Quick Release)
+    document.querySelectorAll('.quick-release-btn').forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            const saleId = this.getAttribute('data-sale-id');
+            const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]') ? 
+                            document.querySelector('[name=csrfmiddlewaretoken]').value : 
+                            getCookie('csrftoken');
+            
+            if (confirm('¿Está seguro de que desea liberar esta cuenta?')) {
+                fetch(`/adm/receivable/quick-release/${saleId}`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrftoken,
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Remover la fila de la tabla
+                        const row = btn.closest('tr');
+                        row.style.opacity = '0.5';
+                        setTimeout(() => {
+                            row.remove();
+                            // Actualizar el contador
+                            location.reload();
+                        }, 300);
+                    } else {
+                        alert('Error: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error al liberar la cuenta');
+                });
+            }
+        });
+    });
+
+    // Función auxiliar para obtener cookie CSRF
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
     </script>
 {% endblock extrajs %}
