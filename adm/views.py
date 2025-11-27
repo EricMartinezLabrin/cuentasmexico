@@ -1293,7 +1293,7 @@ def QuickReleaseAccount(request, sale_id):
             # Desasociar la cuenta del cliente y suspender la cuenta
             account = sale.account
             account.customer = None
-            account.status = False
+            # account.status = False
             account.modified_by = request.user
             account.save()
             
