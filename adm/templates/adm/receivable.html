@@ -265,7 +265,11 @@
                         setTimeout(() => {
                             row.remove();
                             // Actualizar el contador
-                            location.reload();
+                            const counterSpan = document.querySelector('span.fw-bold');
+                            if (counterSpan) {
+                                let count = parseInt(counterSpan.textContent);
+                                counterSpan.textContent = Math.max(0, count - 1);
+                            }
                         }, 300);
                     } else {
                         alert('Error: ' + data.message);
