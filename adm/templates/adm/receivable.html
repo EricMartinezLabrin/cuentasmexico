@@ -33,6 +33,7 @@
                     <th></th>
                     <th>Cliente</th>
                     <th>Email</th>
+                    <th>Contraseña</th>
                     <th>Perfil</th>
                     <th>Vencimiento Cliente</th>
                     <th>Vencimiento Cuenta</th>
@@ -64,6 +65,7 @@
                     </td>
                     <td class="fw-semibold">{{ rece.customer.username }}</td>
                     <td>{{ rece.account.email }}</td>
+                    <td>{{ rece.account.password }}</td>
                     <td>{{ rece.account.profile }}</td>
                     <td>{{ rece.expiration_date|date:'d-m-Y' }}</td>
                     <td>{{ rece.account.expiration_date|date:'d-m-Y' }}</td>
