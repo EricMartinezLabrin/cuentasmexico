@@ -17,10 +17,15 @@ from calendar import monthrange
 # Python
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
+from threading import Thread
 import requests
+import json
+import logging
+import sys
+import os
+import pyperclip as clipboard
 from adm.functions.send_whatsapp_notification import Notification
 from api.functions.notifications import send_push_notification
-import pyperclip as clipboard
 from django.db.models import DurationField
 # import pandas as pd
 # Local
@@ -40,6 +45,57 @@ import os
 
 def is_ajax(request):
     return request.META.get('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest'
+
+def _send_notifications_background(sales_to_report, email, password, data_account, webhook_url):
+    """
+    Envía notificaciones en segundo plano sin bloquear la respuesta
+    """
+    try:
+        # Pre-fetch todos los UserDetail
+        customer_ids = [sale[0].customer.id for sale in sales_to_report if sale]
+        user_details = {ud.user_id: ud for ud in UserDetail.objects.filter(user_id__in=customer_ids)}
+        
+        for customer in sales_to_report:
+            try:
+                sale_obj = customer[0]
+                customer_detail = user_details.get(sale_obj.customer.id)
+                if not customer_detail:
+                    continue
+                
+                message = f'Le informamos que por su seguridad las claves de su cuenta {data_account.account_name} fueron cambiadas. A continuación le dejo sus nuevas claves:\n'
+                message += f'Email: {email}\n'
+                message += f'Contraseña: {password}\n'
+                message += f'El perfil, pin y fechas de vencimiento siguen siendo los mismos.\n'
+                message += f'Por favor, si tiene alguna duda o comentario solo escribe Hablar con un Humano o envianos un whats app al número de siempre. Saludos.'
+                
+                account_name_str = str(data_account.account_name)
+                if hasattr(data_account.account_name, 'name'):
+                    account_name_str = data_account.account_name.name
+                elif hasattr(data_account.account_name, 'description'):
+                    account_name_str = data_account.account_name.description
+                
+                if webhook_url:
+                    try:
+                        payload = {
+                            "account_name": account_name_str,
+                            "email": email,
+                            "password": password,
+                            "message": message,
+                            "lada": customer_detail.lada,
+                            "phone_number": customer_detail.phone_number
+                        }
+                        requests.post(webhook_url, json=payload, timeout=5)
+                    except:
+                        pass
+                
+                try:
+                    Notification.send_whatsapp_notification(message, customer_detail.lada, customer_detail.phone_number)
+                except:
+                    pass
+            except Exception as e:
+                pass
+    except Exception as e:
+        pass
 
 @permission_required('is_superuser', 'adm:no-permission')
 def index(request):
@@ -1366,9 +1422,12 @@ def ReleaseAccounts(request, pk):
     for sales in sales_to_release:
         sales[0].status = False
         sales[0].save()
-        message = f'Le informamos que su cuenta {sales[0].account.account_name.description} con email {sales[0].account.email} fue suspendida por falta de pago. Aún está a tiempo de recuperarla renovando su cuenta. Por favor, si tiene alguna duda o comentario solo escribe Hablar con un Humano o envianos un whats app al número de siempre. Saludos.'
-        customer_detail_released = UserDetail.objects.get(user=sales[0].customer)
-        Notification.send_whatsapp_notification(message, customer_detail_released.lada, customer_detail_released.phone_number)
+        try:
+            message = f'Le informamos que su cuenta {sales[0].account.account_name.description} con email {sales[0].account.email} fue suspendida por falta de pago. Aún está a tiempo de recuperarla renovando su cuenta. Por favor, si tiene alguna duda o comentario solo escribe Hablar con un Humano o envianos un whats app al número de siempre. Saludos.'
+            customer_detail_released = UserDetail.objects.get(user=sales[0].customer)
+            Notification.send_whatsapp_notification(message, customer_detail_released.lada, customer_detail_released.phone_number)
+        except:
+            pass
         account = sales[0].account
         account.customer = None
         account.modified_by = request.user
@@ -1397,52 +1456,16 @@ def ReleaseAccounts(request, pk):
         # Verificar si la contraseña cambió
         password_changed = old_password != password
 
-        # Notificar a los clientes solo si cambió la contraseña
+        # Notificar a los clientes solo si cambió la contraseña (en segundo plano)
         if password_changed:
-            # Pre-fetch todos los UserDetail en un solo query
-            customer_ids = [sale[0].customer.id for sale in sales_to_report if sale]
-            user_details = {ud.user_id: ud for ud in UserDetail.objects.filter(user_id__in=customer_ids)}
-            
-            for customer in sales_to_report:
-                try:
-                    sale_obj = customer[0]
-                    customer_detail = user_details.get(sale_obj.customer.id)
-                    if not customer_detail:
-                        continue
-                    
-                    message = f'Le informamos que por su seguridad las claves de su cuenta {data_account.account_name} fueron cambiadas. A continuación le dejo sus nuevas claves:\n'
-                    message += f'Email: {email}\n'
-                    message += f'Contraseña: {password}\n'
-                    message += f'El perfil, pin y fechas de vencimiento siguen siendo los mismos.\n'
-                    message += f'Por favor, si tiene alguna duda o comentario solo escribe Hablar con un Humano o envianos un whats app al número de siempre. Saludos.'
-                    
-                    account_name_str = str(data_account.account_name)
-                    if hasattr(data_account.account_name, 'name'):
-                        account_name_str = data_account.account_name.name
-                    elif hasattr(data_account.account_name, 'description'):
-                        account_name_str = data_account.account_name.description
-                    
-                    payload = {
-                        "account_name": account_name_str,
-                        "email": email,
-                        "password": password,
-                        "message": message,
-                        "lada": customer_detail.lada,
-                        "phone_number": customer_detail.phone_number
-                    }
-                    webhook_url = os.environ.get("N8N_WEBHOOK_URL_CHANGE_PASSWORD")
-                    if webhook_url:
-                        try:
-                            requests.post(webhook_url, json=payload, timeout=2)
-                        except:
-                            pass
-                    
-                    try:
-                        Notification.send_whatsapp_notification(message, customer_detail.lada, customer_detail.phone_number)
-                    except:
-                        pass
-                except Exception as e:
-                    pass
+            webhook_url = os.environ.get("N8N_WEBHOOK_URL_CHANGE_PASSWORD")
+            # Ejecutar notificaciones en un thread de fondo para no bloquear
+            thread = Thread(
+                target=_send_notifications_background,
+                args=(sales_to_report, email, password, data_account, webhook_url),
+                daemon=True
+            )
+            thread.start()
 
         # Usar bulk_update para actualizar todas las cuentas de una vez (mucho más rápido)
         if acc.exists():
