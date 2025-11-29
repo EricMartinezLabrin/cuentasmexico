@@ -20,41 +20,108 @@ const paymentMethod = document.getElementById("method");
 const listPaymentMethod = document.getElementById("paymentlist");
 const changeService = document.getElementById("service");
 
+// Variables para búsqueda
+let allAccounts = [];
+
+const filterResults = (searchTerm) => {
+  const filteredAccounts = allAccounts.filter(account => 
+    account.email.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+  
+  resultsBox.innerHTML = "";
+  if (filteredAccounts.length === 0) {
+    resultsBox.innerHTML = '<tr><td colspan="6" class="text-center"><b>No se encontraron resultados</b></td></tr>';
+    return;
+  }
+  
+  filteredAccounts.forEach((data, index) => {
+    let borderStyle = index === 0 ? "border: 2px solid green;" : "";
+    resultsBox.innerHTML += `
+      <tr style="${borderStyle}">
+        <td><input class="form-check-input details" name="serv" id="${
+          data.id
+        }" type="checkbox" value="${data.id}" onclick="detail()"></td>
+        <label for="${data.id}">
+        <td><img src="/media/${data.logo}" width="20"></td>
+        <td>${data.email}</td>
+        <td>${data.password}</td>
+        <td>${moment(data.expiration_acc).format("DD/MM/YYYY")}</td>
+        <td>${data.profile}</td>            
+        <br>
+        </label>
+      </tr>
+    `;
+  });
+};
+
+const attachSearchListener = () => {
+  const searchEmailInput = document.getElementById("search-email");
+  if (searchEmailInput) {
+    searchEmailInput.addEventListener("input", (e) => {
+      const searchTerm = e.target.value;
+      filterResults(searchTerm);
+    });
+  }
+};
+
 const sendSearchData = (data) => {
   try {
     $.ajax({
       type: "POST",
       url: "/adm/sales/search",
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest'
+      },
       data: {
         csrfmiddlewaretoken: csrf,
         "data[]": data,
+        page: 1,
       },
       success: (res) => {
-        const data = res.data;
-        if (Array.isArray(data)) {
+        console.log('Response:', res);
+        const responseData = res.data;
+        
+        if (Array.isArray(responseData)) {
+          allAccounts = responseData;
+          console.log('Total accounts loaded:', allAccounts.length);
+          
           resultsBox.innerHTML = "";
-          data.forEach((data, index) => {
+          responseData.forEach((data, index) => {
             let borderStyle = index === 0 ? "border: 2px solid green;" : "";
             resultsBox.innerHTML += `
-          <tr style="${borderStyle}">
-            <td><input class="form-check-input details" name="serv" id="${
-              data.id
-            }" type="checkbox" value="${data.id}" onclick="detail()"></td>
-            <label for="${data.id}">
-            <td><img src="/media/${data.logo}" width="20"></td>
-            <td>${data.email}</td>
-            <td>${data.password}</td>
-            <td>${moment(data.expiration_acc).format("DD/MM/YYYY")}</td>
-            <td>${data.profile}</td>            
-            <br>
-            </label>
+              <tr style="${borderStyle}">
+                <td><input class="form-check-input details" name="serv" id="${
+                  data.id
+                }" type="checkbox" value="${data.id}" onclick="detail()"></td>
+                <label for="${data.id}">
+                <td><img src="/media/${data.logo}" width="20"></td>
+                <td>${data.email}</td>
+                <td>${data.password}</td>
+                <td>${moment(data.expiration_acc).format("DD/MM/YYYY")}</td>
+                <td>${data.profile}</td>            
+                <br>
+                </label>
+              </tr>
             `;
           });
+          
+          // Mostrar información de resultados
+          const infoDiv = document.createElement('div');
+          infoDiv.className = 'text-center mt-2';
+          infoDiv.innerHTML = `<small>Se encontraron ${responseData.length} cuentas disponibles</small>`;
+          resultsBox.parentElement.parentElement.appendChild(infoDiv);
+          
+          // Activar el evento del buscador
+          attachSearchListener();
         } else {
-          resultsBox.innerHTML = `<b>${data}</b>`;
+          resultsBox.innerHTML = `<tr><td colspan="6"><b>${responseData}</b></td></tr>`;
+          allAccounts = [];
           accounts.classList.add("not-visible");
         }
       },
+      error: (error) => {
+        console.error('Error:', error);
+      }
     });
   } catch (error) {
     console.error(error);

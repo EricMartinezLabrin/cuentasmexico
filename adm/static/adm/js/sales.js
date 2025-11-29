@@ -20,41 +20,122 @@ const paymentMethod = document.getElementById("method");
 const listPaymentMethod = document.getElementById("paymentlist");
 const changeService = document.getElementById("service");
 
+// Variables para búsqueda (global para acceso desde template)
+window.allAccounts = [];
+let allAccounts = window.allAccounts;
+
+const filterResults = (searchTerm) => {
+  console.log('filterResults called with:', searchTerm);
+  console.log('allAccounts length:', allAccounts.length);
+  
+  const filteredAccounts = allAccounts.filter(account => {
+    const matches = account.email.toLowerCase().includes(searchTerm.toLowerCase());
+    console.log(`Checking ${account.email}: ${matches}`);
+    return matches;
+  });
+  
+  console.log('Filtered results:', filteredAccounts.length);
+  
+  resultsBox.innerHTML = "";
+  if (filteredAccounts.length === 0) {
+    resultsBox.innerHTML = '<tr><td colspan="6" class="text-center"><b>No se encontraron resultados</b></td></tr>';
+    return;
+  }
+  
+  filteredAccounts.forEach((data, index) => {
+    let borderStyle = index === 0 ? "border: 2px solid green;" : "";
+    resultsBox.innerHTML += `
+      <tr style="${borderStyle}">
+        <td><input class="form-check-input details" name="serv" id="${
+          data.id
+        }" type="checkbox" value="${data.id}" onclick="detail()"></td>
+        <label for="${data.id}">
+        <td><img src="/media/${data.logo}" width="20"></td>
+        <td>${data.email}</td>
+        <td>${data.password}</td>
+        <td>${moment(data.expiration_acc).format("DD/MM/YYYY")}</td>
+        <td>${data.profile}</td>            
+        <br>
+        </label>
+      </tr>
+    `;
+  });
+};
+
+// Event delegation - configurar una sola vez cuando el documento esté listo
+$(document).ready(function() {
+  console.log('Document ready, setting up search listener');
+  
+  // Usar event delegation para que funcione incluso si el elemento se carga después
+  $(document).on('input', '#search-email', function(e) {
+    const searchTerm = $(this).val();
+    console.log('🔍 Search term:', searchTerm);
+    console.log('📊 Total accounts:', allAccounts.length);
+    filterResults(searchTerm);
+  });
+  
+  console.log('✅ Search listener configured');
+});
+
 const sendSearchData = (data) => {
   try {
     $.ajax({
       type: "POST",
       url: "/adm/sales/search",
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest'
+      },
       data: {
         csrfmiddlewaretoken: csrf,
         "data[]": data,
+        page: 1,
       },
       success: (res) => {
-        const data = res.data;
-        if (Array.isArray(data)) {
+        console.log('Response:', res);
+        const responseData = res.data;
+        
+        if (Array.isArray(responseData)) {
+          allAccounts = responseData;
+          window.allAccounts = responseData;
+          console.log('Total accounts loaded:', allAccounts.length);
+          
           resultsBox.innerHTML = "";
-          data.forEach((data, index) => {
+          responseData.forEach((data, index) => {
             let borderStyle = index === 0 ? "border: 2px solid green;" : "";
             resultsBox.innerHTML += `
-          <tr style="${borderStyle}">
-            <td><input class="form-check-input details" name="serv" id="${
-              data.id
-            }" type="checkbox" value="${data.id}" onclick="detail()"></td>
-            <label for="${data.id}">
-            <td><img src="/media/${data.logo}" width="20"></td>
-            <td>${data.email}</td>
-            <td>${data.password}</td>
-            <td>${moment(data.expiration_acc).format("DD/MM/YYYY")}</td>
-            <td>${data.profile}</td>            
-            <br>
-            </label>
+              <tr style="${borderStyle}">
+                <td><input class="form-check-input details" name="serv" id="${
+                  data.id
+                }" type="checkbox" value="${data.id}" onclick="detail()"></td>
+                <label for="${data.id}">
+                <td><img src="/media/${data.logo}" width="20"></td>
+                <td>${data.email}</td>
+                <td>${data.password}</td>
+                <td>${moment(data.expiration_acc).format("DD/MM/YYYY")}</td>
+                <td>${data.profile}</td>            
+                <br>
+                </label>
+              </tr>
             `;
           });
+          
+          // Mostrar información de resultados
+          const infoDiv = document.createElement('div');
+          infoDiv.className = 'text-center mt-2';
+          infoDiv.innerHTML = `<small>Se encontraron ${responseData.length} cuentas disponibles</small>`;
+          resultsBox.parentElement.parentElement.appendChild(infoDiv);
+          
+          console.log('✅ Accounts loaded and ready for search');
+          console.log('📧 First account email:', responseData[0]?.email);
         } else {
-          resultsBox.innerHTML = `<b>${data}</b>`;
+          resultsBox.innerHTML = `<tr><td colspan="6"><b>${responseData}</b></td></tr>`;
+          allAccounts = [];
           accounts.classList.add("not-visible");
         }
       },
+      error: (error) => {
+        console.error('Error:', error);
+      }
     });
   } catch (error) {
     console.error(error);

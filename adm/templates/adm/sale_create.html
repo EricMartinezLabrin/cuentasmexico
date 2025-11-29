@@ -85,6 +85,9 @@
             <input type="submit" id="end" value="terminar" class="btn btn-cm" disabled>
         </div>
         <div id="accounts" class="not-visible">
+            <div class="d-flex mb-3">
+                <input type="text" id="search-email" placeholder="Buscar por email..." class="form-control w-25">
+            </div>
             <div class="d-flex">
                 <div class="accfree">
                     <table class="table table-hover">
@@ -120,5 +123,53 @@
     </form>
 {% endblock body %}
 {% block extrajs %}
-    <script src="{% static 'adm/js/sales.js' %}"></script>
+    <script src="{% static 'adm/js/sales.js' %}?v=2"></script>
+    <script>
+        // Script de búsqueda - agregado directamente en el template para evitar problemas de caché
+        $(document).ready(function() {
+            console.log('✅ BÚSQUEDA: Listener configurado');
+            
+            $(document).on('input', '#search-email', function(e) {
+                const searchTerm = $(this).val();
+                console.log('🔍 BÚSQUEDA: Término:', searchTerm);
+                console.log('📊 BÚSQUEDA: Total cuentas:', window.allAccounts ? window.allAccounts.length : 0);
+                
+                if (!window.allAccounts || window.allAccounts.length === 0) {
+                    console.log('❌ No hay cuentas cargadas');
+                    return;
+                }
+                
+                const resultsBox = document.getElementById("results-box");
+                const filteredAccounts = window.allAccounts.filter(account => 
+                    account.email.toLowerCase().includes(searchTerm.toLowerCase())
+                );
+                
+                console.log('✅ Resultados filtrados:', filteredAccounts.length);
+                
+                resultsBox.innerHTML = "";
+                
+                if (filteredAccounts.length === 0) {
+                    resultsBox.innerHTML = '<tr><td colspan="6" class="text-center"><b>No se encontraron resultados</b></td></tr>';
+                    return;
+                }
+                
+                filteredAccounts.forEach((data, index) => {
+                    let borderStyle = index === 0 ? "border: 2px solid green;" : "";
+                    resultsBox.innerHTML += `
+                        <tr style="${borderStyle}">
+                            <td><input class="form-check-input details" name="serv" id="${data.id}" type="checkbox" value="${data.id}" onclick="detail()"></td>
+                            <label for="${data.id}">
+                            <td><img src="/media/${data.logo}" width="20"></td>
+                            <td>${data.email}</td>
+                            <td>${data.password}</td>
+                            <td>${moment(data.expiration_acc).format("DD/MM/YYYY")}</td>
+                            <td>${data.profile}</td>            
+                            <br>
+                            </label>
+                        </tr>
+                    `;
+                });
+            });
+        });
+    </script>
 {% endblock extrajs %}

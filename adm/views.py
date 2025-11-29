@@ -9,7 +9,7 @@ from django.contrib.auth.models import User
 from django.shortcuts import redirect
 from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
 from django.http import JsonResponse
-from django.db.models import Sum, Prefetch
+from django.db.models import Sum, Prefetch, Case, When, IntegerField
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.db.models import DateTimeField, ExpressionWrapper, F
@@ -864,37 +864,41 @@ def SalesUpdateStatusView(request, pk, customer, status):
 def SalesSearchView(request):
     if is_ajax(request):
         services = request.POST.getlist('data[]', '')
-        max_results = 20
+        page = int(request.POST.get('page', 1))
+        items_per_page = 20
         
         if not services:
             return JsonResponse({'data': "No hay cuentas seleccionadas"})
         
-        data = []
+        # Recolectar todas las cuentas de todos los servicios
+        all_accounts = []
         
         for s in services:
-            if len(data) >= max_results:
-                break
-            
             service_data = json.loads(s)
             service_id = service_data['service']
-            duration_str = service_data.get('duration', 'None')
             
             service = Service.objects.get(pk=int(service_id))
-            remaining = max_results - len(data)
             
-            # Consulta optimizada: solo traer lo necesario
-            accounts = Account.objects.filter(
+            # Obtener todas las cuentas para este servicio
+            accounts_query = Account.objects.filter(
                 account_name=service, 
                 customer=None, 
                 status=True
             ).select_related('account_name').only(
                 'id', 'email', 'password', 'expiration_date', 'profile', 'account_name'
-            ).order_by('-expiration_date')[:remaining]
+            ).annotate(
+                email_priority=Case(
+                    When(email__iendswith='@berberdna.tn', then=1),
+                    When(email__iendswith='@mangosvip.com', then=2),
+                    When(email__iendswith='@thortry.com', then=3),
+                    When(email__iendswith='@gmail.com', then=5),
+                    default=4,
+                    output_field=IntegerField(),
+                )
+            ).order_by('email_priority', '-expiration_date')
             
-            for acc in accounts:
-                if len(data) >= max_results:
-                    break
-                data.append({
+            for acc in accounts_query:
+                all_accounts.append({
                     'id': acc.id,
                     'logo': str(acc.account_name.logo),
                     'acc_name': acc.account_name.description,
@@ -904,10 +908,19 @@ def SalesSearchView(request):
                     'profile': acc.profile
                 })
         
-        if not data:
-            return JsonResponse({'data': "No hay cuentas disponibles"})
+        total_count = len(all_accounts)
         
-        return JsonResponse({'data': data})
+        if not all_accounts:
+            return JsonResponse({
+                'data': "No hay cuentas disponibles",
+                'total': 0
+            })
+        
+        # Devolver TODAS las cuentas sin paginar para que el filtro funcione correctamente
+        return JsonResponse({
+            'data': all_accounts,
+            'total': total_count
+        })
     elif request.method == 'POST':
         data_array = []
         data = json.loads(request.body)
