@@ -63,6 +63,7 @@ INSTALLED_APPS = [
     'django.contrib.humanize',
     'django.contrib.sites',
     "whitenoise.runserver_nostatic",
+    'storages',  # django-storages para S3/Backblaze
     'adm',
     'index',
     'cupon',
@@ -180,6 +181,31 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+
+# Configuración de Backblaze B2 via S3 Compatible API
+AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID', '')
+AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY', '')
+AWS_STORAGE_BUCKET_NAME = os.getenv('AWS_STORAGE_BUCKET_NAME', '')
+AWS_S3_REGION_NAME = os.getenv('AWS_S3_REGION_NAME', 'us-west-002')
+AWS_S3_ENDPOINT_URL = os.getenv('AWS_S3_ENDPOINT_URL', '')
+AWS_S3_CUSTOM_DOMAIN = os.getenv('AWS_S3_CUSTOM_DOMAIN', '')
+
+# Configuración adicional de S3
+AWS_S3_FILE_OVERWRITE = False
+AWS_DEFAULT_ACL = 'public-read'
+AWS_QUERYSTRING_AUTH = False  # URLs públicas sin firma
+AWS_S3_SIGNATURE_VERSION = 's3v4'
+
+# Storage backend para archivos (usará Backblaze B2 via S3)
+if all([AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_STORAGE_BUCKET_NAME, AWS_S3_ENDPOINT_URL]):
+    DEFAULT_FILE_STORAGE = 'adm.functions.backblaze.BackblazeS3Storage'
+else:
+    import warnings
+    warnings.warn(
+        "Backblaze B2 (S3) no está completamente configurado. "
+        "Se usará almacenamiento local. "
+        "Configura: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_STORAGE_BUCKET_NAME, AWS_S3_ENDPOINT_URL"
+    )
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.1/ref/settings/#default-auto-field

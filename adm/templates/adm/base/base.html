@@ -8,7 +8,7 @@
         <meta name="description" content="Cuentas México - Plataforma de gestión financiera">
         <meta name="author" content="Fade Technologies">
         <meta name="keywords" content="Cuentas México, Finanzas, Gestión Financiera, Contabilidad, México">
-        <link rel="icon" href="/media/{{ user.userdetail.business.logo }}">
+        {% if user.userdetail.business.logo %}<link rel="icon" href="{{ user.userdetail.business.logo.url }}">{% endif %}
         <link rel="stylesheet" href="{% static 'adm/css/styles.css' %}">
         <link rel="stylesheet" href="{% static 'adm/css/sidebar.css' %}">
         <link rel="stylesheet"

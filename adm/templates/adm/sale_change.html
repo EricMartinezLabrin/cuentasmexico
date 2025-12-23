@@ -94,7 +94,7 @@
                                                onclick="detail()">
                                     </td>
                                     <td>
-                                        <img src="/media/{{ a.account_name.logo }}" width="20">
+                                        {% if a.account_name.logo %}<img src="{{ a.account_name.logo.url }}" width="20">{% endif %}
                                     </td>
                                     <td>{{ a.email }}</td>
                                     <td>{{ a.password }}</td>

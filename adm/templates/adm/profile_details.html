@@ -34,9 +34,13 @@
                 <b>Foto de perfil:</b>
             </p>
             <p>
-                <img src="/media/{{ request.user.userdetail.picture }}"
+                {% if request.user.userdetail.picture %}
+                <img src="{{ request.user.userdetail.picture.url }}"
                      alt="Foto de perfil de {{ request.user }}"
                      width="200">
+                {% else %}
+                <span>Sin foto</span>
+                {% endif %}
             </p>
             <br>
             <a href="{% url 'adm:profile_update_details' request.user.userdetail.id %}"

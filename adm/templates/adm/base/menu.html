@@ -3,9 +3,11 @@
     <div class="d-flex flex-column flex-shrink-0 p-3 text-bg-dark">
         <div class="d-flex justify-content-between align-items-center mb-3 mb-md-0 me-md-auto text-white text-decoration-none">
             <a href="{% url 'index' %}" class="d-flex align-items-center text-white text-decoration-none">
-                <img src="/media/{{ user.userdetail.business.logo }}"
+                {% if user.userdetail.business.logo %}
+                <img src="{{ user.userdetail.business.logo.url }}"
                      alt="{{ user.userdetail.business }} Logo"
                      width="100">
+                {% endif %}
             </a>
             <button type="button" class="btn-close btn-close-white d-md-none" id="sidebarClose" aria-label="Close"></button>
         </div>
@@ -99,11 +101,13 @@
                class="d-flex align-items-center text-white text-decoration-none dropdown-toggle"
                data-bs-toggle="dropdown"
                aria-expanded="false">
-                <img src="/media/{{ request.user.userdetail.picture }}"
+                {% if request.user.userdetail.picture %}
+                <img src="{{ request.user.userdetail.picture.url }}"
                      alt=""
                      width="32"
                      height="32"
                      class="rounded-circle me-2">
+                {% endif %}
                 {% if user.first_name %}
                     <strong>{{ user.first_name }}</strong>
                 {% else %}

@@ -9,7 +9,7 @@
       <div class="modal-body">
         <div class="d-flex">
             <div class="text-center p-3">
-                <img src="/media/{{object.logo}}" class="rounded" alt="{{object.description}} Logo" width="350">
+                {% if object.logo %}<img src="{{ object.logo.url }}" class="rounded" alt="{{object.description}} Logo" width="350">{% endif %}
             </div>
             <div class="p-3">
                 <small class="cm">Categoria</small>

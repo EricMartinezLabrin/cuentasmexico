@@ -22,10 +22,12 @@
                     <input type="hidden" name="code" value="{{ cupon.name }}">
                     <input type="hidden" name="price" value="{{ cupon.price }}">
                     <input type="hidden" name="customer" value="{{ customer }}">
+                    {% if service.logo %}
                     <input type="image"
-                           src="/media/{{ service.logo }}"
+                           src="{{ service.logo.url }}"
                            alt="{{ service }}"
                            width="150px">
+                    {% endif %}
                 </form>
             {% endfor %}
         </div>

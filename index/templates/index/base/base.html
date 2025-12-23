@@ -35,7 +35,7 @@
                 <div class="container"></div>
                     <div class="d-flex justify-content-between w-100 align-items-center g-lg-2 g-0">
                         <div class="logo ">
-                            <img src="/media/{{business.logo}}" alt="{{business.name}} logo">
+                            {% if business.logo %}<img src="{{ business.logo.url }}" alt="{{business.name}} logo">{% endif %}
                         </div>
                         <div class="search align-middle">
                             <div class="input-group mb-3 ">

@@ -65,9 +65,11 @@
                 {% for active in venues %}
                     <tr class="t-img">
                         <td>
-                            <img src="/media/{{ active.account_name.logo }}"
-                                 alt="{{ active.account_name. }}"
+                            {% if active.account_name.logo %}
+                            <img src="{{ active.account_name.logo.url }}"
+                                 alt="{{ active.account_name }}"
                                  width="40">
+                            {% endif %}
                         </td>
                         <td>{{ active.created_at|date:"d-M-Y" }}</td>
                         <td>{{ active.expiration_date|date:"d-M-Y" }}</td>

@@ -51,7 +51,7 @@
                             <a href="#!" onclick="abrir_modal_edicion('{% url 'redeem_confirm' %}?name={{code.name}}&service={{accounts.id}}')" class="no-decoration">
                                 <div class="row g-0">
                                 <div class="col-md-4">
-                                    <img src="/media/{{accounts.logo}}" class="img-fluid rounded-start" alt="{{accounts.description}}">
+                                    {% if accounts.logo %}<img src="{{ accounts.logo.url }}" class="img-fluid rounded-start" alt="{{accounts.description}}">{% endif %}
                                 </div>
                                 <div class="col-md-8">
                                     <div class="card-body">

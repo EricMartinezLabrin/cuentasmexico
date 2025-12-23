@@ -21,7 +21,9 @@
             {% for data in object_list %}
                 <tr>
                     <td>
-                        <img src="/media/{{ data.logo }}" alt="{{ data.bank_name }}" width="40">
+                        {% if data.logo %}
+                        <img src="{{ data.logo.url }}" alt="{{ data.bank_name }}" width="40">
+                        {% endif %}
                     </td>
                     <td>{{ data.bank_name }}</td>
                     <td>{{ data.headline }}</td>

@@ -20,7 +20,7 @@
                 <div class="d-flex justify-content-between w-100 align-items-center g-lg-2 g-0">
                     <div class="logo">
                         <a href="{% url 'index' %}">
-                           <img src="/media/{{business.logo}}" alt="{{business.name}} logo"> 
+                           {% if business.logo %}<img src="{{ business.logo.url }}" alt="{{business.name}} logo">{% endif %}
                         </a>
                     </div>
                 </div>

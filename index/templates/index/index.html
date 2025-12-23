@@ -43,7 +43,7 @@
         <a href="#!" class="no-decoration" onclick="abrir_modal_edicion('{% url 'service_detail' s.id %}')">
                 <div class="m-2">
                     <div class="card" style="width: 16.5vw;;">
-                        <img src="/media/{{s.logo}}" class="card-img-top p-2" alt="{{s.description}}">
+                        {% if s.logo %}<img src="{{ s.logo.url }}" class="card-img-top p-2" alt="{{s.description}}">{% endif %}
                         <div class="card-body">
                             <small>Streams</small>
                             <h5 class="card-title">{{s.description}}</h5>

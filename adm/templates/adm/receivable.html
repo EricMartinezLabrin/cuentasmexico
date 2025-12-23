@@ -46,7 +46,7 @@
                     <tr class="text-center">
                         <td class="text-center">
                             {% if rece.account.account_name.logo %}
-                           <img src="/media/{{ rece.account.account_name.logo }}"
+                           <img src="{{ rece.account.account_name.logo.url }}"
                                alt="{{ rece.account.account_name.name }}"
                                      width="36"
                                      height="36"

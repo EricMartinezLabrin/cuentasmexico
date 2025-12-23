@@ -17,9 +17,13 @@
             {% for service in object_list %}
                 <tr>
                     <td>
-                        <img src="/media/{{ service.logo }}"
-                             alt="Logo de {{ service.description }}"
-                             width="40">
+                        {% if service.logo %}
+                            <img src="{{ service.logo.url }}"
+                                 alt="Logo de {{ service.description }}"
+                                 width="40">
+                        {% else %}
+                            <span>Sin logo</span>
+                        {% endif %}
                     </td>
                     <td>{{ service.description }}</td>
                     <td>{{ service.perfil_quantity }}</td>
