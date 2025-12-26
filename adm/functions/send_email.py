@@ -17,13 +17,23 @@ class Email():
         template = get_template('index/emails/template_send_password.html')
         actual = acc[0].account.account_name
 
-        content = template.render({
+        # Preparar datos contextuales
+        context_data = {
             'user': email,
             'domain': Site.objects.get_current().domain,
             'protocol': Email.protocol(request),
             'acc': acc,
-            'best_sellers': Best.best_sellers(actual.id, 3)
-        })
+            'best_sellers': Best.best_sellers(actual.id, 3),
+            # Pasar URLs de Backblaze B2
+            'account_logo_url': actual.logo.url if actual.logo else '',
+        }
+        
+        # Para best_sellers, agregar URLs de logos
+        for best in context_data.get('best_sellers', []):
+            if hasattr(best, 'logo'):
+                best.logo_url = best.logo.url
+
+        content = template.render(context_data)
 
         message = EmailMultiAlternatives(subject,  # Titulo
                                          '',

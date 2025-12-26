@@ -68,7 +68,7 @@
             <tbody>
                 {% for data in inactive %}
                 <tr>
-                    <td><img src="/media/{{data.account.account_name.logo}}" alt="{{data.account.account_name.description}}" width="40"></td>
+                    <td><img src="{{data.account.account_name.logo.url}}" alt="{{data.account.account_name.description}}" width="40"></td>
                     <td>{{data.account.email}}</td>
                     <td>{{data.account.profile}}</td>
                     {% if data.account.pin %}

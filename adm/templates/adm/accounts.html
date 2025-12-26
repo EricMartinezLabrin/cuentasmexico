@@ -97,7 +97,7 @@
                     <tr class="t-img">
                         <td>
                             {% if active.account_name.logo %}
-                                <img src="/media/{{ active.account_name.logo }}"
+                                <img src="{{ active.account_name.logo.url }}"
                                      alt="{{ active.account_name.description }}"
                                      width="40" height="40"
                                      loading="lazy">

@@ -900,7 +900,7 @@ def SalesSearchView(request):
             for acc in accounts_query:
                 all_accounts.append({
                     'id': acc.id,
-                    'logo': str(acc.account_name.logo),
+                    'logo': acc.account_name.logo.url,
                     'acc_name': acc.account_name.description,
                     'email': acc.email,
                     'password': acc.password,

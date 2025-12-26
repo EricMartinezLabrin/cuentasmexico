@@ -96,7 +96,7 @@
                     {% for a in active %}
                         <tr class="text-center">
                             <td class="t-img">
-                                <img src="/media/{{ a.account.account_name.logo }}"
+                                <img src="{{ a.account.account_name.logo.url }}"
                                      alt="{{ a.account.account_name.description }}"
                                      width="30">
                             </td>
@@ -206,7 +206,7 @@ WhatsApp y Telegram al número 833 535 5863.
                     {% for a in inactive %}
                         <tr class="text-center">
                             <td class="t-img">
-                                <img src="/media/{{ a.account.account_name.logo }}"
+                                <img src="{{ a.account.account_name.logo.url }}"
                                      alt="{{ a.account.account_name.description }}"
                                      width="30">
                             </td>
