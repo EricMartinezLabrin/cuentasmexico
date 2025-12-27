@@ -1010,6 +1010,7 @@ def SalesSearchDetailView(request):
                             'logo': pos.account_name.logo.url,
                             'email': pos.email,
                             'profile': pos.profile,
+                            'status': pos.status,
                             'customer': customer,
                             'customer_end_date': customer_end_date
                         }
@@ -1619,6 +1620,37 @@ def toogleRenewRenewal(request, id):
     account.save()
     return redirect(reverse('adm:SearchRenewAcc'))
 
+
+@csrf_exempt
+@permission_required('is_staff', 'adm:no-permission')
+def ToggleAccountStatus(request):
+    """
+    Suspender/Reactivar una cuenta vía AJAX
+    """
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            account_id = int(data.get('account_id'))
+            
+            account = Account.objects.get(pk=account_id)
+            new_status = not account.status
+            
+            account.status = new_status
+            account.modified_by = request.user
+            account.save()
+            
+            status_text = 'Activa' if new_status else 'Suspendida'
+            return JsonResponse({
+                'success': True, 
+                'message': f'Cuenta {status_text} exitosamente',
+                'new_status': new_status
+            })
+        except Account.DoesNotExist:
+            return JsonResponse({'success': False, 'message': 'Cuenta no encontrada'})
+        except Exception as e:
+            return JsonResponse({'success': False, 'message': str(e)})
+    
+    return JsonResponse({'success': False, 'message': 'Método no permitido'})
 
 
 # Scripts

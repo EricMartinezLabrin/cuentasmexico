@@ -111,6 +111,8 @@ urlpatterns = [
          login_required(views.ReceivableCopyPass), name='receivable_copy'),
     path('receivable/quick-release/<int:sale_id>',
          login_required(views.QuickReleaseAccount), name='receivable_quick_release'),
+    path('account/toggle-status',
+         login_required(views.ToggleAccountStatus), name='account_toggle_status'),
     path('release/update/<int:pk>',
          login_required(views.ReleaseAccounts), name='release'),
     path('credits/<int:pk>', login_required(views.credits), name='credits'),
