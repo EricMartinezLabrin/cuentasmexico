@@ -208,10 +208,12 @@ WhatsApp y Telegram al número 833 535 5863.
                             <td class="t-img">
                                 <img src="{{ a.account.account_name.logo.url }}"
                                      alt="{{ a.account.account_name.description }}"
-                                     width="30">
+                                     width="30"
+                                     height="30"
+                                     >
                             </td>
                             <td>
-                                {% if a.account.renovable %}<i class="bi bi-star-fill" style="color:orange"></i>{% endif %}
+                                {% if a.account.renovable %}<i class="bi bi-star-fill" ></i>{% endif %}
                             </td>
                             <td>{{ a.account.email }}</td>
                             <td>{{ a.account.password }}</td>

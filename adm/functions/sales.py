@@ -639,7 +639,7 @@ class Sales():
                                 duration=months, ticket='Web', customer_id=customer_id)
         dict_sale = {
             'id': sale[1].id,
-            'logo': sale[1].account.account_name.logo,
+            'logo': sale[1].account.account_name.logo.url,
             'account_name': sale[1].account.account_name.description,
             'email': sale[1].account.email,
             'password': sale[1].account.password,

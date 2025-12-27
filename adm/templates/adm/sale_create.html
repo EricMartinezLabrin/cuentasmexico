@@ -155,11 +155,13 @@
                 
                 filteredAccounts.forEach((data, index) => {
                     let borderStyle = index === 0 ? "border: 2px solid green;" : "";
+                    // Asegurar que el logo URL sea válido (escapar caracteres especiales si es necesario)
+                    const logoUrl = data.logo || '';
                     resultsBox.innerHTML += `
                         <tr style="${borderStyle}">
                             <td><input class="form-check-input details" name="serv" id="${data.id}" type="checkbox" value="${data.id}" onclick="detail()"></td>
                             <label for="${data.id}">
-                            <td><img src="${data.logo}" width="20"></td>
+                            <td><img src="${logoUrl}" width="20" style="object-fit: contain;"></td>
                             <td>${data.email}</td>
                             <td>${data.password}</td>
                             <td>${moment(data.expiration_acc).format("DD/MM/YYYY")}</td>

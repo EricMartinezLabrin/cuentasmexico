@@ -36,10 +36,26 @@ class BackblazeS3Storage(S3Boto3Storage):
         logger.info("BackblazeS3Storage inicializado")
     
     def _is_local_file(self, name):
-        """Verifica si el archivo es uno local antiguo"""
+        """
+        Verifica si el archivo es uno local antiguo (sin timestamp).
+        Los archivos nuevos tienen timestamp (ej: users/20251227_142647_...) y están en B2.
+        Los archivos antiguos no tienen timestamp (ej: users/foto.jpg) y están locales.
+        """
         if not name:
             return False
-        return any(name.startswith(prefix) for prefix in self.LOCAL_PREFIXES)
+        
+        # Si comienza con algún prefijo local
+        if not any(name.startswith(prefix) for prefix in self.LOCAL_PREFIXES):
+            return False
+        
+        # Archivos con timestamp (YYYYMMDD_HHMMSS_) están en B2, no son locales
+        import re
+        has_timestamp = re.search(r'/\d{8}_\d{6}_', name)
+        if has_timestamp:
+            return False  # Es un archivo nuevo con timestamp, está en B2
+        
+        # Si no tiene timestamp, es un archivo local antiguo
+        return True
     
     def _save(self, name, content):
         """

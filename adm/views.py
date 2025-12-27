@@ -862,6 +862,8 @@ def SalesUpdateStatusView(request, pk, customer, status):
 @csrf_exempt
 @permission_required('is_staff', 'adm:no-permission')
 def SalesSearchView(request):
+    logger = logging.getLogger('django')
+    
     if is_ajax(request):
         services = request.POST.getlist('data[]', '')
         page = int(request.POST.get('page', 1))
@@ -898,9 +900,11 @@ def SalesSearchView(request):
             ).order_by('email_priority', '-expiration_date')
             
             for acc in accounts_query:
+                logo_url = acc.account_name.logo.url
+                logger.info(f"[SalesSearch] Enviando logo URL: {logo_url}")
                 all_accounts.append({
                     'id': acc.id,
-                    'logo': acc.account_name.logo.url,
+                    'logo': logo_url,
                     'acc_name': acc.account_name.description,
                     'email': acc.email,
                     'password': acc.password,
@@ -942,8 +946,8 @@ def SalesSearchView(request):
         else:
             data_array.append({
                 'id': better_acc[1].id,
-                'logo': str(better_acc[1].account_name.image),
-                'acc_name': better_acc[1].account_name.name,
+                'logo': better_acc[1].account_name.logo.url,
+                'acc_name': better_acc[1].account_name.description,
                 'email': better_acc[1].email,
                 'password': better_acc[1].password,
                 'expiration_acc': better_acc[1].expiration_date,
@@ -953,8 +957,8 @@ def SalesSearchView(request):
                 if other_acc.id != better_acc[1].id:
                     item = {
                         'id': other_acc.id,
-                        'logo': str(other_acc.account_name.image),
-                        'acc_name': other_acc.account_name.name,
+                        'logo': other_acc.account_name.logo.url,
+                        'acc_name': other_acc.account_name.description,
                         'email': other_acc.email,
                         'password': other_acc.password,
                         'expiration_acc': other_acc.expiration_date,
@@ -1003,7 +1007,7 @@ def SalesSearchDetailView(request):
                         #
                         item = {
                             'id': pos.id,
-                            'logo': str(pos.account_name.logo),
+                            'logo': pos.account_name.logo.url,
                             'email': pos.email,
                             'profile': pos.profile,
                             'customer': customer,

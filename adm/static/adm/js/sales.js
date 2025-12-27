@@ -51,7 +51,7 @@ const filterResults = (searchTerm) => {
           data.id
         }" type="checkbox" value="${data.id}" onclick="detail()"></td>
         <label for="${data.id}">
-        <td><img src="/media/${data.logo}" width="20"></td>
+        <td><img src="${data.logo}" width="20"></td>
         <td>${data.email}</td>
         <td>${data.password}</td>
         <td>${moment(data.expiration_acc).format('DD/MM/YYYY')}</td>
@@ -109,7 +109,7 @@ const sendSearchData = (data) => {
                   data.id
                 }" type="checkbox" value="${data.id}" onclick="detail()"></td>
                 <label for="${data.id}">
-                <td><img src="/media/${data.logo}" width="20"></td>
+                <td><img src="${data.logo}" width="20"></td>
                 <td>${data.email}</td>
                 <td>${data.password}</td>
                 <td>${moment(data.expiration_acc).format('DD/MM/YYYY')}</td>
@@ -158,7 +158,7 @@ const sendSearchDetailData = (det) => {
         accdetail.innerHTML = '';
         data.forEach((data) => {
           accdetail.innerHTML += `
-            <td><img src="/media/${data.logo}" width="20"></td>
+            <td><img src="${data.logo}" width="20"></td>
             <td>${data.email}</td>
             <td>${NotNull(data.customer)}</td>
             <td>${data.customer_end_date}</td>

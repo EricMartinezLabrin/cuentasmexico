@@ -37,7 +37,8 @@
                 {% if request.user.userdetail.picture %}
                 <img src="{{ request.user.userdetail.picture.url }}"
                      alt="Foto de perfil de {{ request.user }}"
-                     width="200">
+                     width="200"
+                     style="object-fit: cover; border-radius: 8px; display: block;">
                 {% else %}
                 <span>Sin foto</span>
                 {% endif %}
