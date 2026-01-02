@@ -43,10 +43,10 @@
                             </div>
                         </div>
                         <div class="search align-middle d-none d-md-block">
-                            <div class="input-group">
-                                <input type="text" class="form-control" placeholder="Busca tu producto favorito" aria-label="Busca tu producto favorito">
-                                <button class="btn bg-white border" type="button"><i class="bi bi-search"></i></button>
-                            </div>
+                            <form action="{% url 'search' %}" method="GET" class="input-group">
+                                <input type="text" name="q" class="form-control" placeholder="Busca tu producto favorito" aria-label="Busca tu producto favorito">
+                                <button class="btn bg-white border" type="submit"><i class="bi bi-search"></i></button>
+                            </form>
                         </div>
                         <div class="login fs-4">
                           {% if credits > 0 %}
@@ -79,10 +79,10 @@
                     </div>
                 <!-- Mobile search bar -->
                 <div class="w-100 d-md-none mt-2">
-                    <div class="input-group">
-                        <input type="text" class="form-control" placeholder="Buscar..." aria-label="Buscar">
-                        <button class="btn bg-white border" type="button"><i class="bi bi-search"></i></button>
-                    </div>
+                    <form action="{% url 'search' %}" method="GET" class="input-group">
+                        <input type="text" name="q" class="form-control" placeholder="Buscar..." aria-label="Buscar">
+                        <button class="btn bg-white border" type="submit"><i class="bi bi-search"></i></button>
+                    </form>
                 </div>
             </div>
             <div class="menu-actions px-2 px-md-4 px-lg-5 d-none d-lg-block">

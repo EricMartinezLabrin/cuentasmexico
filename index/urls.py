@@ -9,6 +9,7 @@ from . import views
 
 urlpatterns = [
     path('', views.index, name='index'),
+    path('search/', views.search, name='search'),
     path('no-permission', views.NoPermissionView.as_view(), name='no-permission'),
     path('detail/<int:pk>', views.ServiceDetailView.as_view(), name='service_detail'),
 #     path('cart', login_required(views.CartView.as_view()), name='cart'),

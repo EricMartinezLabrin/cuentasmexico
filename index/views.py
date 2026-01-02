@@ -681,8 +681,31 @@ class TermsAndConditionsView(TemplateView):
     Términos y condiciones
     """
     template_name = "index/tyc.html"
-    
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['now'] = timezone.now()
         return context
+
+
+def search(request):
+    """
+    Búsqueda de productos/servicios
+    """
+    template_name = "index/search.html"
+    query = request.GET.get('q', '')
+    results = []
+
+    if query:
+        results = Service.objects.filter(
+            description__icontains=query,
+            status=True
+        )
+
+    return render(request, template_name, {
+        'business': BusinessInfo.data(),
+        'credits': BusinessInfo.credits(request),
+        'services': Service.objects.filter(status=True),
+        'query': query,
+        'results': results,
+    })

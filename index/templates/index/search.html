@@ -1,0 +1,124 @@
+{% extends 'index/base/base.html' %}
+
+{% load price %}
+{% load humanize %}
+{% block title %}Buscar: {{ query }}{% endblock title %}
+{% block body %}
+
+<div class="mb-4">
+    <h2 class="mb-3">
+        {% if query %}
+            Resultados para "{{ query }}"
+        {% else %}
+            Buscar productos
+        {% endif %}
+    </h2>
+
+    {% if query and not results %}
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle me-2"></i>
+            No se encontraron productos para "{{ query }}". Intenta con otro término.
+        </div>
+
+        <h4 class="mt-4 mb-3">Todos nuestros productos:</h4>
+        <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-3">
+            {% for s in services %}
+            <div class="col">
+                <a href="#!" class="no-decoration" onclick="abrir_modal_edicion('{% url 'service_detail' s.id %}')">
+                    <div class="card h-100">
+                        {% if s.logo %}<img src="{{ s.logo.url }}" class="card-img-top p-2" alt="{{ s.description }}">{% endif %}
+                        <div class="card-body d-flex flex-column">
+                            <small>Streams</small>
+                            <h5 class="card-title">{{ s.description }}</h5>
+                            <div class="mt-auto">
+                                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                    <div>
+                                        <span class="text-dark fw-bold">$
+                                            {% if user.userdetail.level.discount %}
+                                                {{ s.price|new_price:user.userdetail.level.discount|new_currency:1|intcomma }}
+                                            {% else %}
+                                                {{ s.price }}
+                                            {% endif %}
+                                        </span>
+                                        <span class="text-decoration-line-through text-muted ms-2">${{ s.regular_price }}</span>
+                                    </div>
+                                    <div>
+                                        {% if user.userdetail.level.discount %}
+                                        <a href="{% url 'addCart' s.id s.price|new_price:user.userdetail.level.discount|new_currency:1 %}" class="btn btn-cm btn-sm">
+                                            <i class="bi bi-plus-lg"></i>
+                                            <span class="d-none d-md-inline">Agregar</span>
+                                        </a>
+                                        {% else %}
+                                        <a href="{% url 'addCart' s.id s.price %}" class="btn btn-cm btn-sm">
+                                            <i class="bi bi-plus-lg"></i>
+                                            <span class="d-none d-md-inline">Agregar</span>
+                                        </a>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </a>
+            </div>
+            {% endfor %}
+        </div>
+    {% elif results %}
+        <p class="text-muted mb-3">Se encontraron {{ results|length }} resultado(s)</p>
+
+        <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-3">
+            {% for s in results %}
+            <div class="col">
+                <a href="#!" class="no-decoration" onclick="abrir_modal_edicion('{% url 'service_detail' s.id %}')">
+                    <div class="card h-100 border-success">
+                        {% if s.logo %}<img src="{{ s.logo.url }}" class="card-img-top p-2" alt="{{ s.description }}">{% endif %}
+                        <div class="card-body d-flex flex-column">
+                            <small>Streams</small>
+                            <h5 class="card-title">{{ s.description }}</h5>
+                            <p class="card-text" style="color:orange">
+                                <i class="bi bi-star-fill"></i>
+                                <i class="bi bi-star-fill"></i>
+                                <i class="bi bi-star-fill"></i>
+                                <i class="bi bi-star-fill"></i>
+                                <i class="bi bi-star-fill"></i>
+                                (5)
+                            </p>
+                            <div class="mt-auto">
+                                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                    <div>
+                                        <span class="text-dark fw-bold">$
+                                            {% if user.userdetail.level.discount %}
+                                                {{ s.price|new_price:user.userdetail.level.discount|new_currency:1|intcomma }}
+                                            {% else %}
+                                                {{ s.price }}
+                                            {% endif %}
+                                        </span>
+                                        <span class="text-decoration-line-through text-muted ms-2">${{ s.regular_price }}</span>
+                                    </div>
+                                    <div>
+                                        {% if user.userdetail.level.discount %}
+                                        <a href="{% url 'addCart' s.id s.price|new_price:user.userdetail.level.discount|new_currency:1 %}" class="btn btn-cm btn-sm">
+                                            <i class="bi bi-plus-lg"></i>
+                                            <span class="d-none d-md-inline">Agregar</span>
+                                        </a>
+                                        {% else %}
+                                        <a href="{% url 'addCart' s.id s.price %}" class="btn btn-cm btn-sm">
+                                            <i class="bi bi-plus-lg"></i>
+                                            <span class="d-none d-md-inline">Agregar</span>
+                                        </a>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </a>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p class="text-muted">Escribe un término de búsqueda para encontrar productos.</p>
+    {% endif %}
+</div>
+
+{% endblock body %}
