@@ -103,9 +103,15 @@
                             Comprar <span class="fw-bold">se descontarán {{request.session.cart_total}} Créditos</span>
                         </a>
                     {% else %}
-                        <a href="{% url 'start_payment' %}" id="buy" class="btn btn-cm btn-lg d-flex justify-content-between align-items-center" >
+                        {% if init_point %}
+                        <a href="{% url 'start_payment' %}?initpoint={{ init_point }}" id="buy" class="btn btn-cm btn-lg d-flex justify-content-between align-items-center" >
                            Continuar con el pago
                         </a>
+                        {% else %}
+                        <button class="btn btn-secondary btn-lg d-flex justify-content-between align-items-center" disabled>
+                           Procesando...
+                        </button>
+                        {% endif %}
                     {% endif %}
                 {% else %}
                     <a href="{% url 'login' %}" class="btn btn-cm btn-lg d-flex justify-content-between align-items-center">

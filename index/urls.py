@@ -57,5 +57,6 @@ urlpatterns = [
 #     path('test/', views.test, name='test'),
     path('privacy/', views.PrivacyView.as_view(), name='privacy'),
     path('tyc/', views.TermsAndConditionsView.as_view(), name='tyc'),
+    path('webhook/mercadopago/', views.mp_webhook, name='mp_webhook'),
 ]
 

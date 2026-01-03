@@ -40,14 +40,15 @@ SECRET_KEY = 'django-insecure-uf41q9_1%4#x4!k4a)pa#pqc&5aj^-s)*f5lcicaui-$m2@s*e
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['localhost','127.0.0.1','www.cuentasmexico.mx','cuentasmexico.mx','cm.fadetechs.com','cuentas-mxico-web-qjz8lr-93c6ac-148-113-219-180.traefik.me']
+ALLOWED_HOSTS = ['localhost','127.0.0.1','www.cuentasmexico.mx','cuentasmexico.mx','cm.fadetechs.com','cuentas-mxico-web-qjz8lr-93c6ac-148-113-219-180.traefik.me','css-etc-boxes-yearly.trycloudflare.com']
 CSRF_TRUSTED_ORIGINS = [
     'https://www.cuentasmexico.mx',
     'https://cuentasmexico.mx',
     'http://localhost',
     'http://127.0.0.1',
     'https://cm.fadetechs.com',
-    'http://cuentas-mxico-web-qjz8lr-93c6ac-148-113-219-180.traefik.me'
+    'http://cuentas-mxico-web-qjz8lr-93c6ac-148-113-219-180.traefik.me',
+    'https://css-etc-boxes-yearly.trycloudflare.com'
 ]
 
 

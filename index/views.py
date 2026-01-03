@@ -11,7 +11,7 @@ from django.http import HttpResponseRedirect
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from index.models import IndexCart, IndexCartdetail
-# from index.payment_methods.MercagoPago import MercadoPago
+from index.payment_methods.MercagoPago import MercadoPago
 from django.core.cache import cache
 
 # local
@@ -23,7 +23,6 @@ from cupon.models import Shop, Cupon
 from adm.functions.permissions import UserAccessMixin
 from adm.functions.sales import Sales
 from adm.functions.send_email import Email
-# from index.payment_methods.MercagoPago import MercadoPago
 from .models import IndexCart, IndexCartdetail
 
 # Python
@@ -47,12 +46,25 @@ def index(request):
 class CartView(TemplateView):
     template_name = "index/cart.html"
 
+    def set_cart(self):
+        cart = cache.get('cart')
+        if cart is not None:
+            return cart
+        if not self.request.session.get('cart_number'):
+            return None
+        cart = CartDb.create_full_cart(self).id
+        mp = MercadoPago(self.request)
+        result = mp.Mp_ExpressCheckout(cart)
+        # Guarda el valor en caché durante 24 horas
+        cache.set('cart', result, timeout=60*60*24)
+        return result
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["business"] = BusinessInfo.data()
         context["credits"] = BusinessInfo.credits(self.request)
         context['services'] = Service.objects.filter(status=True)
-        context["init_point"] = None
+        context["init_point"] = self.set_cart()
         return context
 
 
@@ -599,6 +611,166 @@ def DistributorSale(request):
 #         return HttpResponse(200)
 #     else:
 #         return HttpResponse(404)
+
+
+@csrf_exempt
+def mp_webhook(request):
+    """
+    Webhook para recibir notificaciones de MercadoPago.
+    Procesa pagos aprobados y entrega las cuentas al cliente.
+    """
+    import logging
+    import hmac
+    import hashlib
+    import os
+
+    logger = logging.getLogger(__name__)
+
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    # Verificar firma del webhook
+    webhook_secret = os.environ.get('MP_WEBHOOK_SECRET')
+    if webhook_secret:
+        x_signature = request.headers.get('x-signature', '')
+        x_request_id = request.headers.get('x-request-id', '')
+
+        # Obtener data.id de query params (MP lo envía así)
+        data_id = request.GET.get('data.id', '')
+
+        # Parsear x-signature (formato: ts=xxx,v1=xxx)
+        ts = ''
+        received_hash = ''
+        for part in x_signature.split(','):
+            if part.startswith('ts='):
+                ts = part[3:]
+            elif part.startswith('v1='):
+                received_hash = part[3:]
+
+        # Construir el manifest para verificar
+        # Formato: id:{data.id};request-id:{x-request-id};ts:{ts};
+        manifest = f"id:{data_id};request-id:{x_request_id};ts:{ts};"
+
+        # Calcular HMAC-SHA256
+        calculated_hash = hmac.new(
+            webhook_secret.encode(),
+            manifest.encode(),
+            hashlib.sha256
+        ).hexdigest()
+
+        if not hmac.compare_digest(calculated_hash, received_hash):
+            logger.warning(f"Firma de webhook inválida. Recibido: {received_hash}, Calculado: {calculated_hash}")
+            # En desarrollo, solo loguear pero continuar
+            if not os.environ.get('DEBUG', 'False').lower() == 'true':
+                return HttpResponse(status=401)
+
+    try:
+        body = request.body.decode('utf-8')
+        data = json.loads(body)
+
+        logger.info(f"MP Webhook recibido: {data}")
+
+        # MercadoPago envía diferentes tipos de notificaciones
+        notification_type = data.get('type') or data.get('action')
+
+        if notification_type == 'payment':
+            payment_id = data.get('data', {}).get('id')
+            if not payment_id:
+                logger.warning("Webhook sin payment_id")
+                return HttpResponse(status=400)
+
+            # Buscar información del pago en MercadoPago
+            mp = MercadoPago(request)
+            payment_data = mp.search_payments(payment_id)
+
+            if not payment_data:
+                logger.error(f"No se pudo obtener info del pago {payment_id}")
+                return HttpResponse(status=500)
+
+            # Solo procesar pagos aprobados
+            if payment_data.get('status') != 'approved':
+                logger.info(f"Pago {payment_id} no aprobado: {payment_data.get('status')}")
+                return HttpResponse(status=200)
+
+            # Obtener el carrito usando external_reference
+            cart_id = payment_data.get('external_reference')
+            if not cart_id:
+                logger.error("Pago sin external_reference")
+                return HttpResponse(status=400)
+
+            try:
+                cart = IndexCart.objects.get(pk=cart_id)
+            except IndexCart.DoesNotExist:
+                logger.error(f"Carrito {cart_id} no encontrado")
+                return HttpResponse(status=404)
+
+            # Verificar si ya fue procesado (evitar duplicados)
+            if cart.status_detail == 'approved':
+                logger.info(f"Carrito {cart_id} ya fue procesado")
+                return HttpResponse(status=200)
+
+            # Actualizar carrito con datos del pago
+            cart.payment_id = payment_data.get('id')
+            cart.date_approved = timezone.now()
+            cart.payment_type_id = payment_data.get('payment_type_id')
+            cart.status_detail = payment_data.get('status')
+            cart.transaction_amount = payment_data.get('transaction_amount')
+            cart.save()
+
+            # Obtener items del carrito
+            cart_details = IndexCartdetail.objects.filter(cart=cart)
+            customer = cart.customer
+            sales_created = []
+
+            for cart_detail in cart_details:
+                service_id = cart_detail.service.id
+                months = cart_detail.long  # duración en meses
+                profiles = cart_detail.quantity  # cantidad de perfiles
+                unit_price = cart_detail.price
+
+                # Calcular fecha de expiración
+                expiration = timezone.now() + timedelta(days=months * 30)
+
+                # Crear una venta por cada perfil solicitado
+                for i in range(profiles):
+                    # Buscar cuenta disponible
+                    result = Sales.search_better_acc(service_id=service_id, exp=expiration)
+
+                    # Validar que result no sea None
+                    if result is None:
+                        logger.warning(f"search_better_acc retornó None para servicio {service_id}")
+                        continue
+
+                    if result[0]:  # Si encontró cuenta disponible
+                        account = result[1]
+                        # Crear la venta
+                        sale_result = Sales.sale_ok(
+                            customer=customer,
+                            webhook_provider="MercadoPago",
+                            payment_type=payment_data.get('payment_type_id', 'unknown'),
+                            payment_id=str(payment_id),
+                            service_obj=account,
+                            expiration_date=expiration,
+                            unit_price=unit_price
+                        )
+                        if sale_result and sale_result[0]:
+                            sales_created.append(sale_result[1])
+                            logger.info(f"Venta creada: {sale_result[1].id} para {customer.username}")
+                    else:
+                        logger.warning(f"No hay cuentas disponibles para servicio {service_id}: {result[1]}")
+
+            logger.info(f"Webhook procesado: {len(sales_created)} ventas creadas para carrito {cart_id}")
+            return HttpResponse(status=200)
+
+        # Para otros tipos de notificación, solo confirmar recepción
+        return HttpResponse(status=200)
+
+    except json.JSONDecodeError:
+        logger.error("Error decodificando JSON del webhook")
+        return HttpResponse(status=400)
+    except Exception as e:
+        logger.exception(f"Error procesando webhook: {str(e)}")
+        return HttpResponse(status=500)
 
 
 def StartPayment(request):
