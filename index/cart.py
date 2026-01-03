@@ -30,7 +30,7 @@ class CartProcessor:
                 'quantity': quantity,
                 'profiles': profiles,
                 'price': int(price)*quantity*profiles,
-                'image': product.logo.url,
+                'image': product.logo.url if product.logo else '',
                 'description': product.description,
                 'unitPrice': int(price)
             }

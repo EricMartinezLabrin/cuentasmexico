@@ -21,7 +21,7 @@
                     {% for key, value in request.session.cart_number.items %}
                         <div class="row align-items-center">
                             <div class="col-3 col-md-2">
-                            <!-- img --> <img src="{{value.image}}" alt="Ecommerce" class="img-fluid"></div>
+                            <!-- img --> {% if value.image %}<img src="{{value.image}}" alt="{{value.name}}" class="img-fluid">{% endif %}</div>
                             <div class="col-4 col-md-5">
                             <!-- title -->
                             <h6 class="mb-0 cm">{{value.name}}</h6>
@@ -97,17 +97,19 @@
                 </div>
                 <div class="d-grid mb-1 mt-4">
                 <!-- btn -->
-                {% if request.user.userdetail.level.name == 'Distribuidor' %}
-                    <a href="{% url 'checkout_distributor' %}" id="btn-buy" class="btn btn-cm btn-lg d-flex justify-content-between align-items-center" >
-                        Comprar <span class="fw-bold">se decontarán {{request.session.cart_total}} Créditos</span>
-                    </a>
-                {% elif not init_point %}
-                    <a href="{% url 'login' %}" class="btn btn-cm btn-lg d-flex justify-content-between align-items-center">
-                        <span class="fw-bold">Inicia sesion para continuar</span>
-                    </a>
+                {% if request.user.is_authenticated %}
+                    {% if request.user.userdetail.level.name == 'Distribuidor' %}
+                        <a href="{% url 'checkout_distributor' %}" id="btn-buy" class="btn btn-cm btn-lg d-flex justify-content-between align-items-center" >
+                            Comprar <span class="fw-bold">se descontarán {{request.session.cart_total}} Créditos</span>
+                        </a>
+                    {% else %}
+                        <a href="{% url 'start_payment' %}" id="buy" class="btn btn-cm btn-lg d-flex justify-content-between align-items-center" >
+                           Continuar con el pago
+                        </a>
+                    {% endif %}
                 {% else %}
-                    <a href="{% url 'start_payment' %}?initpoint={{init_point}}" id="buy" class="btn btn-cm btn-lg d-flex justify-content-between align-items-center" >
-                       Continuar con el pago 
+                    <a href="{% url 'login' %}" class="btn btn-cm btn-lg d-flex justify-content-between align-items-center">
+                        <span class="fw-bold">Inicia sesión para continuar</span>
                     </a>
                 {% endif %}
                 </div>

@@ -43,17 +43,10 @@
                                         <span class="text-decoration-line-through text-muted ms-2">${{ s.regular_price }}</span>
                                     </div>
                                     <div>
-                                        {% if user.userdetail.level.discount %}
-                                        <a href="{% url 'addCart' s.id s.price|new_price:user.userdetail.level.discount|new_currency:1 %}" class="btn btn-cm btn-sm">
+                                        <button type="button" class="btn btn-cm btn-sm" onclick="event.stopPropagation(); abrir_modal_edicion('{% url 'service_detail' s.id %}')">
                                             <i class="bi bi-plus-lg"></i>
                                             <span class="d-none d-md-inline">Agregar</span>
-                                        </a>
-                                        {% else %}
-                                        <a href="{% url 'addCart' s.id s.price %}" class="btn btn-cm btn-sm">
-                                            <i class="bi bi-plus-lg"></i>
-                                            <span class="d-none d-md-inline">Agregar</span>
-                                        </a>
-                                        {% endif %}
+                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -96,17 +89,10 @@
                                         <span class="text-decoration-line-through text-muted ms-2">${{ s.regular_price }}</span>
                                     </div>
                                     <div>
-                                        {% if user.userdetail.level.discount %}
-                                        <a href="{% url 'addCart' s.id s.price|new_price:user.userdetail.level.discount|new_currency:1 %}" class="btn btn-cm btn-sm">
+                                        <button type="button" class="btn btn-cm btn-sm" onclick="event.stopPropagation(); abrir_modal_edicion('{% url 'service_detail' s.id %}')">
                                             <i class="bi bi-plus-lg"></i>
                                             <span class="d-none d-md-inline">Agregar</span>
-                                        </a>
-                                        {% else %}
-                                        <a href="{% url 'addCart' s.id s.price %}" class="btn btn-cm btn-sm">
-                                            <i class="bi bi-plus-lg"></i>
-                                            <span class="d-none d-md-inline">Agregar</span>
-                                        </a>
-                                        {% endif %}
+                                        </button>
                                     </div>
                                 </div>
                             </div>

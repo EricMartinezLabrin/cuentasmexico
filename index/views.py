@@ -44,29 +44,16 @@ def index(request):
     })
 
 
-# class CartView(TemplateView):
-#     template_name = "index/cart.html"
+class CartView(TemplateView):
+    template_name = "index/cart.html"
 
-#     def set_cart(self):
-#         cart = cache.get('cart')
-#         if cart is not None:
-#             return cart
-#         if not self.request.session.get('cart_number'):
-#             return None
-#         cart = CartDb.create_full_cart(self).id
-#         result = MercadoPago.Mp_ExpressCheckout(self, cart)
-#         # Guarda el valor en caché durante 24 horas
-#         cache.set('cart', result, timeout=60*60*24)
-#         return result
-
-#     def get_context_data(self, **kwargs):
-
-#         context = super().get_context_data(**kwargs)
-#         context["business"] = BusinessInfo.data()
-#         context["credits"] = BusinessInfo.credits(self.request)
-#         context['services'] = Service.objects.filter(status=True)
-#         context["init_point"] = self.set_cart()
-#         return context
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["business"] = BusinessInfo.data()
+        context["credits"] = BusinessInfo.credits(self.request)
+        context['services'] = Service.objects.filter(status=True)
+        context["init_point"] = None
+        return context
 
 
 # class CheckOutView(TemplateView):
