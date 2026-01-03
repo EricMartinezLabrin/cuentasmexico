@@ -156,7 +156,7 @@ html {
 /* Mobile First - Base styles (< 576px) */
 @media (max-width: 575.98px) {
     .menu {
-        padding: 0 0.5rem;
+        padding: 0 1rem;
     }
 
     .logo img {
