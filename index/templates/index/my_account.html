@@ -1,6 +1,37 @@
 {% extends 'index/base/base.html' %}
 {% block title %}Mi Cuenta{% endblock title %}
 {% block body %}
+
+{% if request.GET.collection_status == 'approved' or request.GET.status == 'approved' %}
+<div class="alert alert-success alert-dismissible fade show" role="alert">
+    <h4 class="alert-heading"><i class="bi bi-check-circle-fill"></i> ¡Pago recibido!</h4>
+    <p>Tu pago ha sido procesado correctamente. Si tus claves no aparecen abajo, las recibirás por correo electrónico en un máximo de <strong>24 horas</strong>.</p>
+    <hr>
+    <p class="mb-0">
+        <small>¿Tienes dudas? Contáctanos por
+            <a href="https://wa.me/5218335355863" class="alert-link">WhatsApp</a>
+        </small>
+    </p>
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+{% endif %}
+
+{% if request.GET.collection_status == 'pending' or request.GET.status == 'pending' %}
+<div class="alert alert-warning alert-dismissible fade show" role="alert">
+    <h4 class="alert-heading"><i class="bi bi-clock-fill"></i> Pago pendiente</h4>
+    <p>Tu pago está siendo procesado. Una vez confirmado, recibirás tus claves por correo electrónico.</p>
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+{% endif %}
+
+{% if request.GET.collection_status == 'failure' or request.GET.status == 'rejected' %}
+<div class="alert alert-danger alert-dismissible fade show" role="alert">
+    <h4 class="alert-heading"><i class="bi bi-x-circle-fill"></i> Pago rechazado</h4>
+    <p>Tu pago no pudo ser procesado. Por favor, intenta nuevamente o usa otro método de pago.</p>
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+{% endif %}
+
 <h1>Mi Cuenta</h1>
 <h6>Username: {{request.user.username}}</h6>
 <h6>E-Mail: {{request.user.email}}  <a href="{% url 'email_update' request.user.id %}"><small>Cambiar E-Mail...</small></a> </h6>

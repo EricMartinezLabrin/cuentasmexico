@@ -1662,3 +1662,110 @@ def duplicate_account(request):
     for account in accounts:
         print(account)
     return HttpResponse("listo")
+
+
+# Gestión de Imágenes del Index
+
+@permission_required('is_staff', 'adm:no-permission')
+def IndexImagesView(request):
+    """Vista principal para gestionar imágenes del index"""
+    from .models import IndexCarouselImage, IndexPromoImage
+
+    template_name = 'adm/index_images.html'
+    carousel_images = IndexCarouselImage.objects.all().order_by('order', '-created_at')
+    promo_images = IndexPromoImage.objects.all().order_by('position', '-created_at')
+
+    return render(request, template_name, {
+        'carousel_images': carousel_images,
+        'promo_images': promo_images
+    })
+
+
+class CarouselImageCreateView(UserAccessMixin, CreateView):
+    """Crear nueva imagen de carrusel"""
+    from .models import IndexCarouselImage
+    from .functions.forms import IndexCarouselImageForm
+
+    permission_required = 'is_staff'
+    model = IndexCarouselImage
+    form_class = IndexCarouselImageForm
+    template_name = 'adm/carousel_image_form.html'
+    success_url = reverse_lazy('adm:index_images')
+
+
+class CarouselImageUpdateView(UserAccessMixin, UpdateView):
+    """Actualizar imagen de carrusel"""
+    from .models import IndexCarouselImage
+    from .functions.forms import IndexCarouselImageForm
+
+    permission_required = 'is_staff'
+    model = IndexCarouselImage
+    form_class = IndexCarouselImageForm
+    template_name = 'adm/carousel_image_form.html'
+    success_url = reverse_lazy('adm:index_images')
+
+
+class CarouselImageDeleteView(UserAccessMixin, DeleteView):
+    """Eliminar imagen de carrusel"""
+    from .models import IndexCarouselImage
+
+    permission_required = 'is_staff'
+    model = IndexCarouselImage
+    template_name = 'adm/delete.html'
+    success_url = reverse_lazy('adm:index_images')
+
+
+class PromoImageCreateView(UserAccessMixin, CreateView):
+    """Crear nueva imagen de promoción"""
+    from .models import IndexPromoImage
+    from .functions.forms import IndexPromoImageForm
+
+    permission_required = 'is_staff'
+    model = IndexPromoImage
+    form_class = IndexPromoImageForm
+    template_name = 'adm/promo_image_form.html'
+    success_url = reverse_lazy('adm:index_images')
+
+
+class PromoImageUpdateView(UserAccessMixin, UpdateView):
+    """Actualizar imagen de promoción"""
+    from .models import IndexPromoImage
+    from .functions.forms import IndexPromoImageForm
+
+    permission_required = 'is_staff'
+    model = IndexPromoImage
+    form_class = IndexPromoImageForm
+    template_name = 'adm/promo_image_form.html'
+    success_url = reverse_lazy('adm:index_images')
+
+
+class PromoImageDeleteView(UserAccessMixin, DeleteView):
+    """Eliminar imagen de promoción"""
+    from .models import IndexPromoImage
+
+    permission_required = 'is_staff'
+    model = IndexPromoImage
+    template_name = 'adm/delete.html'
+    success_url = reverse_lazy('adm:index_images')
+
+
+@permission_required('is_staff', 'adm:no-permission')
+def ToggleCarouselImageStatus(request, pk):
+    """Activar/desactivar imagen del carrusel"""
+    from .models import IndexCarouselImage
+
+    image = IndexCarouselImage.objects.get(pk=pk)
+    image.active = not image.active
+    image.save()
+    return redirect(reverse('adm:index_images'))
+
+
+@permission_required('is_staff', 'adm:no-permission')
+def TogglePromoImageStatus(request, pk):
+    """Activar/desactivar imagen de promoción"""
+    from .models import IndexPromoImage
+
+    image = IndexPromoImage.objects.get(pk=pk)
+    image.active = not image.active
+    image.save()
+    return redirect(reverse('adm:index_images'))

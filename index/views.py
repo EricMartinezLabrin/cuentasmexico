@@ -33,13 +33,24 @@ import json
 
 
 def index(request):
+    from adm.models import IndexCarouselImage, IndexPromoImage
     template_name = "index/index.html"
+
+    # Obtener imágenes activas
+    carousel_images = IndexCarouselImage.objects.filter(active=True).order_by('order')
+    promo_images = IndexPromoImage.objects.filter(active=True).order_by('position')
+
+    # Separar promociones por posición
+    promo_left = promo_images.filter(position='left').first()
+    promo_right = promo_images.filter(position='right').first()
 
     return render(request, template_name, {
         'business': BusinessInfo.data(),
         'credits': BusinessInfo.credits(request),
         'services': Service.objects.filter(status=True),
-
+        'carousel_images': carousel_images,
+        'promo_left': promo_left,
+        'promo_right': promo_right,
     })
 
 
@@ -721,9 +732,11 @@ def mp_webhook(request):
             cart_details = IndexCartdetail.objects.filter(cart=cart)
             customer = cart.customer
             sales_created = []
+            items_without_stock = []
 
             for cart_detail in cart_details:
                 service_id = cart_detail.service.id
+                service_name = cart_detail.service.description
                 months = cart_detail.long  # duración en meses
                 profiles = cart_detail.quantity  # cantidad de perfiles
                 unit_price = cart_detail.price
@@ -732,6 +745,7 @@ def mp_webhook(request):
                 expiration = timezone.now() + timedelta(days=months * 30)
 
                 # Crear una venta por cada perfil solicitado
+                profiles_without_stock = 0
                 for i in range(profiles):
                     # Buscar cuenta disponible
                     result = Sales.search_better_acc(service_id=service_id, exp=expiration)
@@ -739,6 +753,7 @@ def mp_webhook(request):
                     # Validar que result no sea None
                     if result is None:
                         logger.warning(f"search_better_acc retornó None para servicio {service_id}")
+                        profiles_without_stock += 1
                         continue
 
                     if result[0]:  # Si encontró cuenta disponible
@@ -758,6 +773,45 @@ def mp_webhook(request):
                             logger.info(f"Venta creada: {sale_result[1].id} para {customer.username}")
                     else:
                         logger.warning(f"No hay cuentas disponibles para servicio {service_id}: {result[1]}")
+                        profiles_without_stock += 1
+
+                # Agregar items sin stock a la lista
+                if profiles_without_stock > 0:
+                    items_without_stock.append({
+                        'service_name': service_name,
+                        'months': months,
+                        'profiles': profiles_without_stock,
+                        'price': unit_price * profiles_without_stock
+                    })
+
+            # Si hubo items sin stock, enviar notificaciones por email
+            if items_without_stock:
+                from adm.functions.resend_notifications import ResendEmail
+
+                customer_info = {
+                    'username': customer.username,
+                    'email': customer.email,
+                    'user_id': customer.id
+                }
+                payment_info = {
+                    'payment_id': payment_id,
+                    'amount': payment_data.get('transaction_amount'),
+                    'payment_type': payment_data.get('payment_type_id'),
+                    'cart_id': cart_id
+                }
+
+                # Email al admin
+                ResendEmail.notify_no_stock(customer_info, items_without_stock, payment_info)
+
+                # Email al cliente
+                product_names = [item['service_name'] for item in items_without_stock]
+                if customer.email and customer.email != 'example@example.com':
+                    ResendEmail.notify_customer_pending_delivery(
+                        customer_email=customer.email,
+                        customer_name=customer.username,
+                        products=product_names
+                    )
+                logger.info(f"Emails enviados por {len(items_without_stock)} items sin stock")
 
             logger.info(f"Webhook procesado: {len(sales_created)} ventas creadas para carrito {cart_id}")
             return HttpResponse(status=200)
