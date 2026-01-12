@@ -15,7 +15,7 @@ from index.payment_methods.MercagoPago import MercadoPago
 from django.core.cache import cache
 
 # local
-from .forms import RegisterUserForm, RedeemForm
+from .forms import RegisterUserForm, RedeemForm, WhatsAppLoginForm
 from adm.models import Level, UserDetail, Service, Sale, Account, Credits
 from adm.functions.business import BusinessInfo
 from .cart import CartProcessor, CartDb
@@ -386,6 +386,28 @@ class LoginPageView(LoginView):
         context["business"] = BusinessInfo.data()
         context["credits"] = BusinessInfo.credits(self.request)
         context['services'] = Service.objects.filter(status=True)
+        return context
+
+
+class WhatsAppLoginView(TemplateView):
+    """
+    Login a user via WhatsApp verification
+    """
+    template_name = "index/whatsapp_login.html"
+
+    def get(self, request, *args, **kwargs):
+        response = super().get(request, *args, **kwargs)
+        response.xframe_options_exempt = True
+        if 'X-Frame-Options' in response:
+            del response['X-Frame-Options']
+        return response
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["business"] = BusinessInfo.data()
+        context["credits"] = BusinessInfo.credits(self.request)
+        context['services'] = Service.objects.filter(status=True)
+        context['form'] = WhatsAppLoginForm()
         return context
 
 
@@ -1073,6 +1095,132 @@ def verify_whatsapp_code(request):
         result = WhatsAppVerification.verify_code(phone_number, country, code)
 
         return JsonResponse(result)
+
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'message': 'Datos inválidos'
+        }, status=400)
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Error del servidor: {str(e)}'
+        }, status=500)
+
+
+@require_http_methods(["POST"])
+@csrf_exempt
+def send_whatsapp_login_code(request):
+    """
+    Send verification code for login via WhatsApp
+    """
+    try:
+        data = json.loads(request.body)
+        phone_number = data.get('phone_number', '').strip()
+        country = data.get('country', '').strip()
+
+        if not phone_number or not country:
+            return JsonResponse({
+                'success': False,
+                'message': 'Número de teléfono y país son requeridos'
+            }, status=400)
+
+        # Verificar que el número esté registrado
+        existing_user = UserDetail.objects.filter(
+            phone_number=phone_number,
+            country=country
+        ).first()
+
+        if not existing_user:
+            return JsonResponse({
+                'success': False,
+                'message': 'Este número de teléfono no está registrado. Por favor, regístrate primero.'
+            }, status=404)
+
+        # Generate and send code
+        code = WhatsAppVerification.generate_verification_code()
+        result = WhatsAppVerification.send_verification_code(phone_number, country, code)
+
+        # Store login intent in cache
+        if result['success']:
+            login_cache_key = f"whatsapp_login_{country}_{phone_number}"
+            cache.set(login_cache_key, existing_user.user.id, timeout=600)  # 10 minutes
+
+        return JsonResponse(result)
+
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'message': 'Datos inválidos'
+        }, status=400)
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Error del servidor: {str(e)}'
+        }, status=500)
+
+
+@require_http_methods(["POST"])
+@csrf_exempt
+def whatsapp_login_verify_and_auth(request):
+    """
+    Verify WhatsApp code and authenticate user
+    """
+    from django.contrib.auth import login
+
+    try:
+        data = json.loads(request.body)
+        phone_number = data.get('phone_number', '').strip()
+        country = data.get('country', '').strip()
+        code = data.get('code', '').strip()
+
+        if not phone_number or not country or not code:
+            return JsonResponse({
+                'success': False,
+                'message': 'Todos los campos son requeridos'
+            }, status=400)
+
+        # Verify code
+        verify_result = WhatsAppVerification.verify_code(phone_number, country, code)
+
+        if not verify_result['success']:
+            return JsonResponse(verify_result)
+
+        # Get user from login cache
+        login_cache_key = f"whatsapp_login_{country}_{phone_number}"
+        user_id = cache.get(login_cache_key)
+
+        if not user_id:
+            return JsonResponse({
+                'success': False,
+                'message': 'Sesión expirada. Por favor, solicita un nuevo código.'
+            }, status=400)
+
+        # Get user and authenticate
+        try:
+            user = User.objects.get(id=user_id)
+
+            # Authenticate user without password (backend bypass for WhatsApp login)
+            from django.contrib.auth import get_backends
+            backend = get_backends()[0]
+            user.backend = f'{backend.__module__}.{backend.__class__.__name__}'
+
+            login(request, user)
+
+            # Clean up cache
+            cache.delete(login_cache_key)
+
+            return JsonResponse({
+                'success': True,
+                'message': 'Inicio de sesión exitoso',
+                'redirect_url': reverse('redirect_on_login')
+            })
+
+        except User.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'message': 'Usuario no encontrado'
+            }, status=404)
 
     except json.JSONDecodeError:
         return JsonResponse({

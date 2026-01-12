@@ -39,13 +39,44 @@
                         </div>
                     {% endif %}
                     <h1 class="mb-1 h2 fw-bold">Iniciar Sesión en Cuentas México</h1>
-                    <p>Bienvenido nuevamente, Ingresa tu usuario y contraseña para comenzar.</p>
+                    <p>Elige cómo quieres iniciar sesión</p>
                 </div>
+
+                <!-- WhatsApp Login - PRINCIPAL -->
+                <div class="row g-3 mb-4">
+                    <div class="col-12">
+                        <div class="card border-success shadow-sm">
+                            <div class="card-body p-4">
+                                <div class="text-center mb-3">
+                                    <i class="bi bi-whatsapp text-success" style="font-size: 3rem;"></i>
+                                    <h3 class="mt-2 mb-1 fw-bold text-success">Inicia Sesión con WhatsApp</h3>
+                                    <p class="text-muted mb-0 small">Rápido, fácil y sin contraseñas</p>
+                                </div>
+                                <div class="d-grid">
+                                    <a href="{% url 'whatsapp_login' %}" class="btn btn-success btn-lg p-3">
+                                        <i class="bi bi-whatsapp"></i> Continuar con WhatsApp
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Separador -->
+                <div class="col-12 text-center mb-3">
+                    <div class="d-flex align-items-center">
+                        <hr class="flex-grow-1">
+                        <span class="px-3 text-muted small">O usa tu usuario y contraseña</span>
+                        <hr class="flex-grow-1">
+                    </div>
+                </div>
+
+                <!-- Traditional Login - SECUNDARIO -->
                 <form method="post">
                     <div class="row g-3">
                         {% csrf_token %}
                         <div class="col-12">
-                            <input type="text" name="{{form.username.name}}" class="form-control p-2" placeholder="Usuario" autofocus>
+                            <input type="text" name="{{form.username.name}}" class="form-control p-2" placeholder="Usuario">
                         </div>
                         <div class="col-12">
                             <input type="password" name="{{form.password.name}}" class="form-control p-2" placeholder="Contraseña">
@@ -53,9 +84,10 @@
                         <small><a href="{% url 'password_reset' %}" class="text-center a-grey cm">¿Olvidaste la Contraseña?</a></small>
 
                         <div class="col-12 d-grid">
-                            <input type="submit" class="btn btn-cm p-2" value="Iniciar Sesión">
+                            <input type="submit" class="btn btn-outline-secondary p-2" value="Iniciar Sesión con Usuario">
                         </div>
-                        <div>¿No tienes Cuenta? <a href="{% url 'register' %}" class="cm"> Registrate</a></div>
+
+                        <div class="text-center mt-3">¿No tienes Cuenta? <a href="{% url 'register' %}" class="cm fw-bold"> Regístrate</a></div>
 
                     </div>
                 </form>
