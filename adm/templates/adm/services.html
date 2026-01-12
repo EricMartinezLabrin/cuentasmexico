@@ -4,18 +4,70 @@
 {% endblock title %}
 {% block body %}
     <h1>Servicios Disponibles</h1>
-    <a href="{% url 'adm:services_create' %}" class="btn btn-cm">Crear Nuevo</a>
+    
+    <!-- Filtro y Búsqueda -->
+    <div class="mb-4 p-3 bg-light rounded">
+        <form method="GET" class="row g-3">
+            <div class="col-md-5">
+                <input type="text" name="search" class="form-control" 
+                       placeholder="Buscar por nombre de servicio..." 
+                       value="{{ search }}">
+            </div>
+            <div class="col-md-3">
+                <select name="status_filter" class="form-select">
+                    <option value="">Todos los estados</option>
+                    <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Activos</option>
+                    <option value="inactive" {% if status_filter == 'inactive' %}selected{% endif %}>Inactivos</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary w-100">Filtrar</button>
+            </div>
+            <div class="col-md-2">
+                <a href="{% url 'adm:services' %}" class="btn btn-secondary w-100">Limpiar</a>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Botones de Ordenamiento -->
+    <div class="mb-3 d-flex gap-2 flex-wrap">
+        <a href="{% url 'adm:services' %}?search={{ search }}&status_filter={{ status_filter }}&sort=description" 
+           class="btn {% if sort == 'description' %}btn-cm active{% else %}btn-outline-secondary{% endif %}">
+            <i class="bi bi-sort-alpha-down"></i> Nombre (A-Z)
+        </a>
+        <a href="{% url 'adm:services' %}?search={{ search }}&status_filter={{ status_filter }}&sort=-description" 
+           class="btn {% if sort == '-description' %}btn-cm active{% else %}btn-outline-secondary{% endif %}">
+            <i class="bi bi-sort-alpha-up"></i> Nombre (Z-A)
+        </a>
+        <a href="{% url 'adm:services' %}?search={{ search }}&status_filter={{ status_filter }}&sort=status_active" 
+           class="btn {% if sort == 'status_active' %}btn-cm active{% else %}btn-outline-secondary{% endif %}">
+            <i class="bi bi-toggle-on"></i> Estado (Activos primero)
+        </a>
+        <a href="{% url 'adm:services' %}?search={{ search }}&status_filter={{ status_filter }}&sort=status_inactive" 
+           class="btn {% if sort == 'status_inactive' %}btn-cm active{% else %}btn-outline-secondary{% endif %}">
+            <i class="bi bi-toggle-off"></i> Estado (Inactivos primero)
+        </a>
+        <a href="{% url 'adm:services' %}?search={{ search }}&status_filter={{ status_filter }}&sort=id" 
+           class="btn {% if sort == 'id' %}btn-cm active{% else %}btn-outline-secondary{% endif %}">
+            <i class="bi bi-hash"></i> ID
+        </a>
+    </div>
+    
+    <a href="{% url 'adm:services_create' %}" class="btn btn-cm mb-3">Crear Nuevo</a>
+    
     <table class="table mt-4 t-img">
         <thead>
             <th></th>
             <th>Servicio</th>
             <th>Perfiles</th>
+            <th>Precio</th>
+            <th>Precio Regular</th>
             <th>Estado</th>
             <th>Acciones</th>
         </thead>
         <tbody>
             {% for service in object_list %}
-                <tr>
+                <tr data-service-id="{{ service.id }}">
                     <td>
                         {% if service.logo %}
                             <img src="{{ service.logo.url }}"
@@ -28,10 +80,24 @@
                     <td>{{ service.description }}</td>
                     <td>{{ service.perfil_quantity }}</td>
                     <td>
+                        <input type="number" class="form-control form-control-sm price-input" 
+                               value="{{ service.price }}" 
+                               data-field="price"
+                               min="0" 
+                               style="width: 100px;">
+                    </td>
+                    <td>
+                        <input type="number" class="form-control form-control-sm price-input" 
+                               value="{{ service.regular_price }}" 
+                               data-field="regular_price"
+                               min="0" 
+                               style="width: 100px;">
+                    </td>
+                    <td>
                         {% if service.status == True %}
-                            Activo
+                            <span class="badge bg-success">Activo</span>
                         {% else %}
-                            Inactivo
+                            <span class="badge bg-danger">Inactivo</span>
                         {% endif %}
                     </td>
                     <td>
@@ -44,7 +110,95 @@
                         <a href="{% url 'adm:services_delete' service.id %}"><i class="bi bi-trash"></i></a>
                     </td>
                 </tr>
+            {% empty %}
+                <tr>
+                    <td colspan="7" class="text-center text-muted">No se encontraron servicios</td>
+                </tr>
             {% endfor %}
         </tbody>
     </table>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const priceInputs = document.querySelectorAll('.price-input');
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || 
+                            getCookie('csrftoken');
+            
+            priceInputs.forEach(input => {
+                input.addEventListener('change', function() {
+                    const row = this.closest('tr');
+                    const serviceId = row.getAttribute('data-service-id');
+                    const field = this.getAttribute('data-field');
+                    const value = this.value;
+                    
+                    updateServicePrice(serviceId, field, value, csrfToken, this);
+                });
+            });
+        });
+        
+        function updateServicePrice(serviceId, field, value, csrfToken, inputElement) {
+            fetch('{% url "adm:update_service_price" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({
+                    service_id: parseInt(serviceId),
+                    field: field,
+                    value: parseInt(value)
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    inputElement.classList.add('is-valid');
+                    setTimeout(() => {
+                        inputElement.classList.remove('is-valid');
+                    }, 2000);
+                } else {
+                    inputElement.classList.add('is-invalid');
+                    alert('Error al actualizar: ' + data.message);
+                    setTimeout(() => {
+                        inputElement.classList.remove('is-invalid');
+                    }, 2000);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                inputElement.classList.add('is-invalid');
+            });
+        }
+        
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+    </script>
+
+    <style>
+        .price-input {
+            border: 1px solid #ddd;
+        }
+        
+        .price-input.is-valid {
+            border-color: #28a745 !important;
+            background-color: #d4edda;
+        }
+        
+        .price-input.is-invalid {
+            border-color: #dc3545 !important;
+            background-color: #f8d7da;
+        }
+    </style>
 {% endblock body %}

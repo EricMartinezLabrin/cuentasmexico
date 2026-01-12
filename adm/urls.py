@@ -44,6 +44,7 @@ urlpatterns = [
          login_required(views.ServiceDeleteView.as_view()), name='services_delete'),
     path('services/active/<str:status>/<int:pk>',
          login_required(views.ActiveInactiveService), name='active_inactive_service'),
+    path('services/update-price/', login_required(views.update_service_price), name='update_service_price'),
     path('accounts', login_required(views.AccountsView), name='accounts'),
     path('accounts/expired', login_required(views.AccountsExpiredView),
          name='accounts_expired'),

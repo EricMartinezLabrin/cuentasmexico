@@ -259,6 +259,43 @@ class ServiceView(UserAccessMixin, ListView):
     permission_required = 'is_staff'
     model = Service
     template_name = 'adm/services.html'
+    
+    def get_queryset(self):
+        queryset = Service.objects.all()
+        
+        # Filtro por búsqueda
+        search = self.request.GET.get('search', '')
+        if search:
+            queryset = queryset.filter(description__icontains=search)
+        
+        # Filtro por estado
+        status_filter = self.request.GET.get('status_filter', '')
+        if status_filter == 'active':
+            queryset = queryset.filter(status=True)
+        elif status_filter == 'inactive':
+            queryset = queryset.filter(status=False)
+        
+        # Ordenamiento
+        sort = self.request.GET.get('sort', 'description')
+        
+        # Manejo especial para ordenamiento de estado
+        if sort == 'status_active':
+            queryset = queryset.order_by('-status')  # Activos primero (True primero)
+        elif sort == 'status_inactive':
+            queryset = queryset.order_by('status')   # Inactivos primero (False primero)
+        elif sort in ['description', 'status', 'id', '-description', '-status', '-id']:
+            queryset = queryset.order_by(sort)
+        else:
+            queryset = queryset.order_by('description')
+        
+        return queryset
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['search'] = self.request.GET.get('search', '')
+        context['sort'] = self.request.GET.get('sort', 'description')
+        context['status_filter'] = self.request.GET.get('status_filter', '')
+        return context
 
 class ServiceCreateView(UserAccessMixin, CreateView):
     """
@@ -1812,3 +1849,41 @@ def TogglePromoImageStatus(request, pk):
     image.active = not image.active
     image.save()
     return redirect(reverse('adm:index_images'))
+
+
+@csrf_exempt
+@permission_required('is_staff', 'adm:no-permission')
+def update_service_price(request):
+    """
+    Actualizar el precio de un servicio vía AJAX
+    """
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            service_id = data.get('service_id')
+            field = data.get('field')  # 'price' o 'regular_price'
+            value = data.get('value')
+            
+            if not all([service_id, field, value is not None]):
+                return JsonResponse({'success': False, 'message': 'Datos incompletos'})
+            
+            if field not in ['price', 'regular_price']:
+                return JsonResponse({'success': False, 'message': 'Campo inválido'})
+            
+            service = Service.objects.get(id=service_id)
+            
+            if field == 'price':
+                service.price = int(value)
+            elif field == 'regular_price':
+                service.regular_price = int(value)
+            
+            service.save()
+            
+            return JsonResponse({'success': True, 'message': 'Actualizado correctamente'})
+        
+        except Service.DoesNotExist:
+            return JsonResponse({'success': False, 'message': 'Servicio no encontrado'})
+        except Exception as e:
+            return JsonResponse({'success': False, 'message': str(e)})
+    
+    return JsonResponse({'success': False, 'message': 'Método no permitido'})
