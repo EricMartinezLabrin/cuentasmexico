@@ -146,6 +146,9 @@ class CartDb:
     def create_full_cart(self):
         cart_data = self.request.session.get('cart_number')
         if cart_data:
+            # Check if user is authenticated
+            if not self.request.user.is_authenticated:
+                return None
             cart = CartDb.create_cart(customer=self.request.user)
             print(cart.id)
             for item in cart_data.items():

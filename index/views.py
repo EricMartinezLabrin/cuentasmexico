@@ -63,9 +63,14 @@ class CartView(TemplateView):
             return cart
         if not self.request.session.get('cart_number'):
             return None
-        cart = CartDb.create_full_cart(self).id
+        # Check if user is authenticated before creating cart
+        if not self.request.user.is_authenticated:
+            return None
+        cart = CartDb.create_full_cart(self)
+        if cart is None:
+            return None
         mp = MercadoPago(self.request)
-        result = mp.Mp_ExpressCheckout(cart)
+        result = mp.Mp_ExpressCheckout(cart.id)
         # Guarda el valor en caché durante 24 horas
         cache.set('cart', result, timeout=60*60*24)
         return result
@@ -744,35 +749,43 @@ def mp_webhook(request):
                 # Calcular fecha de expiración
                 expiration = timezone.now() + timedelta(days=months * 30)
 
+                logger.info(f"Procesando servicio {service_name} (ID: {service_id}): {profiles} perfiles x {months} meses")
+
                 # Crear una venta por cada perfil solicitado
                 profiles_without_stock = 0
                 for i in range(profiles):
-                    # Buscar cuenta disponible
-                    result = Sales.search_better_acc(service_id=service_id, exp=expiration)
+                    logger.info(f"  Buscando cuenta {i+1}/{profiles} para {service_name}...")
 
-                    # Validar que result no sea None
-                    if result is None:
-                        logger.warning(f"search_better_acc retornó None para servicio {service_id}")
-                        profiles_without_stock += 1
-                        continue
-
-                    if result[0]:  # Si encontró cuenta disponible
-                        account = result[1]
-                        # Crear la venta
-                        sale_result = Sales.sale_ok(
-                            customer=customer,
-                            webhook_provider="MercadoPago",
-                            payment_type=payment_data.get('payment_type_id', 'unknown'),
-                            payment_id=str(payment_id),
-                            service_obj=account,
-                            expiration_date=expiration,
-                            unit_price=unit_price
+                    # Buscar la mejor cuenta disponible usando la lógica optimizada
+                    try:
+                        best_account = Sales.find_best_account(
+                            service_id=service_id,
+                            months_requested=months
                         )
-                        if sale_result and sale_result[0]:
-                            sales_created.append(sale_result[1])
-                            logger.info(f"Venta creada: {sale_result[1].id} para {customer.username}")
-                    else:
-                        logger.warning(f"No hay cuentas disponibles para servicio {service_id}: {result[1]}")
+
+                        if best_account:
+                            logger.info(f"    Mejor cuenta encontrada: {best_account.email} (Perfil: {best_account.profile})")
+                            # Crear la venta
+                            sale_result = Sales.sale_ok(
+                                customer=customer,
+                                webhook_provider="MercadoPago",
+                                payment_type=payment_data.get('payment_type_id', 'unknown'),
+                                payment_id=str(payment_id),
+                                service_obj=best_account,
+                                expiration_date=expiration,
+                                unit_price=unit_price
+                            )
+                            if sale_result and sale_result[0]:
+                                sales_created.append(sale_result[1])
+                                logger.info(f"    Venta creada exitosamente: ID {sale_result[1].id}")
+                            else:
+                                logger.error(f"    Error al crear venta: {sale_result}")
+                                profiles_without_stock += 1
+                        else:
+                            logger.warning(f"    No hay cuentas disponibles para servicio {service_id}")
+                            profiles_without_stock += 1
+                    except Exception as e:
+                        logger.error(f"    Error al buscar/crear cuenta: {str(e)}", exc_info=True)
                         profiles_without_stock += 1
 
                 # Agregar items sin stock a la lista

@@ -13,9 +13,106 @@ from django.utils import timezone
 from datetime import timedelta
 from traceback import format_exc
 from datetime import datetime
+from django.db.models import Count, Q, F
+from math import ceil, floor
 
 
 class Sales():
+
+    def find_best_account(service_id, months_requested):
+        """
+        Encuentra la mejor cuenta disponible basada en 3 criterios de prioridad:
+        1. Menor número de cortes estimados (prioridad máxima)
+        2. Mayor tiempo hasta el primer corte (prioridad media)
+        3. Menor cantidad de perfiles vacíos (prioridad baja)
+
+        Args:
+            service_id: ID del servicio (ej: Netflix)
+            months_requested: Duración en meses que el cliente compró
+
+        Returns:
+            Account object o None si no hay cuentas disponibles
+        """
+        from django.db.models import Min
+
+        try:
+            service = Service.objects.get(pk=service_id)
+        except Service.DoesNotExist:
+            return None
+
+        # Obtener todas las cuentas disponibles (sin cliente asignado)
+        available_accounts = Account.objects.filter(
+            account_name=service,
+            status=True,
+            customer=None
+        ).select_related('account_name')
+
+        if not available_accounts.exists():
+            return None
+
+        # Calcular días totales de la suscripción
+        dias_totales = months_requested * 30
+        now = timezone.now()
+
+        # Lista para almacenar cuentas con sus métricas calculadas
+        candidates = []
+
+        # Agrupar cuentas por email+password para calcular perfiles vacíos
+        email_groups = {}
+        for account in available_accounts:
+            key = f"{account.email}|{account.password}"
+            if key not in email_groups:
+                email_groups[key] = []
+            email_groups[key].append(account)
+
+        for account in available_accounts:
+            # Buscar la venta activa más próxima a vencer para este email
+            next_sale = Sale.objects.filter(
+                account__email=account.email,
+                account__password=account.password,
+                account__account_name=service,
+                status=True,
+                expiration_date__gte=now
+            ).order_by('expiration_date').first()
+
+            # Calcular días hasta el próximo corte
+            if next_sale:
+                dias_hasta_corte = (next_sale.expiration_date - now).days
+            else:
+                # Si no hay ventas activas, asumimos que es una cuenta "nueva"
+                # Le damos un valor muy alto para que sea preferida
+                dias_hasta_corte = 999999
+
+            # Criterio 1: Calcular número de cortes estimados
+            if dias_hasta_corte >= dias_totales:
+                cortes = 0  # No habrá cortes durante la suscripción
+            elif dias_hasta_corte <= 0:
+                # Cuenta ya vencida (no debería pasar pero por seguridad)
+                cortes = ceil(dias_totales / 30)
+            else:
+                # Habrá al menos un corte, calcular cuántos más
+                cortes = 1 + floor((dias_totales - dias_hasta_corte) / 30)
+
+            # Criterio 3: Contar perfiles vacíos en el mismo email|password
+            key = f"{account.email}|{account.password}"
+            perfiles_vacios = len(email_groups[key])
+
+            candidates.append({
+                'account': account,
+                'cortes': cortes,
+                'dias_hasta_corte': dias_hasta_corte,
+                'perfiles_vacios': perfiles_vacios
+            })
+
+        # Ordenar por los 3 criterios en orden de prioridad
+        candidates.sort(key=lambda x: (
+            x['cortes'],              # 1. Menor cortes (ascendente)
+            -x['dias_hasta_corte'],   # 2. Mayor días hasta corte (descendente)
+            x['perfiles_vacios']      # 3. Menor perfiles vacíos (ascendente)
+        ))
+
+        # Retornar la mejor cuenta
+        return candidates[0]['account'] if candidates else None
 
     def availables():
         """
@@ -416,6 +513,50 @@ class Sales():
             return render(request, 'adm/sale.html', my_dict)
 
     def search_better_acc(service_id, exp, code=None):
+        """
+        DEPRECADO: Usa find_best_account() para nueva implementación.
+        Esta función mantiene compatibilidad con código legacy pero ahora
+        usa la lógica optimizada de find_best_account().
+
+        Args:
+            service_id: ID del servicio
+            exp: Fecha de expiración deseada (datetime)
+            code: Código de cupón (opcional)
+
+        Returns:
+            (True, Account) si encuentra cuenta
+            (False, mensaje_error) si no encuentra o hay error
+        """
+        # Si hay código y ya está usado, retornar error
+        if code:
+            try:
+                cupon = Cupon.objects.get(name=code)
+                if cupon.customer:
+                    return False, "El código ya fue utilizado, si no lo canjeó usted contacte a su vendedor y pidale uno nuevo."
+            except Cupon.DoesNotExist:
+                pass
+
+        # Calcular cuántos meses se están pidiendo basado en la fecha de expiración
+        now = timezone.now()
+        dias_diferencia = (exp - now).days
+        months_requested = max(1, round(dias_diferencia / 30))
+
+        # Usar la nueva lógica optimizada
+        best_account = Sales.find_best_account(
+            service_id=service_id,
+            months_requested=months_requested
+        )
+
+        if best_account:
+            return True, best_account
+        else:
+            return False, "No hay cuentas disponibles, porfavor comunicate al whats app +521 833 535 5863"
+
+    def search_better_acc_legacy(service_id, exp, code=None):
+        """
+        FUNCIÓN LEGACY ORIGINAL - Mantenida solo como referencia.
+        NO USAR - puede retornar None y causar bugs.
+        """
         # Si no hay codigo o hay pero esta libre
         if code == None or not Cupon.objects.get(name=code).customer:
             try:
