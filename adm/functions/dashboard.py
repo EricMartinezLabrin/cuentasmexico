@@ -101,6 +101,7 @@ class Dashboard():
         """
         Contador de visitas por página (total acumulado)
         Retorna un diccionario con el nombre de la página y el total de visitas
+        Incluye clics en servicios categorizados con el nombre del servicio
         """
         visits = PageVisit.objects.values('page').annotate(
             total=Count('id')
@@ -110,12 +111,25 @@ class Dashboard():
         for visit in visits:
             page_name = dict(PageVisit.PAGE_CHOICES).get(visit['page'], visit['page'])
             result[page_name] = visit['total']
+        
+        # Agregar clics en servicios como páginas individuales
+        service_clicks = PageVisit.objects.filter(
+            page='service',
+            service__isnull=False
+        ).values('service__description').annotate(
+            total=Count('id')
+        ).order_by('-total')
+        
+        for click in service_clicks:
+            service_name = click['service__description']
+            result[service_name] = click['total']
 
         return result
 
     def page_visits_today():
         """
         Visitas de hoy por página
+        Incluye clics en servicios categorizados con el nombre del servicio
         """
         today = timezone.now().date()
         start = timezone.make_aware(datetime.combine(today, datetime.min.time()))
@@ -131,12 +145,26 @@ class Dashboard():
         for visit in visits:
             page_name = dict(PageVisit.PAGE_CHOICES).get(visit['page'], visit['page'])
             result[page_name] = visit['total']
+        
+        # Agregar clics en servicios de hoy
+        service_clicks = PageVisit.objects.filter(
+            visited_at__range=(start, end),
+            page='service',
+            service__isnull=False
+        ).values('service__description').annotate(
+            total=Count('id')
+        ).order_by('-total')
+        
+        for click in service_clicks:
+            service_name = click['service__description']
+            result[service_name] = click['total']
 
         return result
 
     def page_visits_last_7_days():
         """
         Visitas de los últimos 7 días por página
+        Incluye clics en servicios categorizados con el nombre del servicio
         """
         today = timezone.now()
         seven_days_ago = today - timedelta(days=7)
@@ -151,6 +179,19 @@ class Dashboard():
         for visit in visits:
             page_name = dict(PageVisit.PAGE_CHOICES).get(visit['page'], visit['page'])
             result[page_name] = visit['total']
+        
+        # Agregar clics en servicios de los últimos 7 días
+        service_clicks = PageVisit.objects.filter(
+            visited_at__gte=seven_days_ago,
+            page='service',
+            service__isnull=False
+        ).values('service__description').annotate(
+            total=Count('id')
+        ).order_by('-total')
+        
+        for click in service_clicks:
+            service_name = click['service__description']
+            result[service_name] = click['total']
 
         return result
 

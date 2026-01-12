@@ -18,7 +18,7 @@ import requests
 # from pyflowcl.utils import genera_parametros
 from dateutil.relativedelta import relativedelta
 
-from adm.models import Account, Business, Sale, Service, UserDetail
+from adm.models import Account, Business, Sale, Service, UserDetail, PageVisit
 from .functions.notifications import send_push_notification
 from .functions.salesApi import SalesApi
 from adm.functions.send_whatsapp_notification import Notification
@@ -740,3 +740,59 @@ def notify_today_due_date_api(request):
     else:
         # Devolver un error si el método de solicitud no es GET
         return JsonResponse(status=405, data={'detail': 'method not allowed'})
+
+
+@csrf_exempt
+def record_service_click(request):
+    """
+    Endpoint para registrar clics en servicios
+    Espera un POST con el ID del servicio
+    """
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            service_id = data.get('service_id')
+            
+            if not service_id:
+                return JsonResponse(status=400, data={'detail': 'service_id is required'})
+            
+            try:
+                service = Service.objects.get(id=service_id)
+            except Service.DoesNotExist:
+                return JsonResponse(status=404, data={'detail': 'Service not found'})
+            
+            # Obtener información del request
+            user = request.user if request.user.is_authenticated else None
+            
+            # Obtener IP del cliente
+            x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+            if x_forwarded_for:
+                ip_address = x_forwarded_for.split(',')[0]
+            else:
+                ip_address = request.META.get('REMOTE_ADDR')
+            
+            user_agent = request.META.get('HTTP_USER_AGENT', '')
+            referrer = request.META.get('HTTP_REFERER', '')
+            session_key = request.session.session_key
+            
+            # Crear el registro de visita/clic en servicio
+            PageVisit.objects.create(
+                page='service',
+                page_url=f'/service-click/{service_id}/',
+                service=service,
+                user=user,
+                ip_address=ip_address,
+                user_agent=user_agent[:500] if user_agent else '',
+                referrer=referrer[:500] if referrer else '',
+                session_key=session_key
+            )
+            
+            return JsonResponse(status=200, data={'detail': 'Service click recorded successfully'})
+        
+        except json.JSONDecodeError:
+            return JsonResponse(status=400, data={'detail': 'Invalid JSON'})
+        except Exception as e:
+            return JsonResponse(status=500, data={'detail': str(e)})
+    else:
+        return JsonResponse(status=405, data={'detail': 'method not allowed'})
+

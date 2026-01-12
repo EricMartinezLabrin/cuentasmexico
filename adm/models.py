@@ -220,11 +220,13 @@ class PageVisit(models.Model):
         ('cart', 'Carrito (/cart)'),
         ('checkout', 'Checkout'),
         ('services', 'Servicios'),
+        ('service', 'Clic en Servicio'),
         ('other', 'Otra'),
     ]
 
     page = models.CharField(max_length=50, choices=PAGE_CHOICES)
     page_url = models.CharField(max_length=500)
+    service = models.ForeignKey(Service, on_delete=models.SET_NULL, null=True, blank=True, help_text="Servicio si se registró un clic en uno")
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
     ip_address = models.GenericIPAddressField(null=True, blank=True)
     user_agent = models.TextField(blank=True, null=True)
@@ -243,4 +245,6 @@ class PageVisit(models.Model):
         ]
 
     def __str__(self):
+        if self.page == 'service' and self.service:
+            return f"Clic en {self.service.description} - {self.visited_at.strftime('%Y-%m-%d %H:%M')}"
         return f"{self.get_page_display()} - {self.visited_at.strftime('%Y-%m-%d %H:%M')}"
