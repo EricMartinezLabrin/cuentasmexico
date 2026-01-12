@@ -1050,16 +1050,31 @@ def SalesChangeView(request, pk):
     bank = Bank.objects.filter(status=True)
     payment = PaymentMethod.objects.all()
     sale = Sale.objects.get(pk=pk)
+
+    # Obtener el servicio seleccionado (por defecto el servicio actual de la venta)
+    selected_service_id = request.GET.get('service_id', sale.account.account_name.id)
+
+    # Filtrar cuentas por el servicio seleccionado
     accounts = Account.objects.filter(
-        account_name=sale.account.account_name, status=True, customer=None)
+        account_name_id=selected_service_id,
+        status=True,
+        customer=None
+    ).order_by('profile')
+
+    # Obtener todos los servicios activos
+    services = Service.objects.filter(status=True).order_by('description')
+
     if request.method == 'POST':
         if Sales.change_sale(request) == True:
             customer = sale.customer
             return Sales.render_view(request, customer)
+
     return render(request, template_name, {
         'customer': Sale.objects.get(pk=pk).customer,
         'sale': sale,
         'accounts': accounts,
+        'services': services,
+        'selected_service_id': int(selected_service_id),
         'availables': Sales.availables()[0]
     })
 

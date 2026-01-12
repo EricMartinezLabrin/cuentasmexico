@@ -419,6 +419,16 @@ class RegisterCustomerView(CreateView):
         phone_number = form.cleaned_data.get('phone_number')
         country = form.cleaned_data.get('country')
 
+        # Verificar que el número no esté ya registrado (doble verificación)
+        existing_user = UserDetail.objects.filter(
+            phone_number=phone_number,
+            country=country
+        ).first()
+
+        if existing_user:
+            form.add_error(None, 'Este número de teléfono ya está registrado')
+            return self.form_invalid(form)
+
         # Verificar que el teléfono haya sido verificado
         if not WhatsAppVerification.is_verified(phone_number, country):
             form.add_error(None, 'Debes verificar tu número de WhatsApp antes de registrarte')
@@ -428,6 +438,9 @@ class RegisterCustomerView(CreateView):
         user = form.save(commit=False)
         user.is_active = True
         user.save()
+
+        # Asignar el usuario creado a self.object para que get_success_url() funcione
+        self.object = user
 
         # Intentar agregar al grupo de clientes si existe
         try:
@@ -1005,6 +1018,19 @@ def send_whatsapp_verification(request):
             return JsonResponse({
                 'success': False,
                 'message': 'Número de teléfono y país son requeridos'
+            }, status=400)
+
+        # Verificar si el número ya está registrado
+        from adm.models import UserDetail
+        existing_user = UserDetail.objects.filter(
+            phone_number=phone_number,
+            country=country
+        ).first()
+
+        if existing_user:
+            return JsonResponse({
+                'success': False,
+                'message': 'Este número de teléfono ya está registrado'
             }, status=400)
 
         # Generate and send code

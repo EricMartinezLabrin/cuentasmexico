@@ -26,7 +26,7 @@ class WhatsAppVerification:
     @staticmethod
     def send_verification_code(phone_number, country, code):
         """
-        Send verification code via WhatsApp API
+        Send verification code via Evolution API WhatsApp
 
         Args:
             phone_number: Phone number without country code
@@ -42,25 +42,38 @@ class WhatsAppVerification:
             if not lada:
                 return {'success': False, 'message': 'País no válido'}
 
-            # Prepare full phone number with country code
+            # Prepare full phone number with country code (Evolution API format)
             full_phone = f"{lada}{phone_number}"
 
             # Prepare message
             message = f"Tu código de verificación para Cuentas México es: {code}\n\nEste código expira en 10 minutos."
 
-            # Send to WhatsApp API
-            whatsapp_url = settings.WHATSAPP_API_URL
-            if not whatsapp_url:
+            # Get Evolution API configuration
+            evo_api_url = settings.EVO_WHATSAPP_API_URL
+            evo_instance = settings.EVO_INSTANCE
+            evo_api_key = settings.EVO_API_KEY
+
+            if not evo_api_url or not evo_instance or not evo_api_key:
                 return {'success': False, 'message': 'WhatsApp API no configurada'}
 
+            # Evolution API endpoint for sending text messages
+            endpoint = f"{evo_api_url}/message/sendText/{evo_instance}"
+
+            # Evolution API payload format
             payload = {
-                'phone': full_phone,
-                'message': message
+                "number": full_phone,
+                "text": message
             }
 
-            response = requests.post(whatsapp_url, json=payload, timeout=10)
+            # Evolution API requires apikey in headers
+            headers = {
+                "apikey": evo_api_key,
+                "Content-Type": "application/json"
+            }
 
-            if response.status_code == 200:
+            response = requests.post(endpoint, json=payload, headers=headers, timeout=10)
+
+            if response.status_code == 200 or response.status_code == 201:
                 # Store code in cache with 10 minute expiration
                 cache_key = f"whatsapp_verify_{country}_{phone_number}"
                 cache.set(cache_key, code, timeout=600)  # 10 minutes

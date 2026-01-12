@@ -62,7 +62,7 @@
                             {% if request.user.is_authenticated == False %}
                               <a href="{% url 'login' %}" class="cm me-4"><i class="bi bi-person"></i></a>
                             {% else %}
-                              <a href="#" class="cm me-4"><i class="bi bi-person"></i></a>
+                              <a href="{% url 'my_account' %}" class="cm me-4"><i class="bi bi-person"></i></a>
                             {% endif %}
                             
                             {% if request.session.cart_quantity > 0 %}

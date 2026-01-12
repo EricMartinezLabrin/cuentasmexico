@@ -9,7 +9,20 @@
     <div class="d-flex mb-4">
         {% for key,value in availables.items %}<b class="ms-2">{{ key }}:</b> {{ value }}{% endfor %}
     </div>
-    <h4>Selecciona uno o más Servicios</h4>
+
+    <!-- Selector de Servicio -->
+    <div class="mb-3">
+        <label for="service_selector" class="form-label"><strong>Selecciona el Servicio:</strong></label>
+        <select id="service_selector" class="form-select" style="max-width: 300px;" onchange="filterByService()">
+            {% for service in services %}
+            <option value="{{ service.id }}" {% if service.id == selected_service_id %}selected{% endif %}>
+                {{ service.description }}
+            </option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <h4>Selecciona una cuenta</h4>
     <form method="post">
         {% csrf_token %}
         <input type="hidden" id='duration' value='1'>
@@ -84,11 +97,11 @@
                         </thead>
                         <tbody class="t-img">
                             {% for a in accounts %}
-                                <tr>
-                                    <td>
+                                <tr style="cursor: pointer;" onclick="selectAccountRow({{ a.id }})">
+                                    <td onclick="event.stopPropagation();">
                                         <input class="form-check-input details"
                                                name="serv"
-                                               id="{{ a.id }}"
+                                               id="radio_{{ a.id }}"
                                                type="radio"
                                                value="{{ a.id }}"
                                                onclick="detail()">
@@ -125,4 +138,20 @@
 {% endblock body %}
 {% block extrajs %}
     <script src="{% static 'adm/js/sales.js' %}"></script>
+    <script>
+        function filterByService() {
+            const serviceId = document.getElementById('service_selector').value;
+            const currentUrl = new URL(window.location.href);
+            currentUrl.searchParams.set('service_id', serviceId);
+            window.location.href = currentUrl.toString();
+        }
+
+        function selectAccountRow(accountId) {
+            const radio = document.getElementById('radio_' + accountId);
+            if (radio) {
+                radio.checked = true;
+                detail();
+            }
+        }
+    </script>
 {% endblock extrajs %}

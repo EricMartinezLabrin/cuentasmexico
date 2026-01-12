@@ -108,7 +108,10 @@
                         </div>
                         <div class="col-12 d-grid">
                             <input type="submit" class="btn btn-cm p-3" value="Registrarme" id="btnSubmit" disabled>
-                            <small class="text-muted mt-2">Debes verificar tu número de WhatsApp antes de registrarte</small>
+                            <div class="alert alert-warning mt-2 mb-0 py-2 px-3" role="alert" id="verificationWarning">
+                                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                                <strong>Debes verificar tu número de WhatsApp antes de registrarte</strong>
+                            </div>
                         </div>
                     </div>
                 </form>
@@ -168,6 +171,16 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Validaciones en vivo para todos los campos
     setupLiveValidation();
+
+    // Prevenir submit si no está verificado y mostrar mensaje
+    const form = document.querySelector('form');
+    form.addEventListener('submit', function(e) {
+        if (!isPhoneVerified) {
+            e.preventDefault();
+            alert('Para registrarte primero debes presionar en "Enviar código" y verificar tu número de WhatsApp');
+            return false;
+        }
+    });
 });
 
 function setupLiveValidation() {
@@ -349,18 +362,18 @@ function validateModalCode() {
 
 function updateSubmitButton() {
     const submitBtn = document.getElementById('btnSubmit');
-    const helpText = submitBtn.nextElementSibling;
+    const warningAlert = document.getElementById('verificationWarning');
 
     if (isPhoneVerified) {
         submitBtn.disabled = false;
-        helpText.textContent = 'Número verificado correctamente ✓';
-        helpText.classList.remove('text-muted');
-        helpText.classList.add('text-success');
+        warningAlert.classList.remove('alert-warning');
+        warningAlert.classList.add('alert-success');
+        warningAlert.innerHTML = '<i class="bi bi-check-circle-fill me-2"></i><strong>Número verificado correctamente ✓</strong>';
     } else {
         submitBtn.disabled = true;
-        helpText.textContent = 'Debes verificar tu número de WhatsApp antes de registrarte';
-        helpText.classList.remove('text-success');
-        helpText.classList.add('text-muted');
+        warningAlert.classList.remove('alert-success');
+        warningAlert.classList.add('alert-warning');
+        warningAlert.innerHTML = '<i class="bi bi-exclamation-triangle-fill me-2"></i><strong>Debes verificar tu número de WhatsApp antes de registrarte</strong>';
     }
 }
 
