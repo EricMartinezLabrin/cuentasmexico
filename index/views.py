@@ -411,6 +411,52 @@ class RegisterCustomerView(CreateView):
         context['services'] = Service.objects.filter(status=True)
         return context
 
+    def form_valid(self, form):
+        from .whatsapp_verification import WhatsAppVerification
+        from adm.models import Business
+
+        # Obtener datos del formulario
+        phone_number = form.cleaned_data.get('phone_number')
+        country = form.cleaned_data.get('country')
+
+        # Verificar que el teléfono haya sido verificado
+        if not WhatsAppVerification.is_verified(phone_number, country):
+            form.add_error(None, 'Debes verificar tu número de WhatsApp antes de registrarte')
+            return self.form_invalid(form)
+
+        # Crear el usuario
+        user = form.save(commit=False)
+        user.is_active = True
+        user.save()
+
+        # Intentar agregar al grupo de clientes si existe
+        try:
+            customer_group = Group.objects.get(name='Cliente')
+            user.groups.add(customer_group)
+        except Group.DoesNotExist:
+            pass
+
+        # Obtener la lada del país
+        lada = WhatsAppVerification.get_lada_from_country(country)
+
+        # Crear UserDetail con la información de WhatsApp
+        try:
+            business = Business.objects.get(id=1)
+            UserDetail.objects.create(
+                user=user,
+                phone_number=phone_number,
+                lada=int(lada) if lada else 0,
+                country=country,
+                business=business
+            )
+        except Business.DoesNotExist:
+            # Si no existe el business, eliminar el usuario creado
+            user.delete()
+            form.add_error(None, 'Error en la configuración del sistema')
+            return self.form_invalid(form)
+
+        return HttpResponseRedirect(self.get_success_url())
+
 
 class ChangePasswordView(PasswordResetView):
     template_name = 'index/registration/change_password.html'
@@ -936,3 +982,79 @@ def search(request):
         'query': query,
         'results': results,
     })
+
+
+# WhatsApp Verification Views
+from django.http import JsonResponse
+from django.views.decorators.http import require_http_methods
+from .whatsapp_verification import WhatsAppVerification
+
+
+@require_http_methods(["POST"])
+@csrf_exempt
+def send_whatsapp_verification(request):
+    """
+    Send verification code via WhatsApp
+    """
+    try:
+        data = json.loads(request.body)
+        phone_number = data.get('phone_number', '').strip()
+        country = data.get('country', '').strip()
+
+        if not phone_number or not country:
+            return JsonResponse({
+                'success': False,
+                'message': 'Número de teléfono y país son requeridos'
+            }, status=400)
+
+        # Generate and send code
+        code = WhatsAppVerification.generate_verification_code()
+        result = WhatsAppVerification.send_verification_code(phone_number, country, code)
+
+        return JsonResponse(result)
+
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'message': 'Datos inválidos'
+        }, status=400)
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Error del servidor: {str(e)}'
+        }, status=500)
+
+
+@require_http_methods(["POST"])
+@csrf_exempt
+def verify_whatsapp_code(request):
+    """
+    Verify WhatsApp code
+    """
+    try:
+        data = json.loads(request.body)
+        phone_number = data.get('phone_number', '').strip()
+        country = data.get('country', '').strip()
+        code = data.get('code', '').strip()
+
+        if not phone_number or not country or not code:
+            return JsonResponse({
+                'success': False,
+                'message': 'Todos los campos son requeridos'
+            }, status=400)
+
+        # Verify code
+        result = WhatsAppVerification.verify_code(phone_number, country, code)
+
+        return JsonResponse(result)
+
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'message': 'Datos inválidos'
+        }, status=400)
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Error del servidor: {str(e)}'
+        }, status=500)

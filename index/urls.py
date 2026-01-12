@@ -58,5 +58,7 @@ urlpatterns = [
     path('privacy/', views.PrivacyView.as_view(), name='privacy'),
     path('tyc/', views.TermsAndConditionsView.as_view(), name='tyc'),
     path('webhook/mercadopago/', views.mp_webhook, name='mp_webhook'),
+    path('api/send-whatsapp-verification/', views.send_whatsapp_verification, name='send_whatsapp_verification'),
+    path('api/verify-whatsapp-code/', views.verify_whatsapp_code, name='verify_whatsapp_code'),
 ]
 

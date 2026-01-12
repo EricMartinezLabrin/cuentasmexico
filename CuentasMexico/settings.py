@@ -40,7 +40,7 @@ SECRET_KEY = 'django-insecure-uf41q9_1%4#x4!k4a)pa#pqc&5aj^-s)*f5lcicaui-$m2@s*e
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['localhost','127.0.0.1','www.cuentasmexico.mx','cuentasmexico.mx','cm.fadetechs.com','cuentas-mxico-web-qjz8lr-93c6ac-148-113-219-180.traefik.me','columnists-born-declared-floyd.trycloudflare.com']
+ALLOWED_HOSTS = ['localhost','127.0.0.1','www.cuentasmexico.mx','cuentasmexico.mx','cm.fadetechs.com','cuentas-mxico-web-qjz8lr-93c6ac-148-113-219-180.traefik.me','fresh-shares-projects-magic.trycloudflare.com']
 CSRF_TRUSTED_ORIGINS = [
     'https://www.cuentasmexico.mx',
     'https://cuentasmexico.mx',
@@ -48,7 +48,7 @@ CSRF_TRUSTED_ORIGINS = [
     'http://127.0.0.1',
     'https://cm.fadetechs.com',
     'http://cuentas-mxico-web-qjz8lr-93c6ac-148-113-219-180.traefik.me',
-    'https://columnists-born-declared-floyd.trycloudflare.com'
+    'https://fresh-shares-projects-magic.trycloudflare.com'
 ]
 
 
@@ -225,6 +225,9 @@ EMAIL_HOST_PASSWORD = 'cuentas123!#'
 EMAIL_BACKEND = 'django_smtp_ssl.SSLEmailBackend'
 
 DATE_INPUT_FORMATS = ('%d-%m-%Y')
+
+# WhatsApp API Configuration
+WHATSAPP_API_URL = os.getenv('WHATSAPP_API_URL', '')
 
 # EMAIL_BACKEND = "naomi.mail.backends.naomi.NaomiBackend"
 # EMAIL_FILE_PATH = "/Users/luinmack/Documents/Proyectos/CuentasMexico/tmp"
