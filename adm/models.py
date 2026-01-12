@@ -210,3 +210,37 @@ class IndexPromoImage(models.Model):
 
     def __str__(self):
         return f"Promo {self.get_position_display()} - {self.title or 'Sin título'}"
+
+
+class PageVisit(models.Model):
+    """Rastrear visitas por página"""
+    PAGE_CHOICES = [
+        ('home', 'Página Principal (cuentasmexico.mx)'),
+        ('myaccount', 'Mi Cuenta (/myaccount)'),
+        ('cart', 'Carrito (/cart)'),
+        ('checkout', 'Checkout'),
+        ('services', 'Servicios'),
+        ('other', 'Otra'),
+    ]
+
+    page = models.CharField(max_length=50, choices=PAGE_CHOICES)
+    page_url = models.CharField(max_length=500)
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(blank=True, null=True)
+    referrer = models.CharField(max_length=500, blank=True, null=True)
+    visited_at = models.DateTimeField(auto_now_add=True)
+    session_key = models.CharField(max_length=100, blank=True, null=True)
+
+    class Meta:
+        ordering = ['-visited_at']
+        verbose_name = "Visita de Página"
+        verbose_name_plural = "Visitas de Páginas"
+        indexes = [
+            models.Index(fields=['page', 'visited_at']),
+            models.Index(fields=['visited_at']),
+            models.Index(fields=['session_key']),
+        ]
+
+    def __str__(self):
+        return f"{self.get_page_display()} - {self.visited_at.strftime('%Y-%m-%d %H:%M')}"

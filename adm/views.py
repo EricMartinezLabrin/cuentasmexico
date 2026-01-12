@@ -110,6 +110,21 @@ def index(request):
         date = datetime.strptime(request.GET['date'], '%Y-%m-%d')
     else:
         date = timezone.now().date()
+
+    # Nuevas estadísticas de visitas
+    page_visits_total = Dashboard.page_visits_by_page()
+    page_visits_today_data = Dashboard.page_visits_today()
+    page_visits_7days = Dashboard.page_visits_last_7_days()
+    unique_visitors = Dashboard.unique_visitors_today()
+    visits_chart_data = Dashboard.page_visits_last_30_days_chart()
+
+    # Nuevas estadísticas de ventas web
+    web_sales_today = Dashboard.web_sales_today()
+    web_sales_weekly = Dashboard.web_sales_weekly()
+    web_sales_monthly = Dashboard.web_sales_monthly()
+    web_sales_yearly = Dashboard.web_sales_yearly()
+    web_sales_chart = Dashboard.web_sales_last_12_months()
+
     return render(request, template_name, {
         'sales_day': sales_day,
         'sales_month': sales_month,
@@ -117,7 +132,19 @@ def index(request):
         'acc_total': sales_acc[1],
         'time': timezone.now(),
         'last_year_sales_new_user': Dashboard.last_year_sales_new_user(),
-        'sales_per_day_new_user':Dashboard.sales_per_day_new_user(date)
+        'sales_per_day_new_user': Dashboard.sales_per_day_new_user(date),
+        # Estadísticas de visitas
+        'page_visits_total': page_visits_total,
+        'page_visits_today': page_visits_today_data,
+        'page_visits_7days': page_visits_7days,
+        'unique_visitors': unique_visitors,
+        'visits_chart_data': visits_chart_data,
+        # Estadísticas de ventas web
+        'web_sales_today': web_sales_today,
+        'web_sales_weekly': web_sales_weekly,
+        'web_sales_monthly': web_sales_monthly,
+        'web_sales_yearly': web_sales_yearly,
+        'web_sales_chart': web_sales_chart,
     })
 
 class NoPermissionView(TemplateView):

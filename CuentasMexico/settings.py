@@ -86,6 +86,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'CuentasMexico.middleware.RemoveXFrameOptionsMiddleware',  # Nuestro nuevo middleware
+    'adm.middleware.PageVisitMiddleware',  # Middleware para rastrear visitas
 ]
 
 # Configuración de login para permitir iframe
