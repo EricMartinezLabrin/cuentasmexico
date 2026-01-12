@@ -41,8 +41,8 @@
             </div>
             <div class="duration m-2">
                 <label for="duration">Duración:</label>
-                <select name="duration" id="duration" class="form-control">
-                    <option value="None">------</option>
+                <select name="duration" id="duration" class="form-control" required>
+                    <option value="">------</option>
                     <option value="1">1 Mes</option>
                     <option value="2">2 Meses</option>
                     <option value="3">3 Meses</option>
@@ -59,8 +59,13 @@
                 </select>
             </div>
             <div class="comp m-2">
-                <label for="price">Comprobante:</label>
-                <input type="text" name="comp" id="comp" class="form-control" required>
+                <label for="comp">Comprobante:</label>
+                <div class="input-group">
+                    <input type="text" name="comp" id="comp" class="form-control" required>
+                    <button class="btn btn-outline-secondary" type="button" id="generateUUID" title="Generar UUID">
+                        <i class="bi bi-hash"></i>
+                    </button>
+                </div>
             </div>
             <div class="bank m-2">
                 <label for="bank">Cuenta:</label>
@@ -86,7 +91,7 @@
         </div>
         <div id="accounts" class="not-visible">
             <div class="d-flex mb-3">
-                <input type="text" id="search-email" placeholder="Buscar por email..." class="form-control w-25">
+                <input type="text" id="search-email" placeholder="Buscar por email..." class="form-control w-25" onkeydown="if(event.key==='Enter')event.preventDefault()">
             </div>
             <div class="d-flex">
                 <div class="accfree">
@@ -172,6 +177,20 @@
                         </tr>
                     `;
                 });
+            });
+
+            // Generar UUID para el comprobante
+            $('#generateUUID').on('click', function() {
+                // Generar UUID v4
+                function generateUUID() {
+                    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                        const r = Math.random() * 16 | 0;
+                        const v = c === 'x' ? r : (r & 0x3 | 0x8);
+                        return v.toString(16);
+                    });
+                }
+
+                $('#comp').val(generateUUID());
             });
         });
     </script>

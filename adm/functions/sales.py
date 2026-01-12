@@ -164,7 +164,17 @@ class Sales():
     def new_sale(request):
         service = request.POST.getlist('serv')
         price = request.POST.get('price')
-        duration = int(request.POST.get('duration'))
+        duration_value = request.POST.get('duration')
+
+        # Validar que duration no sea None o 'None'
+        if not duration_value or duration_value == 'None':
+            return False
+
+        try:
+            duration = int(duration_value)
+        except (ValueError, TypeError):
+            return False
+
         ticket = request.POST.get('comp')
         bank_selected = Bank.objects.get(pk=request.POST.get('bank'))
         payment_used = PaymentMethod.objects.get(pk=request.POST.get('method'))

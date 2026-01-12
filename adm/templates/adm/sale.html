@@ -45,7 +45,7 @@
         {% for key,value in availables.items %}<b class="ms-2">{{ key }}:</b> {{ value }}{% endfor %}
     </div>
     <!--Seach Box-->
-    <form method="post" class="d-flex w-100">
+    <form method="post" action="{% url 'adm:sales' %}" class="d-flex w-100">
         {% csrf_token %}
         <input type="text"
                class="form-control"

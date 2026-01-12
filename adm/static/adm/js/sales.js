@@ -225,7 +225,7 @@ function services() {
       );
     }
   });
-  if (duration.value != 'None') {
+  if (duration.value != 'None' && duration.value != '') {
     accounts.classList.remove('not-visible');
     sendSearchData(arr);
   }
@@ -233,7 +233,7 @@ function services() {
 
 function CheckFields() {
   services();
-  if (duration.value != 'None') {
+  if (duration.value != 'None' && duration.value != '') {
     end.disabled = false;
   } else {
     end.disabled = true;

@@ -837,8 +837,9 @@ def SalesCreateView(request, pk):
     payment = PaymentMethod.objects.all()
     if request.method == 'POST':
         if Sales.new_sale(request) == True:
+            # Obtener el cliente y redirigir a su página de ventas
             customer = User.objects.get(pk=pk)
-            return Sales.render_view(request, customer)
+            return Sales.render_view(request, customer.id)
     return render(request, template_name, {
         'customer': User.objects.get(pk=pk),
         'services': Sales.availables()[1],
