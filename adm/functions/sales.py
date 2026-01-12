@@ -219,8 +219,14 @@ class Sales():
                 except:
                     pass
 
-                if not customer.email == 'example@example.com':
-                    Email.email_passwords(request, customer.email, (sale,))
+                # Enviar email si tenemos email del cliente y no es un email de ejemplo
+                if customer.email and customer.email != 'example@example.com':
+                    try:
+                        Email.email_passwords(request, customer.email, (sale,))
+                    except Exception as e:
+                        import logging
+                        logger = logging.getLogger(__name__)
+                        logger.error(f"Error enviando email a {customer.email}: {str(e)}")
             else:
                 continue
         return True
@@ -790,7 +796,7 @@ class Sales():
         }
         return dict_sale
 
-    def sale_ok(customer, webhook_provider, payment_type, payment_id, service_obj, expiration_date, unit_price):
+    def sale_ok(customer, webhook_provider, payment_type, payment_id, service_obj, expiration_date, unit_price, request=None):
         try:
             bank_selected = Bank.objects.get(bank_name=webhook_provider)
         except Bank.DoesNotExist:
@@ -826,7 +832,29 @@ class Sales():
         service_obj.modified_by = customer
         service_obj.save()
 
+        # Enviar email con las claves del servicio si tenemos email del cliente y no es un email de ejemplo
+        if customer.email and customer.email != 'example@example.com':
+            try:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.info(f"Intentando enviar email a {customer.email} para venta {sale.id}")
+                
+                # Obtener la venta para enviar las claves
+                sales = Sale.objects.filter(account=service_obj, customer=customer).order_by('-created_at')[:1]
+                if sales:
+                    result = Email.email_passwords(request, customer.email, sales)
+                    if result:
+                        logger.info(f"Email enviado exitosamente a {customer.email}")
+                    else:
+                        logger.warning(f"No se pudo enviar email a {customer.email}")
+            except Exception as e:
+                # Log el error pero no falles la venta
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f"Error enviando email a {customer.email}: {str(e)}", exc_info=True)
+
         return True, sale
+
 
 
 
