@@ -1,9 +1,11 @@
 # django
 from django import forms
 from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError
+from PIL import Image
 
 # local
-from ..models import Bank, Business, Service, UserDetail, Account, PaymentMethod, Status, Supplier
+from ..models import Bank, Business, Service, UserDetail, Account, PaymentMethod, Status, Supplier, IndexCarouselImage, IndexPromoImage
 from CuentasMexico import settings
 
 
@@ -236,3 +238,143 @@ class UserMainForm(forms.ModelForm):
             'last_name': forms.TextInput(attrs={'class': 'form-control'}),
             'email': forms.EmailInput(attrs={'class': 'form-control'}),
         }
+
+
+class IndexCarouselImageForm(forms.ModelForm):
+    """Formulario para imágenes del carrusel con validación de dimensiones"""
+
+    class Meta:
+        model = IndexCarouselImage
+        fields = ['image', 'title', 'order', 'active']
+        labels = {
+            'image': 'Imagen',
+            'title': 'Título (opcional)',
+            'order': 'Orden de aparición',
+            'active': 'Activa'
+        }
+        widgets = {
+            'image': forms.FileInput(attrs={
+                'class': 'form-control',
+                'accept': 'image/jpeg,image/png,image/jpg'
+            }),
+            'title': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: Oferta Black Friday'}),
+            'order': forms.NumberInput(attrs={'class': 'form-control', 'min': '0'}),
+            'active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+        help_texts = {
+            'image': 'La imagen debe tener dimensiones de 2000x600 píxeles (o relación 10:3)',
+            'order': 'Menor número aparece primero. Puedes usar 0, 1, 2, etc.'
+        }
+
+    def clean_image(self):
+        image = self.cleaned_data.get('image')
+
+        if image:
+            try:
+                img = Image.open(image)
+                width, height = img.size
+
+                # Dimensiones recomendadas para carrusel (ancho banner)
+                RECOMMENDED_WIDTH = 2000
+                RECOMMENDED_HEIGHT = 600
+                TOLERANCE = 0.1  # 10% de tolerancia
+
+                # Calcular relación de aspecto
+                aspect_ratio = width / height
+                expected_ratio = RECOMMENDED_WIDTH / RECOMMENDED_HEIGHT
+
+                # Validar que la relación de aspecto sea aproximadamente 10:3
+                if abs(aspect_ratio - expected_ratio) > expected_ratio * TOLERANCE:
+                    raise ValidationError(
+                        f'La imagen debe tener una relación de aspecto de aproximadamente 10:3. '
+                        f'Dimensión actual: {width}x{height}px. '
+                        f'Dimensión recomendada: {RECOMMENDED_WIDTH}x{RECOMMENDED_HEIGHT}px o similar.'
+                    )
+
+                # Validar dimensiones mínimas
+                if width < 1200 or height < 360:
+                    raise ValidationError(
+                        f'La imagen es demasiado pequeña. Dimensión mínima: 1200x360px. '
+                        f'Dimensión actual: {width}x{height}px.'
+                    )
+
+                # Validar tamaño del archivo (5MB máximo)
+                if image.size > 5 * 1024 * 1024:
+                    raise ValidationError('El tamaño del archivo no debe exceder 5MB.')
+
+            except ValidationError:
+                raise
+            except Exception as e:
+                raise ValidationError(f'Error al procesar la imagen: {str(e)}')
+
+        return image
+
+
+class IndexPromoImageForm(forms.ModelForm):
+    """Formulario para imágenes de promociones con validación de dimensiones"""
+
+    class Meta:
+        model = IndexPromoImage
+        fields = ['image', 'title', 'position', 'active']
+        labels = {
+            'image': 'Imagen',
+            'title': 'Título (opcional)',
+            'position': 'Posición',
+            'active': 'Activa'
+        }
+        widgets = {
+            'image': forms.FileInput(attrs={
+                'class': 'form-control',
+                'accept': 'image/jpeg,image/png,image/jpg'
+            }),
+            'title': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: Promoción 3x2'}),
+            'position': forms.Select(attrs={'class': 'form-select'}),
+            'active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+        help_texts = {
+            'image': 'La imagen debe tener dimensiones de 1000x600 píxeles (o relación 5:3)',
+            'position': 'Selecciona si la imagen aparecerá a la izquierda o derecha'
+        }
+
+    def clean_image(self):
+        image = self.cleaned_data.get('image')
+
+        if image:
+            try:
+                img = Image.open(image)
+                width, height = img.size
+
+                # Dimensiones recomendadas para promociones (cuadradas/rectangulares)
+                RECOMMENDED_WIDTH = 1000
+                RECOMMENDED_HEIGHT = 600
+                TOLERANCE = 0.15  # 15% de tolerancia
+
+                # Calcular relación de aspecto
+                aspect_ratio = width / height
+                expected_ratio = RECOMMENDED_WIDTH / RECOMMENDED_HEIGHT
+
+                # Validar que la relación de aspecto sea aproximadamente 5:3
+                if abs(aspect_ratio - expected_ratio) > expected_ratio * TOLERANCE:
+                    raise ValidationError(
+                        f'La imagen debe tener una relación de aspecto de aproximadamente 5:3. '
+                        f'Dimensión actual: {width}x{height}px. '
+                        f'Dimensión recomendada: {RECOMMENDED_WIDTH}x{RECOMMENDED_HEIGHT}px o similar.'
+                    )
+
+                # Validar dimensiones mínimas
+                if width < 600 or height < 360:
+                    raise ValidationError(
+                        f'La imagen es demasiado pequeña. Dimensión mínima: 600x360px. '
+                        f'Dimensión actual: {width}x{height}px.'
+                    )
+
+                # Validar tamaño del archivo (5MB máximo)
+                if image.size > 5 * 1024 * 1024:
+                    raise ValidationError('El tamaño del archivo no debe exceder 5MB.')
+
+            except ValidationError:
+                raise
+            except Exception as e:
+                raise ValidationError(f'Error al procesar la imagen: {str(e)}')
+
+        return image

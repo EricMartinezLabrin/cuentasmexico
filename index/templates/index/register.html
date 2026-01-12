@@ -10,30 +10,42 @@
     <script src="https://cdn.jsdelivr.net/npm/jquery@2.2.4/dist/jquery.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-kenU1KFdBIe4zVF0s0G1M5b4hcpxyD9F7jL+jjXkk+Q2h455rYXK/7HAuoJl+0I4" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0-beta1/dist/js/bootstrap.min.js" integrity="sha384-kjU+l4N0Yf4ZOJErLsIcvOU2qSb74wXpOhqTvwVx3OElZRweTnQ6d31fXEoRD1Jy" crossorigin="anonymous"></script>
-    <link rel="stylesheet" href="{% static 'index/css/main.css' %}"> 
+    <link rel="stylesheet" href="{% static 'index/css/main.css' %}">
+    <style>
+        .is-valid {
+            border-color: #28a745 !important;
+        }
+        .is-invalid {
+            border-color: #dc3545 !important;
+        }
+        .text-danger {
+            display: block;
+            margin-top: 0.25rem;
+        }
+    </style>
 </head>
   <body>
-<nav class="navbar navbar-light py-2">
-    <div class="logo container justify-content-center justify-content-lg-between">
-      <a class="navbar-brand" href="{% url 'index' %}">
-        {% if business.logo %}<img src="{{ business.logo.url }}" alt="{{business.name}} logo">{% endif %}
-      </a>
-      <span class="navbar-text">
-        Ya tienes una cuenta? <a href="{% url 'login' %}">Inicia Sesión</a>
-      </span>
-    </div>
-  </nav>
-<section class="my-lg-14 my-8">
-    <!-- container -->
+<div class="border-bottom shadow-sm p-3">
     <div class="container">
-        <!-- row -->
-        <div class="row justify-content-center align-items-center">
-            <div class="col-12 col-md-6 col-lg-4 order-lg-1 order-2">
-                <!-- img -->
-                <img src="https://freshcart.codescandy.com/assets/images/svg-graphics/signup-g.svg" alt="" class="img-fluid">
+        <div class="d-flex flex-column flex-md-row justify-content-center justify-content-md-between align-items-center gap-2">
+            <div class="logo">
+                <a href="{% url 'index' %}">
+                    {% if business.logo %}<img src="{{ business.logo.url }}" alt="{{business.name}} logo" class="logo-img">{% endif %}
+                </a>
             </div>
-            <!-- col -->
-            <div class="col-12 col-md-6 offset-lg-1 col-lg-4 order-lg-2 order-1">
+            <span class="text-muted small">
+                Ya tienes una cuenta? <a href="{% url 'login' %}" class="cm">Inicia Sesión</a>
+            </span>
+        </div>
+    </div>
+</div>
+<section class="py-4 py-lg-5">
+    <div class="container">
+        <div class="row justify-content-center align-items-center g-4">
+            <div class="col-10 col-sm-8 col-md-6 col-lg-4 order-lg-1 order-2 text-center">
+                <img src="https://freshcart.codescandy.com/assets/images/svg-graphics/signup-g.svg" alt="" class="img-fluid" style="max-height: 300px;">
+            </div>
+            <div class="col-12 col-md-10 col-lg-5 order-lg-2 order-1">
                 <div class="mb-lg-9 mb-5">
                     <h1 class="mb-1 h2 fw-bold">Registrarse</h1>
                     <p>Bienvenido a Cuentas México! Ingresa los siguientes datos para continuar.</p>
@@ -42,31 +54,462 @@
                 <form method="post">
                     <div class="row g-3">
                         {% csrf_token %}
-                        {% comment %} <input type="text" name="{{form.username.name}}" placeholder="Usuario">
-                        <input type="password" name="{{form.password.name}}" placeholder="Contraseña">
-                        <a href="#" class="text-center a-grey">¿Olvidaste la Contraseña?</a> {% endcomment %}
-                        <div class="col">
-                            {{form.username}}    
+
+                        {% if form.non_field_errors %}
+                        <div class="col-12">
+                            <div class="alert alert-danger" role="alert">
+                                {{ form.non_field_errors }}
+                            </div>
                         </div>
-                        <div class="col">
-                            {{form.email}}    
+                        {% endif %}
+
+                        <div class="col-12">
+                            {{form.username}}
+                            <div class="text-danger small mt-1 d-none" data-field="username">
+                                {% if form.username.errors %}{{ form.username.errors }}{% endif %}
+                            </div>
                         </div>
                         <div class="col-12">
-                            <input type="password" name="{{form.password1.name}}" class="form-control p-3" placeholder="Password" required="">        
+                            {{form.email}}
+                            <div class="text-danger small mt-1 d-none" data-field="email">
+                                {% if form.email.errors %}{{ form.email.errors }}{% endif %}
+                            </div>
                         </div>
                         <div class="col-12">
-                            <input type="password" name="{{form.password2.name}}" class="form-control p-3" placeholder="Repetir Password" required="">        
+                            {{form.password1}}
+                            <div class="text-danger small mt-1 d-none" data-field="password1">
+                                {% if form.password1.errors %}{{ form.password1.errors }}{% endif %}
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            {{form.password2}}
+                            <div class="text-danger small mt-1 d-none" data-field="password2">
+                                {% if form.password2.errors %}{{ form.password2.errors }}{% endif %}
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            {{form.country}}
+                            <div class="text-danger small mt-1 d-none" data-field="country">
+                                {% if form.country.errors %}{{ form.country.errors }}{% endif %}
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <div class="input-group">
+                                {{form.phone_number}}
+                                <button type="button" class="btn btn-outline-secondary" id="btnSendCode" onclick="sendVerificationCode()">
+                                    <span id="btnSendCodeText">Enviar código</span>
+                                    <span id="btnSendCodeSpinner" class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                                </button>
+                            </div>
+                            <div class="text-danger small mt-1 d-none" data-field="phone_number">
+                                {% if form.phone_number.errors %}{{ form.phone_number.errors }}{% endif %}
+                            </div>
+                            <small class="text-muted">Te enviaremos un código de verificación por WhatsApp</small>
                         </div>
                         <div class="col-12 d-grid">
-                            <input type="hidden" name="{{form.is_active.name}}" value="1">
-                            <input type="submit" class="btn btn-cm p-3" value="Registrarme">     
+                            <input type="submit" class="btn btn-cm p-3" value="Registrarme" id="btnSubmit" disabled>
+                            <div class="alert alert-warning mt-2 mb-0 py-2 px-3" role="alert" id="verificationWarning">
+                                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                                <strong>Debes verificar tu número de WhatsApp antes de registrarte</strong>
+                            </div>
                         </div>
-                    </div>    
+                    </div>
                 </form>
             </div>
         </div>
     </div>
 </section>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-kenU1KFdBIe4zVF0s0G1M5b4hcpxyD9F7jL+jjXkk+Q2h455rYXK/7HAuoJl+0I4" crossorigin="anonymous"></script>
-  </body>
+
+<!-- Modal de verificación de WhatsApp -->
+<div class="modal fade" id="verificationModal" tabindex="-1" aria-labelledby="verificationModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="verificationModalLabel">Verificación de WhatsApp</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p>Hemos enviado un código de 6 dígitos a tu WhatsApp.</p>
+        <p class="text-muted small">El código expira en 10 minutos</p>
+        <div class="mb-3">
+          <label for="modalVerificationCode" class="form-label">Ingresa el código:</label>
+          <input type="text" class="form-control form-control-lg text-center" id="modalVerificationCode" maxlength="6" placeholder="000000" style="letter-spacing: 0.5rem; font-size: 1.5rem;">
+        </div>
+        <div id="verificationError" class="alert alert-danger d-none"></div>
+        <div id="verificationSuccess" class="alert alert-success d-none"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-cm" onclick="verifyCode()">
+          <span id="btnVerifyText">Verificar</span>
+          <span id="btnVerifySpinner" class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-kenU1KFdBIe4zVF0s0G1M5b4hcpxyD9F7jL+jjXkk+Q2h455rYXK/7HAuoJl+0I4" crossorigin="anonymous"></script>
+
+<script>
+let verificationModal = null;
+let isPhoneVerified = false;
+
+document.addEventListener('DOMContentLoaded', function() {
+    verificationModal = new bootstrap.Modal(document.getElementById('verificationModal'));
+
+    // Auto-format verification code input
+    const modalCodeInput = document.getElementById('modalVerificationCode');
+    modalCodeInput.addEventListener('input', function(e) {
+        this.value = this.value.replace(/\D/g, '');
+        // Validación en vivo en el modal
+        validateModalCode();
+    });
+
+    // Enable/disable submit button based on verification status
+    updateSubmitButton();
+
+    // Validaciones en vivo para todos los campos
+    setupLiveValidation();
+
+    // Prevenir submit si no está verificado y mostrar mensaje
+    const form = document.querySelector('form');
+    form.addEventListener('submit', function(e) {
+        if (!isPhoneVerified) {
+            e.preventDefault();
+            alert('Para registrarte primero debes presionar en "Enviar código" y verificar tu número de WhatsApp');
+            return false;
+        }
+    });
+});
+
+function setupLiveValidation() {
+    const fields = {
+        username: {
+            input: document.getElementById('id_username'),
+            error: document.querySelector('[data-field="username"]'),
+            validate: (value) => {
+                if (!value || value.trim().length === 0) {
+                    return 'El nombre de usuario es requerido';
+                }
+                if (value.trim().length < 3) {
+                    return 'El nombre de usuario debe tener al menos 3 caracteres';
+                }
+                return null;
+            }
+        },
+        email: {
+            input: document.getElementById('id_email'),
+            error: document.querySelector('[data-field="email"]'),
+            validate: (value) => {
+                if (!value || value.trim().length === 0) {
+                    return 'El email es requerido';
+                }
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailRegex.test(value)) {
+                    return 'Ingresa un email válido';
+                }
+                return null;
+            }
+        },
+        password1: {
+            input: document.getElementById('id_password1'),
+            error: document.querySelector('[data-field="password1"]'),
+            validate: (value) => {
+                if (!value || value.length === 0) {
+                    return 'La contraseña es requerida';
+                }
+                if (value.length < 8) {
+                    return 'La contraseña debe tener al menos 8 caracteres';
+                }
+                return null;
+            }
+        },
+        password2: {
+            input: document.getElementById('id_password2'),
+            error: document.querySelector('[data-field="password2"]'),
+            validate: (value) => {
+                const password1 = document.getElementById('id_password1').value;
+                if (!value || value.length === 0) {
+                    return 'Debes confirmar la contraseña';
+                }
+                if (value !== password1) {
+                    return 'Las contraseñas no coinciden';
+                }
+                return null;
+            }
+        },
+        country: {
+            input: document.getElementById('id_country'),
+            error: document.querySelector('[data-field="country"]'),
+            validate: (value) => {
+                if (!value) {
+                    return 'Selecciona tu país';
+                }
+                return null;
+            }
+        },
+        phone_number: {
+            input: document.getElementById('id_phone_number'),
+            error: document.querySelector('[data-field="phone_number"]'),
+            validate: (value) => {
+                if (!value || value.trim().length === 0) {
+                    return 'El número de WhatsApp es requerido';
+                }
+                const phoneRegex = /^\d{8,15}$/;
+                if (!phoneRegex.test(value.trim())) {
+                    return 'El número debe tener entre 8 y 15 dígitos';
+                }
+                return null;
+            }
+        }
+    };
+
+    // Agregar listeners a todos los campos
+    Object.keys(fields).forEach(fieldName => {
+        const field = fields[fieldName];
+        if (field.input) {
+            // Validar cuando el usuario escribe
+            field.input.addEventListener('input', function() {
+                validateField(fieldName, fields);
+            });
+
+            // Validar cuando el campo pierde el foco
+            field.input.addEventListener('blur', function() {
+                validateField(fieldName, fields);
+            });
+
+            // Para password2, también validar cuando password1 cambia
+            if (fieldName === 'password2') {
+                fields.password1.input.addEventListener('input', function() {
+                    if (field.input.value) {
+                        validateField('password2', fields);
+                    }
+                });
+            }
+
+            // Para phone_number, resetear verificación si cambia
+            if (fieldName === 'phone_number') {
+                field.input.addEventListener('input', function() {
+                    if (isPhoneVerified) {
+                        isPhoneVerified = false;
+                        updateSubmitButton();
+                        const btnSendCode = document.getElementById('btnSendCode');
+                        btnSendCode.textContent = 'Enviar código';
+                        btnSendCode.classList.remove('btn-success');
+                        btnSendCode.classList.add('btn-outline-secondary');
+                        btnSendCode.disabled = false;
+                    }
+                });
+            }
+
+            // Para country, resetear verificación si cambia
+            if (fieldName === 'country') {
+                field.input.addEventListener('change', function() {
+                    if (isPhoneVerified) {
+                        isPhoneVerified = false;
+                        updateSubmitButton();
+                        const btnSendCode = document.getElementById('btnSendCode');
+                        btnSendCode.textContent = 'Enviar código';
+                        btnSendCode.classList.remove('btn-success');
+                        btnSendCode.classList.add('btn-outline-secondary');
+                        btnSendCode.disabled = false;
+                    }
+                });
+            }
+        }
+    });
+}
+
+function validateField(fieldName, fields) {
+    const field = fields[fieldName];
+    if (!field || !field.input) return true;
+
+    const value = field.input.value;
+    const errorMessage = field.validate(value);
+
+    if (errorMessage) {
+        // Mostrar error
+        if (field.error) {
+            field.error.textContent = errorMessage;
+            field.error.classList.remove('d-none');
+        }
+        field.input.classList.add('is-invalid');
+        field.input.classList.remove('is-valid');
+        return false;
+    } else {
+        // Ocultar error
+        if (field.error) {
+            field.error.classList.add('d-none');
+        }
+        field.input.classList.remove('is-invalid');
+        field.input.classList.add('is-valid');
+        return true;
+    }
+}
+
+function validateModalCode() {
+    const code = document.getElementById('modalVerificationCode').value.trim();
+    const errorDiv = document.getElementById('verificationError');
+
+    if (code.length > 0 && code.length !== 6) {
+        errorDiv.textContent = 'El código debe tener 6 dígitos';
+        errorDiv.classList.remove('d-none');
+    } else {
+        errorDiv.classList.add('d-none');
+    }
+}
+
+function updateSubmitButton() {
+    const submitBtn = document.getElementById('btnSubmit');
+    const warningAlert = document.getElementById('verificationWarning');
+
+    if (isPhoneVerified) {
+        submitBtn.disabled = false;
+        warningAlert.classList.remove('alert-warning');
+        warningAlert.classList.add('alert-success');
+        warningAlert.innerHTML = '<i class="bi bi-check-circle-fill me-2"></i><strong>Número verificado correctamente ✓</strong>';
+    } else {
+        submitBtn.disabled = true;
+        warningAlert.classList.remove('alert-success');
+        warningAlert.classList.add('alert-warning');
+        warningAlert.innerHTML = '<i class="bi bi-exclamation-triangle-fill me-2"></i><strong>Debes verificar tu número de WhatsApp antes de registrarte</strong>';
+    }
+}
+
+function sendVerificationCode() {
+    const phoneNumber = document.getElementById('id_phone_number').value.trim();
+    const country = document.getElementById('id_country').value;
+    const btnSendCode = document.getElementById('btnSendCode');
+    const btnText = document.getElementById('btnSendCodeText');
+    const btnSpinner = document.getElementById('btnSendCodeSpinner');
+
+    // Validation
+    if (!phoneNumber) {
+        alert('Por favor ingresa tu número de WhatsApp');
+        return;
+    }
+
+    if (!country) {
+        alert('Por favor selecciona tu país');
+        return;
+    }
+
+    // Show loading
+    btnSendCode.disabled = true;
+    btnText.classList.add('d-none');
+    btnSpinner.classList.remove('d-none');
+
+    // Send request
+    fetch('/api/send-whatsapp-verification/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            phone_number: phoneNumber,
+            country: country
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Show modal
+            verificationModal.show();
+            document.getElementById('modalVerificationCode').value = '';
+            document.getElementById('verificationError').classList.add('d-none');
+            document.getElementById('verificationSuccess').classList.add('d-none');
+        } else {
+            alert('Error: ' + data.message);
+        }
+    })
+    .catch(error => {
+        alert('Error al enviar código: ' + error.message);
+    })
+    .finally(() => {
+        // Hide loading
+        btnSendCode.disabled = false;
+        btnText.classList.remove('d-none');
+        btnSpinner.classList.add('d-none');
+    });
+}
+
+function verifyCode() {
+    const phoneNumber = document.getElementById('id_phone_number').value.trim();
+    const country = document.getElementById('id_country').value;
+    const code = document.getElementById('modalVerificationCode').value.trim();
+    const btnVerify = document.querySelector('#verificationModal .btn-cm');
+    const btnText = document.getElementById('btnVerifyText');
+    const btnSpinner = document.getElementById('btnVerifySpinner');
+    const errorDiv = document.getElementById('verificationError');
+    const successDiv = document.getElementById('verificationSuccess');
+
+    // Validation
+    if (!code || code.length !== 6) {
+        errorDiv.textContent = 'Por favor ingresa un código de 6 dígitos';
+        errorDiv.classList.remove('d-none');
+        return;
+    }
+
+    // Hide previous messages
+    errorDiv.classList.add('d-none');
+    successDiv.classList.add('d-none');
+
+    // Show loading
+    btnVerify.disabled = true;
+    btnText.classList.add('d-none');
+    btnSpinner.classList.remove('d-none');
+
+    // Send request
+    fetch('/api/verify-whatsapp-code/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            phone_number: phoneNumber,
+            country: country,
+            code: code
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Show success
+            successDiv.textContent = data.message;
+            successDiv.classList.remove('d-none');
+
+            // Mark as verified
+            isPhoneVerified = true;
+            updateSubmitButton();
+
+            // Update send code button
+            const btnSendCode = document.getElementById('btnSendCode');
+            btnSendCode.textContent = 'Verificado ✓';
+            btnSendCode.classList.remove('btn-outline-secondary');
+            btnSendCode.classList.add('btn-success');
+            btnSendCode.disabled = true;
+
+            // Close modal after 1.5 seconds
+            setTimeout(() => {
+                verificationModal.hide();
+            }, 1500);
+        } else {
+            errorDiv.textContent = data.message;
+            errorDiv.classList.remove('d-none');
+        }
+    })
+    .catch(error => {
+        errorDiv.textContent = 'Error al verificar código: ' + error.message;
+        errorDiv.classList.remove('d-none');
+    })
+    .finally(() => {
+        // Hide loading
+        btnVerify.disabled = false;
+        btnText.classList.remove('d-none');
+        btnSpinner.classList.add('d-none');
+    });
+}
+</script>
+</body>
 </html>

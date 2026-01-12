@@ -9,9 +9,10 @@ from . import views
 
 urlpatterns = [
     path('', views.index, name='index'),
+    path('search/', views.search, name='search'),
     path('no-permission', views.NoPermissionView.as_view(), name='no-permission'),
     path('detail/<int:pk>', views.ServiceDetailView.as_view(), name='service_detail'),
-#     path('cart', login_required(views.CartView.as_view()), name='cart'),
+    path('cart', views.CartView.as_view(), name='cart'),
     path('shop', views.ShopListView.as_view(), name='shop'),
     path('redeem', login_required(views.RedeemView.as_view()), name='redeem'),
     path('redeem/confirm', login_required(views.RedeemConfirmView.as_view()),
@@ -29,6 +30,7 @@ urlpatterns = [
          views.decrementCart, name='decrementCart'),
     path('login', views.LoginPageView.as_view(
         redirect_authenticated_user=True), name='login'),
+    path('login/whatsapp', views.WhatsAppLoginView.as_view(), name='whatsapp_login'),
     path('logout', views.LogoutPageView.as_view(), name='logout'),
     path('register', views.RegisterCustomerView.as_view(), name='register'),
     path('redirect_on_login', views.RedirectOnLogin, name='redirect_on_login'),
@@ -56,5 +58,11 @@ urlpatterns = [
 #     path('test/', views.test, name='test'),
     path('privacy/', views.PrivacyView.as_view(), name='privacy'),
     path('tyc/', views.TermsAndConditionsView.as_view(), name='tyc'),
+    path('webhook/mercadopago/', views.mp_webhook, name='mp_webhook'),
+    path('api/send-whatsapp-verification/', views.send_whatsapp_verification, name='send_whatsapp_verification'),
+    path('api/verify-whatsapp-code/', views.verify_whatsapp_code, name='verify_whatsapp_code'),
+    path('api/send-whatsapp-login-code/', views.send_whatsapp_login_code, name='send_whatsapp_login_code'),
+    path('api/whatsapp-login-verify/', views.whatsapp_login_verify_and_auth, name='whatsapp_login_verify_and_auth'),
+    path('api/add-gift-days/', views.add_gift_days_to_account, name='add_gift_days_to_account'),
 ]
 

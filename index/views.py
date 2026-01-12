@@ -1,6 +1,6 @@
 # Django
 from django.shortcuts import render
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.contrib.auth.views import LoginView, LogoutView, PasswordResetView, PasswordResetDoneView, PasswordResetConfirmView, PasswordResetCompleteView
 from django.contrib.auth.models import User, Group
 from django.urls import reverse_lazy, reverse
@@ -10,12 +10,13 @@ from django.views.generic.edit import FormView
 from django.http import HttpResponseRedirect
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
 from index.models import IndexCart, IndexCartdetail
-# from index.payment_methods.MercagoPago import MercadoPago
+from index.payment_methods.MercagoPago import MercadoPago
 from django.core.cache import cache
 
 # local
-from .forms import RegisterUserForm, RedeemForm
+from .forms import RegisterUserForm, RedeemForm, WhatsAppLoginForm
 from adm.models import Level, UserDetail, Service, Sale, Account, Credits
 from adm.functions.business import BusinessInfo
 from .cart import CartProcessor, CartDb
@@ -23,7 +24,6 @@ from cupon.models import Shop, Cupon
 from adm.functions.permissions import UserAccessMixin
 from adm.functions.sales import Sales
 from adm.functions.send_email import Email
-# from index.payment_methods.MercagoPago import MercadoPago
 from .models import IndexCart, IndexCartdetail
 
 # Python
@@ -34,39 +34,55 @@ import json
 
 
 def index(request):
+    from adm.models import IndexCarouselImage, IndexPromoImage
     template_name = "index/index.html"
+
+    # Obtener imágenes activas
+    carousel_images = IndexCarouselImage.objects.filter(active=True).order_by('order')
+    promo_images = IndexPromoImage.objects.filter(active=True).order_by('position')
+
+    # Separar promociones por posición
+    promo_left = promo_images.filter(position='left').first()
+    promo_right = promo_images.filter(position='right').first()
 
     return render(request, template_name, {
         'business': BusinessInfo.data(),
         'credits': BusinessInfo.credits(request),
         'services': Service.objects.filter(status=True),
-
+        'carousel_images': carousel_images,
+        'promo_left': promo_left,
+        'promo_right': promo_right,
     })
 
 
-# class CartView(TemplateView):
-#     template_name = "index/cart.html"
+class CartView(TemplateView):
+    template_name = "index/cart.html"
 
-#     def set_cart(self):
-#         cart = cache.get('cart')
-#         if cart is not None:
-#             return cart
-#         if not self.request.session.get('cart_number'):
-#             return None
-#         cart = CartDb.create_full_cart(self).id
-#         result = MercadoPago.Mp_ExpressCheckout(self, cart)
-#         # Guarda el valor en caché durante 24 horas
-#         cache.set('cart', result, timeout=60*60*24)
-#         return result
+    def set_cart(self):
+        cart = cache.get('cart')
+        if cart is not None:
+            return cart
+        if not self.request.session.get('cart_number'):
+            return None
+        # Check if user is authenticated before creating cart
+        if not self.request.user.is_authenticated:
+            return None
+        cart = CartDb.create_full_cart(self)
+        if cart is None:
+            return None
+        mp = MercadoPago(self.request)
+        result = mp.Mp_ExpressCheckout(cart.id)
+        # Guarda el valor en caché durante 24 horas
+        cache.set('cart', result, timeout=60*60*24)
+        return result
 
-#     def get_context_data(self, **kwargs):
-
-#         context = super().get_context_data(**kwargs)
-#         context["business"] = BusinessInfo.data()
-#         context["credits"] = BusinessInfo.credits(self.request)
-#         context['services'] = Service.objects.filter(status=True)
-#         context["init_point"] = self.set_cart()
-#         return context
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["business"] = BusinessInfo.data()
+        context["credits"] = BusinessInfo.credits(self.request)
+        context['services'] = Service.objects.filter(status=True)
+        context["init_point"] = self.set_cart()
+        return context
 
 
 # class CheckOutView(TemplateView):
@@ -374,6 +390,28 @@ class LoginPageView(LoginView):
         return context
 
 
+class WhatsAppLoginView(TemplateView):
+    """
+    Login a user via WhatsApp verification
+    """
+    template_name = "index/whatsapp_login.html"
+
+    def get(self, request, *args, **kwargs):
+        response = super().get(request, *args, **kwargs)
+        response.xframe_options_exempt = True
+        if 'X-Frame-Options' in response:
+            del response['X-Frame-Options']
+        return response
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["business"] = BusinessInfo.data()
+        context["credits"] = BusinessInfo.credits(self.request)
+        context['services'] = Service.objects.filter(status=True)
+        context['form'] = WhatsAppLoginForm()
+        return context
+
+
 class LogoutPageView(LogoutView):
     """
     Log Out User
@@ -395,6 +433,65 @@ class RegisterCustomerView(CreateView):
         context["credits"] = BusinessInfo.credits(self.request)
         context['services'] = Service.objects.filter(status=True)
         return context
+
+    def form_valid(self, form):
+        from .whatsapp_verification import WhatsAppVerification
+        from adm.models import Business
+
+        # Obtener datos del formulario
+        phone_number = form.cleaned_data.get('phone_number')
+        country = form.cleaned_data.get('country')
+
+        # Verificar que el número no esté ya registrado (doble verificación)
+        existing_user = UserDetail.objects.filter(
+            phone_number=phone_number,
+            country=country
+        ).first()
+
+        if existing_user:
+            form.add_error(None, 'Este número de teléfono ya está registrado')
+            return self.form_invalid(form)
+
+        # Verificar que el teléfono haya sido verificado
+        if not WhatsAppVerification.is_verified(phone_number, country):
+            form.add_error(None, 'Debes verificar tu número de WhatsApp antes de registrarte')
+            return self.form_invalid(form)
+
+        # Crear el usuario
+        user = form.save(commit=False)
+        user.is_active = True
+        user.save()
+
+        # Asignar el usuario creado a self.object para que get_success_url() funcione
+        self.object = user
+
+        # Intentar agregar al grupo de clientes si existe
+        try:
+            customer_group = Group.objects.get(name='Cliente')
+            user.groups.add(customer_group)
+        except Group.DoesNotExist:
+            pass
+
+        # Obtener la lada del país
+        lada = WhatsAppVerification.get_lada_from_country(country)
+
+        # Crear UserDetail con la información de WhatsApp
+        try:
+            business = Business.objects.get(id=1)
+            UserDetail.objects.create(
+                user=user,
+                phone_number=phone_number,
+                lada=int(lada) if lada else 0,
+                country=country,
+                business=business
+            )
+        except Business.DoesNotExist:
+            # Si no existe el business, eliminar el usuario creado
+            user.delete()
+            form.add_error(None, 'Error en la configuración del sistema')
+            return self.form_invalid(form)
+
+        return HttpResponseRedirect(self.get_success_url())
 
 
 class ChangePasswordView(PasswordResetView):
@@ -614,6 +711,218 @@ def DistributorSale(request):
 #         return HttpResponse(404)
 
 
+@csrf_exempt
+def mp_webhook(request):
+    """
+    Webhook para recibir notificaciones de MercadoPago.
+    Procesa pagos aprobados y entrega las cuentas al cliente.
+    """
+    import logging
+    import hmac
+    import hashlib
+    import os
+
+    logger = logging.getLogger(__name__)
+
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    # Verificar firma del webhook
+    webhook_secret = os.environ.get('MP_WEBHOOK_SECRET')
+    if webhook_secret:
+        x_signature = request.headers.get('x-signature', '')
+        x_request_id = request.headers.get('x-request-id', '')
+
+        # Obtener data.id de query params (MP lo envía así)
+        data_id = request.GET.get('data.id', '')
+
+        # Parsear x-signature (formato: ts=xxx,v1=xxx)
+        ts = ''
+        received_hash = ''
+        for part in x_signature.split(','):
+            if part.startswith('ts='):
+                ts = part[3:]
+            elif part.startswith('v1='):
+                received_hash = part[3:]
+
+        # Construir el manifest para verificar
+        # Formato: id:{data.id};request-id:{x-request-id};ts:{ts};
+        manifest = f"id:{data_id};request-id:{x_request_id};ts:{ts};"
+
+        # Calcular HMAC-SHA256
+        calculated_hash = hmac.new(
+            webhook_secret.encode(),
+            manifest.encode(),
+            hashlib.sha256
+        ).hexdigest()
+
+        if not hmac.compare_digest(calculated_hash, received_hash):
+            logger.warning(f"Firma de webhook inválida. Recibido: {received_hash}, Calculado: {calculated_hash}")
+            # En desarrollo, solo loguear pero continuar
+            if not os.environ.get('DEBUG', 'False').lower() == 'true':
+                return HttpResponse(status=401)
+
+    try:
+        body = request.body.decode('utf-8')
+        data = json.loads(body)
+
+        logger.info(f"MP Webhook recibido: {data}")
+
+        # MercadoPago envía diferentes tipos de notificaciones
+        notification_type = data.get('type') or data.get('action')
+
+        if notification_type == 'payment':
+            payment_id = data.get('data', {}).get('id')
+            if not payment_id:
+                logger.warning("Webhook sin payment_id")
+                return HttpResponse(status=400)
+
+            # Buscar información del pago en MercadoPago
+            mp = MercadoPago(request)
+            payment_data = mp.search_payments(payment_id)
+
+            if not payment_data:
+                logger.error(f"No se pudo obtener info del pago {payment_id}")
+                return HttpResponse(status=500)
+
+            # Solo procesar pagos aprobados
+            if payment_data.get('status') != 'approved':
+                logger.info(f"Pago {payment_id} no aprobado: {payment_data.get('status')}")
+                return HttpResponse(status=200)
+
+            # Obtener el carrito usando external_reference
+            cart_id = payment_data.get('external_reference')
+            if not cart_id:
+                logger.error("Pago sin external_reference")
+                return HttpResponse(status=400)
+
+            try:
+                cart = IndexCart.objects.get(pk=cart_id)
+            except IndexCart.DoesNotExist:
+                logger.error(f"Carrito {cart_id} no encontrado")
+                return HttpResponse(status=404)
+
+            # Verificar si ya fue procesado (evitar duplicados)
+            if cart.status_detail == 'approved':
+                logger.info(f"Carrito {cart_id} ya fue procesado")
+                return HttpResponse(status=200)
+
+            # Actualizar carrito con datos del pago
+            cart.payment_id = payment_data.get('id')
+            cart.date_approved = timezone.now()
+            cart.payment_type_id = payment_data.get('payment_type_id')
+            cart.status_detail = payment_data.get('status')
+            cart.transaction_amount = payment_data.get('transaction_amount')
+            cart.save()
+
+            # Obtener items del carrito
+            cart_details = IndexCartdetail.objects.filter(cart=cart)
+            customer = cart.customer
+            sales_created = []
+            items_without_stock = []
+
+            for cart_detail in cart_details:
+                service_id = cart_detail.service.id
+                service_name = cart_detail.service.description
+                months = cart_detail.long  # duración en meses
+                profiles = cart_detail.quantity  # cantidad de perfiles
+                unit_price = cart_detail.price
+
+                # Calcular fecha de expiración
+                expiration = timezone.now() + timedelta(days=months * 30)
+
+                logger.info(f"Procesando servicio {service_name} (ID: {service_id}): {profiles} perfiles x {months} meses")
+
+                # Crear una venta por cada perfil solicitado
+                profiles_without_stock = 0
+                for i in range(profiles):
+                    logger.info(f"  Buscando cuenta {i+1}/{profiles} para {service_name}...")
+
+                    # Buscar la mejor cuenta disponible usando la lógica optimizada
+                    try:
+                        best_account = Sales.find_best_account(
+                            service_id=service_id,
+                            months_requested=months
+                        )
+
+                        if best_account:
+                            logger.info(f"    Mejor cuenta encontrada: {best_account.email} (Perfil: {best_account.profile})")
+                            # Crear la venta
+                            sale_result = Sales.sale_ok(
+                                customer=customer,
+                                webhook_provider="MercadoPago",
+                                payment_type=payment_data.get('payment_type_id', 'unknown'),
+                                payment_id=str(payment_id),
+                                service_obj=best_account,
+                                expiration_date=expiration,
+                                unit_price=unit_price,
+                                request=request
+                            )
+                            if sale_result and sale_result[0]:
+                                sales_created.append(sale_result[1])
+                                logger.info(f"    Venta creada exitosamente: ID {sale_result[1].id}")
+                            else:
+                                logger.error(f"    Error al crear venta: {sale_result}")
+                                profiles_without_stock += 1
+                        else:
+                            logger.warning(f"    No hay cuentas disponibles para servicio {service_id}")
+                            profiles_without_stock += 1
+                    except Exception as e:
+                        logger.error(f"    Error al buscar/crear cuenta: {str(e)}", exc_info=True)
+                        profiles_without_stock += 1
+
+                # Agregar items sin stock a la lista
+                if profiles_without_stock > 0:
+                    items_without_stock.append({
+                        'service_name': service_name,
+                        'months': months,
+                        'profiles': profiles_without_stock,
+                        'price': unit_price * profiles_without_stock
+                    })
+
+            # Si hubo items sin stock, enviar notificaciones por email
+            if items_without_stock:
+                from adm.functions.resend_notifications import ResendEmail
+
+                customer_info = {
+                    'username': customer.username,
+                    'email': customer.email,
+                    'user_id': customer.id
+                }
+                payment_info = {
+                    'payment_id': payment_id,
+                    'amount': payment_data.get('transaction_amount'),
+                    'payment_type': payment_data.get('payment_type_id'),
+                    'cart_id': cart_id
+                }
+
+                # Email al admin
+                ResendEmail.notify_no_stock(customer_info, items_without_stock, payment_info)
+
+                # Email al cliente
+                product_names = [item['service_name'] for item in items_without_stock]
+                if customer.email and customer.email != 'example@example.com':
+                    ResendEmail.notify_customer_pending_delivery(
+                        customer_email=customer.email,
+                        customer_name=customer.username,
+                        products=product_names
+                    )
+                logger.info(f"Emails enviados por {len(items_without_stock)} items sin stock")
+
+            logger.info(f"Webhook procesado: {len(sales_created)} ventas creadas para carrito {cart_id}")
+            return HttpResponse(status=200)
+
+        # Para otros tipos de notificación, solo confirmar recepción
+        return HttpResponse(status=200)
+
+    except json.JSONDecodeError:
+        logger.error("Error decodificando JSON del webhook")
+        return HttpResponse(status=400)
+    except Exception as e:
+        logger.exception(f"Error procesando webhook: {str(e)}")
+        return HttpResponse(status=500)
+
+
 def StartPayment(request):
     cart = CartProcessor(request)
     cart.clear()
@@ -646,6 +955,14 @@ class MyAccountView(TemplateView):
         context['inactive'] = self.find_renovables(Sales.customer_sales_inactive(
             self.request.user))
         context['now'] = timezone.now()
+
+        # Obtener días de regalo disponibles del usuario
+        try:
+            user_detail = UserDetail.objects.get(user=self.request.user)
+            context['free_days'] = user_detail.free_days
+        except UserDetail.DoesNotExist:
+            context['free_days'] = 0
+
         return context
 
 
@@ -681,8 +998,351 @@ class TermsAndConditionsView(TemplateView):
     Términos y condiciones
     """
     template_name = "index/tyc.html"
-    
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['now'] = timezone.now()
         return context
+
+
+def search(request):
+    """
+    Búsqueda de productos/servicios
+    """
+    template_name = "index/search.html"
+    query = request.GET.get('q', '')
+    results = []
+
+    if query:
+        results = Service.objects.filter(
+            description__icontains=query,
+            status=True
+        )
+
+    return render(request, template_name, {
+        'business': BusinessInfo.data(),
+        'credits': BusinessInfo.credits(request),
+        'services': Service.objects.filter(status=True),
+        'query': query,
+        'results': results,
+    })
+
+
+@require_http_methods(["POST"])
+@csrf_exempt
+def add_gift_days_to_account(request):
+    """
+    Agregar días de regalo a una cuenta activa del cliente
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+
+    try:
+        # Verificar que el usuario esté autenticado
+        if not request.user.is_authenticated:
+            return JsonResponse({
+                'success': False,
+                'message': 'Debes iniciar sesión para realizar esta acción'
+            }, status=401)
+
+        data = json.loads(request.body)
+        account_id = data.get('account_id')
+
+        if not account_id:
+            return JsonResponse({
+                'success': False,
+                'message': 'ID de cuenta no proporcionado'
+            }, status=400)
+
+        # Obtener el UserDetail del cliente
+        try:
+            user_detail = UserDetail.objects.get(user=request.user)
+        except UserDetail.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'message': 'No se encontró información de usuario'
+            }, status=404)
+
+        # Verificar que el cliente tenga días de regalo disponibles
+        if user_detail.free_days <= 0:
+            return JsonResponse({
+                'success': False,
+                'message': 'No tienes días de regalo disponibles'
+            }, status=400)
+
+        # Obtener la cuenta
+        try:
+            account = Account.objects.get(pk=account_id)
+        except Account.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'message': 'Cuenta no encontrada'
+            }, status=404)
+
+        # Verificar que la cuenta pertenece a una venta activa del usuario
+        try:
+            sale = Sale.objects.get(
+                account=account,
+                customer=request.user,
+                status=True
+            )
+        except Sale.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'message': 'Esta cuenta no te pertenece o no está activa'
+            }, status=403)
+
+        # Verificar que la cuenta esté activa (no expirada)
+        if sale.expiration_date < timezone.now():
+            return JsonResponse({
+                'success': False,
+                'message': 'No puedes agregar días de regalo a una cuenta expirada'
+            }, status=400)
+
+        # Agregar los días de regalo a la fecha de expiración de la venta
+        days_to_add = user_detail.free_days
+        sale.expiration_date = sale.expiration_date + timedelta(days=days_to_add)
+        sale.save()
+
+        # También actualizar la fecha de expiración de la cuenta si es necesario
+        if account.expiration_date < sale.expiration_date:
+            account.expiration_date = sale.expiration_date
+            account.save()
+
+        # Resetear los días de regalo del usuario
+        user_detail.free_days = 0
+        user_detail.save()
+
+        logger.info(f"Usuario {request.user.username} agregó {days_to_add} días de regalo a la cuenta {account_id}")
+
+        return JsonResponse({
+            'success': True,
+            'message': f'¡Se agregaron {days_to_add} día{"s" if days_to_add > 1 else ""} de regalo a tu cuenta de {account.account_name.description}!',
+            'days_added': days_to_add,
+            'new_expiration_date': sale.expiration_date.strftime('%d/%m/%Y')
+        })
+
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'message': 'Datos inválidos'
+        }, status=400)
+    except Exception as e:
+        logger.exception(f"Error al agregar días de regalo: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'message': f'Error del servidor: {str(e)}'
+        }, status=500)
+
+
+# WhatsApp Verification Views
+from .whatsapp_verification import WhatsAppVerification
+
+
+@require_http_methods(["POST"])
+@csrf_exempt
+def send_whatsapp_verification(request):
+    """
+    Send verification code via WhatsApp
+    """
+    try:
+        data = json.loads(request.body)
+        phone_number = data.get('phone_number', '').strip()
+        country = data.get('country', '').strip()
+
+        if not phone_number or not country:
+            return JsonResponse({
+                'success': False,
+                'message': 'Número de teléfono y país son requeridos'
+            }, status=400)
+
+        # Verificar si el número ya está registrado
+        from adm.models import UserDetail
+        existing_user = UserDetail.objects.filter(
+            phone_number=phone_number,
+            country=country
+        ).first()
+
+        if existing_user:
+            return JsonResponse({
+                'success': False,
+                'message': 'Este número de teléfono ya está registrado'
+            }, status=400)
+
+        # Generate and send code
+        code = WhatsAppVerification.generate_verification_code()
+        result = WhatsAppVerification.send_verification_code(phone_number, country, code)
+
+        return JsonResponse(result)
+
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'message': 'Datos inválidos'
+        }, status=400)
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Error del servidor: {str(e)}'
+        }, status=500)
+
+
+@require_http_methods(["POST"])
+@csrf_exempt
+def verify_whatsapp_code(request):
+    """
+    Verify WhatsApp code
+    """
+    try:
+        data = json.loads(request.body)
+        phone_number = data.get('phone_number', '').strip()
+        country = data.get('country', '').strip()
+        code = data.get('code', '').strip()
+
+        if not phone_number or not country or not code:
+            return JsonResponse({
+                'success': False,
+                'message': 'Todos los campos son requeridos'
+            }, status=400)
+
+        # Verify code
+        result = WhatsAppVerification.verify_code(phone_number, country, code)
+
+        return JsonResponse(result)
+
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'message': 'Datos inválidos'
+        }, status=400)
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Error del servidor: {str(e)}'
+        }, status=500)
+
+
+@require_http_methods(["POST"])
+@csrf_exempt
+def send_whatsapp_login_code(request):
+    """
+    Send verification code for login via WhatsApp
+    """
+    try:
+        data = json.loads(request.body)
+        phone_number = data.get('phone_number', '').strip()
+        country = data.get('country', '').strip()
+
+        if not phone_number or not country:
+            return JsonResponse({
+                'success': False,
+                'message': 'Número de teléfono y país son requeridos'
+            }, status=400)
+
+        # Verificar que el número esté registrado
+        existing_user = UserDetail.objects.filter(
+            phone_number=phone_number,
+            country=country
+        ).first()
+
+        if not existing_user:
+            return JsonResponse({
+                'success': False,
+                'message': 'Este número de teléfono no está registrado. Por favor, regístrate primero.'
+            }, status=404)
+
+        # Generate and send code
+        code = WhatsAppVerification.generate_verification_code()
+        result = WhatsAppVerification.send_verification_code(phone_number, country, code)
+
+        # Store login intent in cache
+        if result['success']:
+            login_cache_key = f"whatsapp_login_{country}_{phone_number}"
+            cache.set(login_cache_key, existing_user.user.id, timeout=600)  # 10 minutes
+
+        return JsonResponse(result)
+
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'message': 'Datos inválidos'
+        }, status=400)
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Error del servidor: {str(e)}'
+        }, status=500)
+
+
+@require_http_methods(["POST"])
+@csrf_exempt
+def whatsapp_login_verify_and_auth(request):
+    """
+    Verify WhatsApp code and authenticate user
+    """
+    from django.contrib.auth import login
+
+    try:
+        data = json.loads(request.body)
+        phone_number = data.get('phone_number', '').strip()
+        country = data.get('country', '').strip()
+        code = data.get('code', '').strip()
+
+        if not phone_number or not country or not code:
+            return JsonResponse({
+                'success': False,
+                'message': 'Todos los campos son requeridos'
+            }, status=400)
+
+        # Verify code
+        verify_result = WhatsAppVerification.verify_code(phone_number, country, code)
+
+        if not verify_result['success']:
+            return JsonResponse(verify_result)
+
+        # Get user from login cache
+        login_cache_key = f"whatsapp_login_{country}_{phone_number}"
+        user_id = cache.get(login_cache_key)
+
+        if not user_id:
+            return JsonResponse({
+                'success': False,
+                'message': 'Sesión expirada. Por favor, solicita un nuevo código.'
+            }, status=400)
+
+        # Get user and authenticate
+        try:
+            user = User.objects.get(id=user_id)
+
+            # Authenticate user without password (backend bypass for WhatsApp login)
+            from django.contrib.auth import get_backends
+            backend = get_backends()[0]
+            user.backend = f'{backend.__module__}.{backend.__class__.__name__}'
+
+            login(request, user)
+
+            # Clean up cache
+            cache.delete(login_cache_key)
+
+            return JsonResponse({
+                'success': True,
+                'message': 'Inicio de sesión exitoso',
+                'redirect_url': reverse('redirect_on_login')
+            })
+
+        except User.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'message': 'Usuario no encontrado'
+            }, status=404)
+
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'message': 'Datos inválidos'
+        }, status=400)
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Error del servidor: {str(e)}'
+        }, status=500)

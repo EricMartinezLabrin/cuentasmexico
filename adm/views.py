@@ -110,6 +110,21 @@ def index(request):
         date = datetime.strptime(request.GET['date'], '%Y-%m-%d')
     else:
         date = timezone.now().date()
+
+    # Nuevas estadísticas de visitas
+    page_visits_total = Dashboard.page_visits_by_page()
+    page_visits_today_data = Dashboard.page_visits_today()
+    page_visits_7days = Dashboard.page_visits_last_7_days()
+    unique_visitors = Dashboard.unique_visitors_today()
+    visits_chart_data = Dashboard.page_visits_last_30_days_chart()
+
+    # Nuevas estadísticas de ventas web
+    web_sales_today = Dashboard.web_sales_today()
+    web_sales_weekly = Dashboard.web_sales_weekly()
+    web_sales_monthly = Dashboard.web_sales_monthly()
+    web_sales_yearly = Dashboard.web_sales_yearly()
+    web_sales_chart = Dashboard.web_sales_last_12_months()
+
     return render(request, template_name, {
         'sales_day': sales_day,
         'sales_month': sales_month,
@@ -117,7 +132,19 @@ def index(request):
         'acc_total': sales_acc[1],
         'time': timezone.now(),
         'last_year_sales_new_user': Dashboard.last_year_sales_new_user(),
-        'sales_per_day_new_user':Dashboard.sales_per_day_new_user(date)
+        'sales_per_day_new_user': Dashboard.sales_per_day_new_user(date),
+        # Estadísticas de visitas
+        'page_visits_total': page_visits_total,
+        'page_visits_today': page_visits_today_data,
+        'page_visits_7days': page_visits_7days,
+        'unique_visitors': unique_visitors,
+        'visits_chart_data': visits_chart_data,
+        # Estadísticas de ventas web
+        'web_sales_today': web_sales_today,
+        'web_sales_weekly': web_sales_weekly,
+        'web_sales_monthly': web_sales_monthly,
+        'web_sales_yearly': web_sales_yearly,
+        'web_sales_chart': web_sales_chart,
     })
 
 class NoPermissionView(TemplateView):
@@ -232,6 +259,43 @@ class ServiceView(UserAccessMixin, ListView):
     permission_required = 'is_staff'
     model = Service
     template_name = 'adm/services.html'
+    
+    def get_queryset(self):
+        queryset = Service.objects.all()
+        
+        # Filtro por búsqueda
+        search = self.request.GET.get('search', '')
+        if search:
+            queryset = queryset.filter(description__icontains=search)
+        
+        # Filtro por estado
+        status_filter = self.request.GET.get('status_filter', '')
+        if status_filter == 'active':
+            queryset = queryset.filter(status=True)
+        elif status_filter == 'inactive':
+            queryset = queryset.filter(status=False)
+        
+        # Ordenamiento
+        sort = self.request.GET.get('sort', 'description')
+        
+        # Manejo especial para ordenamiento de estado
+        if sort == 'status_active':
+            queryset = queryset.order_by('-status')  # Activos primero (True primero)
+        elif sort == 'status_inactive':
+            queryset = queryset.order_by('status')   # Inactivos primero (False primero)
+        elif sort in ['description', 'status', 'id', '-description', '-status', '-id']:
+            queryset = queryset.order_by(sort)
+        else:
+            queryset = queryset.order_by('description')
+        
+        return queryset
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['search'] = self.request.GET.get('search', '')
+        context['sort'] = self.request.GET.get('sort', 'description')
+        context['status_filter'] = self.request.GET.get('status_filter', '')
+        return context
 
 class ServiceCreateView(UserAccessMixin, CreateView):
     """
@@ -837,8 +901,9 @@ def SalesCreateView(request, pk):
     payment = PaymentMethod.objects.all()
     if request.method == 'POST':
         if Sales.new_sale(request) == True:
+            # Obtener el cliente y redirigir a su página de ventas
             customer = User.objects.get(pk=pk)
-            return Sales.render_view(request, customer)
+            return Sales.render_view(request, customer.id)
     return render(request, template_name, {
         'customer': User.objects.get(pk=pk),
         'services': Sales.availables()[1],
@@ -1050,16 +1115,31 @@ def SalesChangeView(request, pk):
     bank = Bank.objects.filter(status=True)
     payment = PaymentMethod.objects.all()
     sale = Sale.objects.get(pk=pk)
+
+    # Obtener el servicio seleccionado (por defecto el servicio actual de la venta)
+    selected_service_id = request.GET.get('service_id', sale.account.account_name.id)
+
+    # Filtrar cuentas por el servicio seleccionado
     accounts = Account.objects.filter(
-        account_name=sale.account.account_name, status=True, customer=None)
+        account_name_id=selected_service_id,
+        status=True,
+        customer=None
+    ).order_by('profile')
+
+    # Obtener todos los servicios activos
+    services = Service.objects.filter(status=True).order_by('description')
+
     if request.method == 'POST':
         if Sales.change_sale(request) == True:
             customer = sale.customer
             return Sales.render_view(request, customer)
+
     return render(request, template_name, {
         'customer': Sale.objects.get(pk=pk).customer,
         'sale': sale,
         'accounts': accounts,
+        'services': services,
+        'selected_service_id': int(selected_service_id),
         'availables': Sales.availables()[0]
     })
 
@@ -1662,3 +1742,148 @@ def duplicate_account(request):
     for account in accounts:
         print(account)
     return HttpResponse("listo")
+
+
+# Gestión de Imágenes del Index
+
+@permission_required('is_staff', 'adm:no-permission')
+def IndexImagesView(request):
+    """Vista principal para gestionar imágenes del index"""
+    from .models import IndexCarouselImage, IndexPromoImage
+
+    template_name = 'adm/index_images.html'
+    carousel_images = IndexCarouselImage.objects.all().order_by('order', '-created_at')
+    promo_images = IndexPromoImage.objects.all().order_by('position', '-created_at')
+
+    return render(request, template_name, {
+        'carousel_images': carousel_images,
+        'promo_images': promo_images
+    })
+
+
+class CarouselImageCreateView(UserAccessMixin, CreateView):
+    """Crear nueva imagen de carrusel"""
+    from .models import IndexCarouselImage
+    from .functions.forms import IndexCarouselImageForm
+
+    permission_required = 'is_staff'
+    model = IndexCarouselImage
+    form_class = IndexCarouselImageForm
+    template_name = 'adm/carousel_image_form.html'
+    success_url = reverse_lazy('adm:index_images')
+
+
+class CarouselImageUpdateView(UserAccessMixin, UpdateView):
+    """Actualizar imagen de carrusel"""
+    from .models import IndexCarouselImage
+    from .functions.forms import IndexCarouselImageForm
+
+    permission_required = 'is_staff'
+    model = IndexCarouselImage
+    form_class = IndexCarouselImageForm
+    template_name = 'adm/carousel_image_form.html'
+    success_url = reverse_lazy('adm:index_images')
+
+
+class CarouselImageDeleteView(UserAccessMixin, DeleteView):
+    """Eliminar imagen de carrusel"""
+    from .models import IndexCarouselImage
+
+    permission_required = 'is_staff'
+    model = IndexCarouselImage
+    template_name = 'adm/delete.html'
+    success_url = reverse_lazy('adm:index_images')
+
+
+class PromoImageCreateView(UserAccessMixin, CreateView):
+    """Crear nueva imagen de promoción"""
+    from .models import IndexPromoImage
+    from .functions.forms import IndexPromoImageForm
+
+    permission_required = 'is_staff'
+    model = IndexPromoImage
+    form_class = IndexPromoImageForm
+    template_name = 'adm/promo_image_form.html'
+    success_url = reverse_lazy('adm:index_images')
+
+
+class PromoImageUpdateView(UserAccessMixin, UpdateView):
+    """Actualizar imagen de promoción"""
+    from .models import IndexPromoImage
+    from .functions.forms import IndexPromoImageForm
+
+    permission_required = 'is_staff'
+    model = IndexPromoImage
+    form_class = IndexPromoImageForm
+    template_name = 'adm/promo_image_form.html'
+    success_url = reverse_lazy('adm:index_images')
+
+
+class PromoImageDeleteView(UserAccessMixin, DeleteView):
+    """Eliminar imagen de promoción"""
+    from .models import IndexPromoImage
+
+    permission_required = 'is_staff'
+    model = IndexPromoImage
+    template_name = 'adm/delete.html'
+    success_url = reverse_lazy('adm:index_images')
+
+
+@permission_required('is_staff', 'adm:no-permission')
+def ToggleCarouselImageStatus(request, pk):
+    """Activar/desactivar imagen del carrusel"""
+    from .models import IndexCarouselImage
+
+    image = IndexCarouselImage.objects.get(pk=pk)
+    image.active = not image.active
+    image.save()
+    return redirect(reverse('adm:index_images'))
+
+
+@permission_required('is_staff', 'adm:no-permission')
+def TogglePromoImageStatus(request, pk):
+    """Activar/desactivar imagen de promoción"""
+    from .models import IndexPromoImage
+
+    image = IndexPromoImage.objects.get(pk=pk)
+    image.active = not image.active
+    image.save()
+    return redirect(reverse('adm:index_images'))
+
+
+@csrf_exempt
+@permission_required('is_staff', 'adm:no-permission')
+def update_service_price(request):
+    """
+    Actualizar el precio de un servicio vía AJAX
+    """
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            service_id = data.get('service_id')
+            field = data.get('field')  # 'price' o 'regular_price'
+            value = data.get('value')
+            
+            if not all([service_id, field, value is not None]):
+                return JsonResponse({'success': False, 'message': 'Datos incompletos'})
+            
+            if field not in ['price', 'regular_price']:
+                return JsonResponse({'success': False, 'message': 'Campo inválido'})
+            
+            service = Service.objects.get(id=service_id)
+            
+            if field == 'price':
+                service.price = int(value)
+            elif field == 'regular_price':
+                service.regular_price = int(value)
+            
+            service.save()
+            
+            return JsonResponse({'success': True, 'message': 'Actualizado correctamente'})
+        
+        except Service.DoesNotExist:
+            return JsonResponse({'success': False, 'message': 'Servicio no encontrado'})
+        except Exception as e:
+            return JsonResponse({'success': False, 'message': str(e)})
+    
+    return JsonResponse({'success': False, 'message': 'Método no permitido'})

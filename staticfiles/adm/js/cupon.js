@@ -58,12 +58,23 @@ const sendSearchDetailData = (det) => {
       if (Array.isArray(data)) {
         accdetail.innerHTML = '';
         data.forEach((data) => {
+          const statusText = data.status ? 'Suspender' : 'Reactivar';
+          const buttonClass = data.status ? 'btn-danger' : 'btn-success';
           accdetail.innerHTML += `
-                <td><img src="${data.logo}" width="20"></td>
-                <td>${data.email}</td>
-                <td>${NotNull(data.customer)}</td>
-                <td>${data.customer_end_date}</td>
-                <td>${data.profile}</td>     
+                <tr>
+                  <td><img src="${data.logo}" width="20"></td>
+                  <td>${data.email}</td>
+                  <td>${NotNull(data.customer)}</td>
+                  <td>${data.customer_end_date}</td>
+                  <td>${data.profile}</td>
+                  <td>
+                    <button class="btn btn-sm ${buttonClass}" onclick="toggleAccountStatus(${
+            data.id
+          }, '${data.email}')" title="${statusText}">
+                      ${statusText}
+                    </button>
+                  </td>
+                </tr>
                 `;
         });
       } else {
@@ -103,5 +114,35 @@ function NotNull(string) {
     return 'Disponible';
   } else {
     return string;
+  }
+}
+// Función para suspender/reactivar una cuenta
+function toggleAccountStatus(accountId, email) {
+  if (confirm(`¿Deseas cambiar el estado de la cuenta ${email}?`)) {
+    $.ajax({
+      type: 'POST',
+      url: '/adm/account/toggle-status',
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest',
+        'Content-Type': 'application/json',
+      },
+      data: JSON.stringify({
+        account_id: accountId,
+        csrfmiddlewaretoken: csrf,
+      }),
+      success: (response) => {
+        if (response.success) {
+          alert(response.message);
+          // Recargar la tabla de detalles
+          detail();
+        } else {
+          alert('Error: ' + response.message);
+        }
+      },
+      error: (error) => {
+        console.error('Error:', error);
+        alert('Hubo un error al cambiar el estado de la cuenta');
+      },
+    });
   }
 }

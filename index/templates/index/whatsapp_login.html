@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="es">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Iniciar Sesión con WhatsApp - Cuentas México</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-rbsA2VBKQhggwzxH7pPCaAqO46MgnOM80zW1RWuH61DGLwZJEdK2Kadq2F9CUG65" crossorigin="anonymous">
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.2/font/bootstrap-icons.css">
+        <script src="https://cdn.jsdelivr.net/npm/jquery@2.2.4/dist/jquery.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-kenU1KFdBIe4zVF0s0G1M5b4hcpxyD9F7jL+jjXkk+Q2h455rYXK/7HAuoJl+0I4" crossorigin="anonymous"></script>
+        <link rel="stylesheet" href="{% static 'index/css/main.css' %}">
+        <style>
+            #id_login_verification_code {
+                font-size: 1.5rem;
+                letter-spacing: 0.5rem;
+                text-align: center;
+                font-weight: bold;
+            }
+
+            #id_login_verification_code.verifying {
+                border-color: #198754;
+                box-shadow: 0 0 0 0.25rem rgba(25, 135, 84, 0.25);
+            }
+
+            .pulse-animation {
+                animation: pulse 1.5s infinite;
+            }
+
+            @keyframes pulse {
+                0% {
+                    box-shadow: 0 0 0 0 rgba(25, 135, 84, 0.4);
+                }
+                70% {
+                    box-shadow: 0 0 0 10px rgba(25, 135, 84, 0);
+                }
+                100% {
+                    box-shadow: 0 0 0 0 rgba(25, 135, 84, 0);
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="border-bottom shadow-sm p-3">
+            <div class="container">
+                <div class="d-flex justify-content-center justify-content-md-start w-100 align-items-center">
+                    <div class="logo">
+                        <a href="{% url 'index' %}">
+                           {% if business.logo %}<img src="{{ business.logo.url }}" alt="{{business.name}} logo" class="logo-img">{% endif %}
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="container py-4 py-lg-5">
+            <div class="row justify-content-center align-items-center g-4">
+                <div class="col-10 col-sm-8 col-md-6 col-lg-4 order-lg-1 order-2 text-center">
+                    <img src="https://freshcart.codescandy.com/assets/images/svg-graphics/signin-g.svg" alt="" class="img-fluid" style="max-height: 300px;">
+                </div>
+                <div class="col-12 col-md-10 col-lg-5 order-lg-2 order-1">
+                    <div class="mb-4">
+                        <h1 class="mb-1 h2 fw-bold">
+                            <i class="bi bi-whatsapp text-success"></i>
+                            Iniciar Sesión con WhatsApp
+                        </h1>
+                        <p>Ingresa tu número de WhatsApp registrado y te enviaremos un código de verificación.</p>
+                    </div>
+
+                    <div id="alert-container"></div>
+
+                    <form id="whatsapp-login-form">
+                        <div class="row g-3">
+                            <div class="col-12" id="phone-section">
+                                <label for="{{ form.country.id_for_label }}" class="form-label">País</label>
+                                {{ form.country }}
+                            </div>
+                            <div class="col-12" id="number-section">
+                                <label for="{{ form.phone_number.id_for_label }}" class="form-label">Número de WhatsApp</label>
+                                {{ form.phone_number }}
+                                <small class="text-muted">Sin el código de país, solo el número</small>
+                            </div>
+
+                            <div class="col-12" id="code-section" style="display: none;">
+                                <label for="{{ form.verification_code.id_for_label }}" class="form-label fw-bold">Código de Verificación</label>
+                                {{ form.verification_code }}
+                                <small class="text-muted d-block mt-1">
+                                    <i class="bi bi-info-circle"></i> Se verificará automáticamente al completar los 6 dígitos
+                                </small>
+                            </div>
+
+                            <div class="col-12 d-grid">
+                                <button type="button" class="btn btn-success btn-lg p-3" id="main-btn">
+                                    <i class="bi bi-whatsapp"></i> Iniciar Sesión por WhatsApp
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary p-2 mt-2" id="resend-code-btn" style="display: none;">
+                                    Reenviar Código
+                                </button>
+                            </div>
+
+                            <div class="col-12 text-center">
+                                <hr>
+                                <a href="{% url 'login' %}" class="text-muted">
+                                    <i class="bi bi-arrow-left"></i> Volver al inicio de sesión tradicional
+                                </a>
+                            </div>
+                            <div>¿No tienes Cuenta? <a href="{% url 'register' %}" class="cm"> Regístrate</a></div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            $(document).ready(function() {
+                let codeSent = false;
+                let countdown = 60;
+                let countdownInterval;
+
+                function showAlert(message, type = 'danger') {
+                    const alertHtml = `
+                        <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                            ${message}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    `;
+                    $('#alert-container').html(alertHtml);
+                    setTimeout(() => {
+                        $('.alert').alert('close');
+                    }, 5000);
+                }
+
+                function startCountdown() {
+                    countdown = 60;
+                    $('#resend-code-btn').prop('disabled', true).show();
+                    countdownInterval = setInterval(() => {
+                        countdown--;
+                        $('#resend-code-btn').text(`Reenviar código (${countdown}s)`);
+                        if (countdown <= 0) {
+                            clearInterval(countdownInterval);
+                            $('#resend-code-btn').prop('disabled', false);
+                            $('#resend-code-btn').text('Reenviar Código');
+                        }
+                    }, 1000);
+                }
+
+                function sendCode() {
+                    const phone_number = $('#id_login_phone_number').val().trim();
+                    const country = $('#id_login_country').val();
+
+                    if (!phone_number || !country) {
+                        showAlert('Por favor, completa todos los campos');
+                        return;
+                    }
+
+                    $('#main-btn').prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> Enviando código...');
+
+                    $.ajax({
+                        url: '{% url "send_whatsapp_login_code" %}',
+                        method: 'POST',
+                        contentType: 'application/json',
+                        data: JSON.stringify({
+                            phone_number: phone_number,
+                            country: country
+                        }),
+                        success: function(response) {
+                            if (response.success) {
+                                showAlert(response.message + ' Ingresa el código a continuación.', 'success');
+                                codeSent = true;
+
+                                // Ocultar campos de país y teléfono, mostrar campo de código
+                                $('#phone-section').hide();
+                                $('#number-section').hide();
+                                $('#code-section').show();
+                                $('#main-btn').hide();
+
+                                // Bloquear campos de entrada
+                                $('#id_login_phone_number').prop('readonly', true);
+                                $('#id_login_country').prop('disabled', true);
+
+                                // Focus en el campo de código
+                                $('#id_login_verification_code').focus();
+
+                                startCountdown();
+                            } else {
+                                showAlert(response.message);
+                                $('#main-btn').prop('disabled', false).html('<i class="bi bi-whatsapp"></i> Iniciar Sesión por WhatsApp');
+                            }
+                        },
+                        error: function(xhr) {
+                            const response = xhr.responseJSON || {};
+                            showAlert(response.message || 'Error al enviar el código. Por favor, intenta nuevamente.');
+                            $('#main-btn').prop('disabled', false).html('<i class="bi bi-whatsapp"></i> Iniciar Sesión por WhatsApp');
+                        }
+                    });
+                }
+
+                function verifyCode() {
+                    const phone_number = $('#id_login_phone_number').val().trim();
+                    const country = $('#id_login_country').val();
+                    const code = $('#id_login_verification_code').val().trim();
+
+                    if (!code) {
+                        return;
+                    }
+
+                    if (code.length !== 6) {
+                        return;
+                    }
+
+                    // Deshabilitar el input y mostrar estado de verificación con animación
+                    $('#id_login_verification_code')
+                        .prop('readonly', true)
+                        .addClass('verifying pulse-animation');
+                    $('#resend-code-btn').prop('disabled', true);
+
+                    $.ajax({
+                        url: '{% url "whatsapp_login_verify_and_auth" %}',
+                        method: 'POST',
+                        contentType: 'application/json',
+                        data: JSON.stringify({
+                            phone_number: phone_number,
+                            country: country,
+                            code: code
+                        }),
+                        success: function(response) {
+                            if (response.success) {
+                                showAlert('¡Código verificado! Iniciando sesión...', 'success');
+                                $('#id_login_verification_code').removeClass('pulse-animation');
+                                setTimeout(() => {
+                                    window.location.href = '{% url "my_account" %}';
+                                }, 1000);
+                            } else {
+                                showAlert(response.message);
+                                $('#id_login_verification_code')
+                                    .prop('readonly', false)
+                                    .removeClass('verifying pulse-animation')
+                                    .val('')
+                                    .focus();
+                                $('#resend-code-btn').prop('disabled', false);
+                            }
+                        },
+                        error: function(xhr) {
+                            const response = xhr.responseJSON || {};
+                            showAlert(response.message || 'Error al verificar el código. Por favor, intenta nuevamente.');
+                            $('#id_login_verification_code')
+                                .prop('readonly', false)
+                                .removeClass('verifying pulse-animation')
+                                .val('')
+                                .focus();
+                            $('#resend-code-btn').prop('disabled', false);
+                        }
+                    });
+                }
+
+                // Evento del botón principal
+                $('#main-btn').click(sendCode);
+
+                // Evento del botón reenviar
+                $('#resend-code-btn').click(function() {
+                    // Restablecer vista para reenviar
+                    $('#id_login_phone_number').prop('readonly', false);
+                    $('#id_login_country').prop('disabled', false);
+                    sendCode();
+                });
+
+                // Auto-verificar cuando se completen los 6 dígitos
+                $('#id_login_verification_code').on('input', function() {
+                    // Solo permitir números
+                    let value = $(this).val().replace(/\D/g, '');
+                    $(this).val(value);
+
+                    // Auto-verificar cuando llegue a 6 dígitos
+                    if (value.length === 6) {
+                        verifyCode();
+                    }
+                });
+
+                // Allow Enter key on phone number to send code
+                $('#id_login_phone_number').keypress(function(e) {
+                    if (e.which === 13) {
+                        e.preventDefault();
+                        if (!codeSent) {
+                            sendCode();
+                        }
+                    }
+                });
+            });
+        </script>
+    </body>
+</html>

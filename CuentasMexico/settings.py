@@ -40,14 +40,15 @@ SECRET_KEY = 'django-insecure-uf41q9_1%4#x4!k4a)pa#pqc&5aj^-s)*f5lcicaui-$m2@s*e
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['localhost','127.0.0.1','www.cuentasmexico.mx','cuentasmexico.mx','cm.fadetechs.com','cuentas-mxico-web-qjz8lr-93c6ac-148-113-219-180.traefik.me']
+ALLOWED_HOSTS = ['localhost','127.0.0.1','www.cuentasmexico.mx','cuentasmexico.mx','cm.fadetechs.com','cuentas-mxico-web-qjz8lr-93c6ac-148-113-219-180.traefik.me','license-cdna-households-cio.trycloudflare.com']
 CSRF_TRUSTED_ORIGINS = [
     'https://www.cuentasmexico.mx',
     'https://cuentasmexico.mx',
     'http://localhost',
     'http://127.0.0.1',
     'https://cm.fadetechs.com',
-    'http://cuentas-mxico-web-qjz8lr-93c6ac-148-113-219-180.traefik.me'
+    'http://cuentas-mxico-web-qjz8lr-93c6ac-148-113-219-180.traefik.me',
+    'https://license-cdna-households-cio.trycloudflare.com'
 ]
 
 
@@ -85,6 +86,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'CuentasMexico.middleware.RemoveXFrameOptionsMiddleware',  # Nuestro nuevo middleware
+    'adm.middleware.PageVisitMiddleware',  # Middleware para rastrear visitas
 ]
 
 # Configuración de login para permitir iframe
@@ -225,6 +227,12 @@ EMAIL_BACKEND = 'django_smtp_ssl.SSLEmailBackend'
 
 DATE_INPUT_FORMATS = ('%d-%m-%Y')
 
+# WhatsApp API Configuration
+# Evolution API Configuration for WhatsApp
+EVO_WHATSAPP_API_URL = os.getenv('EVO_WHATSAPP_API_URL', '')
+EVO_INSTANCE = os.getenv('EVO_INSTANCE', '')
+EVO_API_KEY = os.getenv('EVO_API_KEY', '')
+
 # EMAIL_BACKEND = "naomi.mail.backends.naomi.NaomiBackend"
 # EMAIL_FILE_PATH = "/Users/luinmack/Documents/Proyectos/CuentasMexico/tmp"
 
@@ -255,3 +263,46 @@ CORS_ORIGIN_ALLOW_ALL = True
 #    "https://app.cuentasmexico.mx"
 #]
 
+# Configuración de logging
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+        'file': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs', 'django.log'),
+            'maxBytes': 1024 * 1024 * 10,  # 10 MB
+            'backupCount': 5,
+            'formatter': 'verbose',
+        },
+        'webhook_file': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs', 'webhook.log'),
+            'maxBytes': 1024 * 1024 * 10,  # 10 MB
+            'backupCount': 5,
+            'formatter': 'verbose',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'index.views': {
+            'handlers': ['console', 'webhook_file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+}

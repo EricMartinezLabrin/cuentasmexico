@@ -1,89 +1,952 @@
 {% extends 'index/base/base.html' %}
 {% block title %}Mi Cuenta{% endblock title %}
 {% block body %}
-<h1>Mi Cuenta</h1>
-<h6>Username: {{request.user.username}}</h6>
-<h6>E-Mail: {{request.user.email}}  <a href="{% url 'email_update' request.user.id %}"><small>Cambiar E-Mail...</small></a> </h6>
-<h6>Contraseña: ******** <a href="{% url 'change_password' %}"><small>Cambiar Contraseña...</small></a></h6>
-<br>
-<h2>Cuentas Activas</h2>
-<table class="table table-hover">
-    <thead>
-        <th>Cuenta</th>
-        <th>Email</th>
-        <th>Password</th>
-        <th>Perfil</th>
-        {% if data.account.pin %}
-            <th>Pin</th>
-        {% endif %}
-        <th>Vencimiento</th>
-        {% comment %} <th>Acciones</th> {% endcomment %}
-    </thead>
-    <tbody>
-        {% if not active %}
-        <tr>
-            <td colspan="5">
-                <div class="alert alert-danger" role="alert">
-                    Aún no tienes cuentas disponibles, puedes comenzar a comprar haciendo click <a href="{% url 'index' %}">aquí</a>
-                </div> 
-            </td>
-        </tr>
-        {% endif %}
-        {% for data in active %}
-            <tr>
-                <td><img src="{{data.account.account_name.logo}}" alt="{{data.account.account_name.description}}" width="40"></td>
-                <td>{{data.account.email}}</td>
-                <td>{{data.account.password}}</td>
-                <td>{{data.account.profile}}</td>
-                {% if data.account.pin %}
-                    <td>{{data.account.pin}}</td>
-                {% endif %}
-        <td>{{data.expiration_date}}</td>
-        {% comment %} <td>
-            {% if data.account.renovable or data.account.expiration_date > now %}
-            Renovar
+
+<style>
+    .payment-notification {
+        border-radius: 16px;
+        border: none;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        padding: 24px;
+        margin-bottom: 32px;
+        animation: slideInDown 0.5s ease-out;
+    }
+
+    @keyframes slideInDown {
+        from {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .payment-notification.success {
+        background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+        border-left: 5px solid #28a745;
+    }
+
+    .payment-notification.warning {
+        background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+        border-left: 5px solid #ffc107;
+    }
+
+    .payment-notification.danger {
+        background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+        border-left: 5px solid #dc3545;
+    }
+
+    .payment-notification .icon-wrapper {
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 28px;
+        margin-bottom: 16px;
+    }
+
+    .payment-notification.success .icon-wrapper {
+        background: rgba(40, 167, 69, 0.15);
+        color: #28a745;
+    }
+
+    .payment-notification.warning .icon-wrapper {
+        background: rgba(255, 193, 7, 0.15);
+        color: #ffc107;
+    }
+
+    .payment-notification.danger .icon-wrapper {
+        background: rgba(220, 53, 69, 0.15);
+        color: #dc3545;
+    }
+
+    .profile-card {
+        background: white;
+        border-radius: 20px;
+        padding: 32px;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+        margin-bottom: 32px;
+        border: 1px solid #f0f0f0;
+    }
+
+    .profile-card .user-avatar {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 36px;
+        font-weight: 600;
+        margin-bottom: 16px;
+    }
+
+    .profile-info-item {
+        padding: 16px 0;
+        border-bottom: 1px solid #f5f5f5;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .profile-info-item:last-child {
+        border-bottom: none;
+    }
+
+    .profile-info-item .label {
+        color: #6c757d;
+        font-size: 14px;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .profile-info-item .value {
+        color: #212529;
+        font-weight: 500;
+    }
+
+    .edit-link {
+        color: #667eea;
+        text-decoration: none;
+        font-size: 14px;
+        font-weight: 500;
+        transition: color 0.2s;
+    }
+
+    .edit-link:hover {
+        color: #764ba2;
+    }
+
+    .section-header {
+        margin: 48px 0 24px 0;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .section-header h2 {
+        margin: 0;
+        font-size: 28px;
+        font-weight: 700;
+        color: #212529;
+    }
+
+    .section-header .icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 12px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 20px;
+    }
+
+    .accounts-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 16px;
+        margin-bottom: 32px;
+    }
+
+    .account-card {
+        background: white;
+        border-radius: 14px;
+        padding: 16px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        border: 1px solid #f0f0f0;
+        transition: all 0.3s ease;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .account-card:hover {
+        box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+        transform: translateY(-2px);
+    }
+
+    .account-card-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 12px;
+        padding-bottom: 12px;
+        border-bottom: 2px solid #f5f5f5;
+    }
+
+    .account-logo {
+        width: 52px;
+        height: 52px;
+        border-radius: 10px;
+        object-fit: cover;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        flex-shrink: 0;
+    }
+
+    .account-card-header > div {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .account-card-header h4 {
+        margin: 0 0 4px 0;
+        font-weight: 700;
+        font-size: 16px;
+        word-break: break-word;
+    }
+
+    .account-card-body {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        flex-grow: 1;
+    }
+
+    .account-detail {
+        padding: 8px 12px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        border-left: 3px solid #667eea;
+    }
+
+    .account-detail .detail-label {
+        font-size: 11px;
+        color: #6c757d;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 2px;
+    }
+
+    .account-detail .detail-value {
+        font-size: 13px;
+        color: #212529;
+        font-weight: 500;
+        word-break: break-all;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .copy-btn {
+        background: none;
+        border: none;
+        color: #667eea;
+        cursor: pointer;
+        padding: 4px;
+        transition: color 0.2s;
+    }
+
+    .copy-btn:hover {
+        color: #764ba2;
+    }
+
+    .expiration-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 12px;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 600;
+    }
+
+    .expiration-badge.active {
+        background: #d4edda;
+        color: #155724;
+    }
+
+    .expiration-badge.inactive {
+        background: #f8d7da;
+        color: #721c24;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        background: white;
+        border-radius: 16px;
+        border: 2px dashed #dee2e6;
+    }
+
+    .empty-state i {
+        font-size: 64px;
+        color: #dee2e6;
+        margin-bottom: 20px;
+    }
+
+    .empty-state h4 {
+        color: #6c757d;
+        margin-bottom: 16px;
+    }
+
+    .btn-shop {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 12px 32px;
+        border-radius: 12px;
+        text-decoration: none;
+        font-weight: 600;
+        display: inline-block;
+        transition: all 0.3s;
+    }
+
+    .btn-shop:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+        color: white;
+    }
+
+    .inactive-section {
+        margin-top: 48px;
+        padding-top: 32px;
+        border-top: 2px solid #f0f0f0;
+    }
+
+    .inactive-section .account-card {
+        opacity: 0.85;
+        background: #f8f9fa;
+    }
+
+    .btn-add-gift-days {
+        width: 100%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        padding: 10px 16px;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 13px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+    }
+
+    .btn-add-gift-days:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn-add-gift-days:active {
+        transform: translateY(0);
+    }
+
+    .btn-add-gift-days:disabled {
+        background: #6c757d;
+        cursor: not-allowed;
+        transform: none;
+    }
+</style>
+
+{% if request.GET.collection_status == 'approved' or request.GET.status == 'approved' %}
+<div class="payment-notification success alert-dismissible fade show" role="alert">
+    <div class="icon-wrapper">
+        <i class="bi bi-check-circle-fill"></i>
+    </div>
+    <h4 class="mb-3" style="font-weight: 700;">¡Pago recibido exitosamente!</h4>
+    <p class="mb-3">Tu pago ha sido procesado correctamente. Si tus claves no aparecen abajo, las recibirás por correo electrónico en un máximo de <strong>24 horas</strong>.</p>
+    <hr style="margin: 16px 0; border-color: rgba(0,0,0,0.1);">
+    <p class="mb-0">
+        <small>¿Tienes dudas? Contáctanos por
+            <a href="https://wa.me/5218335355863" class="alert-link" style="font-weight: 600;">
+                <i class="bi bi-whatsapp"></i> WhatsApp
+            </a>
+        </small>
+    </p>
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+{% endif %}
+
+{% if request.GET.collection_status == 'pending' or request.GET.status == 'pending' %}
+<div class="payment-notification warning alert-dismissible fade show" role="alert">
+    <div class="icon-wrapper">
+        <i class="bi bi-clock-fill"></i>
+    </div>
+    <h4 class="mb-3" style="font-weight: 700;">Pago en proceso</h4>
+    <p class="mb-0">Tu pago está siendo procesado. Una vez confirmado, recibirás tus claves por correo electrónico.</p>
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+{% endif %}
+
+{% if request.GET.collection_status == 'failure' or request.GET.status == 'rejected' %}
+<div class="payment-notification danger alert-dismissible fade show" role="alert">
+    <div class="icon-wrapper">
+        <i class="bi bi-x-circle-fill"></i>
+    </div>
+    <h4 class="mb-3" style="font-weight: 700;">Pago rechazado</h4>
+    <p class="mb-0">Tu pago no pudo ser procesado. Por favor, intenta nuevamente o usa otro método de pago.</p>
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+{% endif %}
+
+<div class="profile-card">
+    <div class="user-avatar">
+        {{ request.user.username|first|upper }}
+    </div>
+    <h3 style="margin-bottom: 24px; font-weight: 700;">Información de la cuenta</h3>
+
+    <div class="profile-info-item">
+        <div class="label">
+            <i class="bi bi-person"></i>
+            <span>Usuario</span>
+        </div>
+        <div class="value">{{ request.user.username }}</div>
+    </div>
+
+    <div class="profile-info-item">
+        <div class="label">
+            <i class="bi bi-envelope"></i>
+            <span>Correo electrónico</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <span class="value">{{ request.user.email }}</span>
+            <a href="{% url 'email_update' request.user.id %}" class="edit-link">
+                <i class="bi bi-pencil"></i> Cambiar
+            </a>
+        </div>
+    </div>
+
+    <div class="profile-info-item">
+        <div class="label">
+            <i class="bi bi-lock"></i>
+            <span>Contraseña</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <span class="value">••••••••</span>
+            <a href="{% url 'change_password' %}" class="edit-link">
+                <i class="bi bi-pencil"></i> Cambiar
+            </a>
+        </div>
+    </div>
+
+    {% if free_days > 0 %}
+    <div class="profile-info-item">
+        <div class="label">
+            <i class="bi bi-gift-fill"></i>
+            <span>Días de regalo disponibles</span>
+        </div>
+        <div class="value">
+            <span style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 6px 12px; border-radius: 8px; font-weight: 700;">
+                {{ free_days }} día{{ free_days|pluralize }}
+            </span>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<div class="section-header">
+    <div class="icon">
+        <i class="bi bi-check-circle"></i>
+    </div>
+    <h2>Mis Cuentas Activas</h2>
+</div>
+
+{% if active %}
+<div style="margin-bottom: 20px;">
+    <input 
+        type="text" 
+        id="filterActiveAccounts" 
+        placeholder="🔍 Buscar por nombre del servicio..." 
+        class="form-control"
+        style="padding: 12px 16px; border-radius: 10px; border: 2px solid #f0f0f0; font-size: 15px; transition: border-color 0.3s;"
+    >
+    <small id="filterResultsActive" class="text-muted" style="margin-top: 8px; display: none;"></small>
+</div>
+<div class="accounts-grid" id="activeAccountsGrid">
+    {% for data in active %}
+    <div class="account-card" data-service-name="{{ data.account.account_name.description|lower }}">
+        <div class="account-card-header">
+            <img src="{{ data.account.account_name.logo.url }}" alt="{{ data.account.account_name.description }}" class="account-logo">
+            <div style="flex: 1;">
+                <h4 style="margin: 0 0 4px 0; font-weight: 700;">{{ data.account.account_name.description }}</h4>
+                <span class="expiration-badge active">
+                    <i class="bi bi-calendar-check"></i>
+                    Vence: {{ data.expiration_date|date:"d/m/Y" }}
+                </span>
+            </div>
+        </div>
+
+        <div class="account-card-body">
+            <div class="account-detail">
+                <div class="detail-label">
+                    <i class="bi bi-envelope-fill"></i> Email
+                </div>
+                <div class="detail-value">
+                    {{ data.account.email }}
+                    <button class="copy-btn" onclick="copyToClipboard('{{ data.account.email }}')" title="Copiar">
+                        <i class="bi bi-clipboard"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="account-detail">
+                <div class="detail-label">
+                    <i class="bi bi-key-fill"></i> Contraseña
+                </div>
+                <div class="detail-value">
+                    {{ data.account.password }}
+                    <button class="copy-btn" onclick="copyToClipboard('{{ data.account.password }}')" title="Copiar">
+                        <i class="bi bi-clipboard"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="account-detail">
+                <div class="detail-label">
+                    <i class="bi bi-person-circle"></i> Perfil
+                </div>
+                <div class="detail-value">{{ data.account.profile }}</div>
+            </div>
+
+            {% if data.account.pin %}
+            <div class="account-detail">
+                <div class="detail-label">
+                    <i class="bi bi-shield-lock-fill"></i> PIN
+                </div>
+                <div class="detail-value">
+                    {{ data.account.pin }}
+                    <button class="copy-btn" onclick="copyToClipboard('{{ data.account.pin }}')" title="Copiar">
+                        <i class="bi bi-clipboard"></i>
+                    </button>
+                </div>
+            </div>
             {% endif %}
 
-        </td> {% endcomment %}
-            </tr>
-        {% endfor %}
-    </tbody>
-</table>
-
+            {% if free_days > 0 %}
+            <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #f0f0f0;">
+                <button class="btn-add-gift-days" onclick="addGiftDays({{ data.account.id }}, '{{ data.account.account_name.description }}')" title="Agregar días de regalo a esta cuenta">
+                    <i class="bi bi-gift-fill"></i> Agregar días de regalo
+                </button>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+    <i class="bi bi-inbox"></i>
+    <h4>No tienes cuentas activas</h4>
+    <p class="text-muted mb-4">Comienza a disfrutar de nuestros servicios premium</p>
+    <a href="{% url 'index' %}" class="btn-shop">
+        <i class="bi bi-cart-plus"></i> Ir a la tienda
+    </a>
+</div>
+{% endif %}
 
 {% if inactive %}
-    <h2>Cuentas Inactivas que puede renovar</h2>
-    <small>Aqui aparecera el listado de cuentas que ta vencieron y puedes volver a comprar.</small>
-    <table class="table table-hover">
-        <thead>
-            <th>Cuenta</th>
-            <th>Email</th>
-            <th>Perfil</th>
-            {% if data.account.pin %}
-                <th>Pin</th>
+<div class="inactive-section">
+    <div class="section-header">
+        <div class="icon" style="background: linear-gradient(135deg, #6c757d 0%, #495057 100%);">
+            <i class="bi bi-clock-history"></i>
+        </div>
+        <h2>Cuentas Vencidas</h2>
+    </div>
+    <p class="text-muted mb-4">Estas cuentas han expirado pero puedes renovarlas</p>
+
+    <div style="margin-bottom: 20px;">
+        <input 
+            type="text" 
+            id="filterInactiveAccounts" 
+            placeholder="🔍 Buscar por nombre del servicio..." 
+            class="form-control"
+            style="padding: 12px 16px; border-radius: 10px; border: 2px solid #f0f0f0; font-size: 15px; transition: border-color 0.3s;"
+        >
+        <small id="filterResultsInactive" class="text-muted" style="margin-top: 8px; display: none;"></small>
+    </div>
+
+    <div class="accounts-grid" id="inactiveAccountsGrid">
+        {% for data in inactive %}
+        <div class="account-card" data-service-name="{{ data.account.account_name.description|lower }}" style="opacity: 0.85; background: #f8f9fa;">
+            <div class="account-card-header">
+                <img src="{{ data.account.account_name.logo.url }}" alt="{{ data.account.account_name.description }}" class="account-logo">
+                <div style="flex: 1;">
+                    <h4 style="margin: 0 0 4px 0; font-weight: 700;">{{ data.account.account_name.description }}</h4>
+                    <span class="expiration-badge inactive">
+                        <i class="bi bi-calendar-x"></i>
+                        Venció: {{ data.account.expiration_date|date:"d/m/Y" }}
+                    </span>
+                </div>
+            </div>
+
+            <div class="account-card-body">
+                <div class="account-detail">
+                    <div class="detail-label">
+                        <i class="bi bi-envelope-fill"></i> Email
+                    </div>
+                    <div class="detail-value">{{ data.account.email }}</div>
+                </div>
+
+                <div class="account-detail">
+                    <div class="detail-label">
+                        <i class="bi bi-person-circle"></i> Perfil
+                    </div>
+                    <div class="detail-value">{{ data.account.profile }}</div>
+                </div>
+
+                {% if data.account.pin %}
+                <div class="account-detail">
+                    <div class="detail-label">
+                        <i class="bi bi-shield-lock-fill"></i> PIN
+                    </div>
+                    <div class="detail-value">{{ data.account.pin }}</div>
+                </div>
                 {% endif %}
-                <th>Vencimiento</th>
-                {% comment %} <th>Acciones</th> {% endcomment %}
-            </thead>
-            <tbody>
-                {% for data in inactive %}
-                <tr>
-                    <td><img src="{{data.account.account_name.logo.url}}" alt="{{data.account.account_name.description}}" width="40"></td>
-                    <td>{{data.account.email}}</td>
-                    <td>{{data.account.profile}}</td>
-                    {% if data.account.pin %}
-                    <td>{{data.account.pin}}</td>
-                    {% endif %}
-                    <td>{{data.account.expiration_date}}</td>
-                    {% comment %} <td>
-                        {% if data.account.renovable or data.account.expiration_date > now %}
-                        Renovar
-                        {% endif %}
-                        
-                    </td> {% endcomment %}
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
 {% endif %}
+
+<script>
+function copyToClipboard(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function() {
+            showCopyNotification();
+        }).catch(function(err) {
+            console.error('Error al copiar: ', err);
+        });
+    } else {
+        // Fallback para navegadores que no soportan clipboard API
+        var textArea = document.createElement("textarea");
+        textArea.value = text;
+        textArea.style.position = "fixed";
+        textArea.style.left = "-999999px";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        try {
+            document.execCommand('copy');
+            showCopyNotification();
+        } catch (err) {
+            console.error('Error al copiar: ', err);
+        }
+        document.body.removeChild(textArea);
+    }
+}
+
+function showCopyNotification() {
+    var notification = document.createElement('div');
+    notification.textContent = '¡Copiado al portapapeles!';
+    notification.style.cssText = 'position: fixed; bottom: 24px; right: 24px; background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; padding: 16px 24px; border-radius: 12px; font-weight: 600; z-index: 9999; box-shadow: 0 8px 24px rgba(40, 167, 69, 0.3); animation: slideInUp 0.3s ease-out;';
+    document.body.appendChild(notification);
+    setTimeout(function() {
+        notification.style.animation = 'slideOutDown 0.3s ease-out';
+        setTimeout(function() {
+            document.body.removeChild(notification);
+        }, 300);
+    }, 2000);
+}
+
+// Filtro para cuentas activas
+const filterActiveInput = document.getElementById('filterActiveAccounts');
+const filterResultsActive = document.getElementById('filterResultsActive');
+const activeAccountsGrid = document.getElementById('activeAccountsGrid');
+const activeCards = activeAccountsGrid ? activeAccountsGrid.querySelectorAll('.account-card') : [];
+
+if (filterActiveInput) {
+    filterActiveInput.addEventListener('input', function() {
+        const searchTerm = this.value.toLowerCase().trim();
+        let visibleCount = 0;
+
+        activeCards.forEach(function(card) {
+            const serviceName = card.getAttribute('data-service-name');
+            const matches = serviceName && serviceName.includes(searchTerm);
+
+            if (matches || searchTerm === '') {
+                card.style.display = '';
+                visibleCount++;
+            } else {
+                card.style.display = 'none';
+            }
+        });
+
+        // Mostrar mensaje de resultados
+        if (searchTerm && visibleCount === 0) {
+            filterResultsActive.textContent = 'No se encontraron cuentas que coincidan con tu búsqueda.';
+            filterResultsActive.style.display = 'block';
+        } else {
+            filterResultsActive.style.display = 'none';
+        }
+
+        // Mostrar contador de resultados
+        if (searchTerm && visibleCount > 0) {
+            filterResultsActive.textContent = 'Se encontraron ' + visibleCount + ' cuenta(s).';
+            filterResultsActive.style.display = 'block';
+        }
+    });
+}
+
+// Filtro para cuentas inactivas
+const filterInactiveInput = document.getElementById('filterInactiveAccounts');
+const filterResultsInactive = document.getElementById('filterResultsInactive');
+const inactiveAccountsGrid = document.getElementById('inactiveAccountsGrid');
+const inactiveCards = inactiveAccountsGrid ? inactiveAccountsGrid.querySelectorAll('.account-card') : [];
+
+if (filterInactiveInput) {
+    filterInactiveInput.addEventListener('input', function() {
+        const searchTerm = this.value.toLowerCase().trim();
+        let visibleCount = 0;
+
+        inactiveCards.forEach(function(card) {
+            const serviceName = card.getAttribute('data-service-name');
+            const matches = serviceName && serviceName.includes(searchTerm);
+
+            if (matches || searchTerm === '') {
+                card.style.display = '';
+                visibleCount++;
+            } else {
+                card.style.display = 'none';
+            }
+        });
+
+        // Mostrar mensaje de resultados
+        if (searchTerm && visibleCount === 0) {
+            filterResultsInactive.textContent = 'No se encontraron cuentas que coincidan con tu búsqueda.';
+            filterResultsInactive.style.display = 'block';
+        } else {
+            filterResultsInactive.style.display = 'none';
+        }
+
+        // Mostrar contador de resultados
+        if (searchTerm && visibleCount > 0) {
+            filterResultsInactive.textContent = 'Se encontraron ' + visibleCount + ' cuenta(s).';
+            filterResultsInactive.style.display = 'block';
+        }
+    });
+}
+
+// Función para agregar días de regalo
+function addGiftDays(accountId, serviceName) {
+    // Mostrar confirmación
+    if (confirm(`¿Deseas agregar tus días de regalo disponibles a la cuenta de ${serviceName}?`)) {
+        // Deshabilitar todos los botones mientras se procesa
+        const buttons = document.querySelectorAll('.btn-add-gift-days');
+        buttons.forEach(btn => {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Procesando...';
+        });
+
+        // Realizar la petición AJAX
+        fetch('{% url "add_gift_days_to_account" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                account_id: accountId
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Mostrar mensaje de éxito
+                showNotification(data.message, 'success');
+                // Recargar la página después de 2 segundos
+                setTimeout(() => {
+                    window.location.reload();
+                }, 2000);
+            } else {
+                // Mostrar mensaje de error
+                showNotification(data.message, 'error');
+                // Rehabilitar botones
+                buttons.forEach(btn => {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="bi bi-gift-fill"></i> Agregar días de regalo';
+                });
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification('Error al procesar la solicitud. Por favor, intenta nuevamente.', 'error');
+            // Rehabilitar botones
+            buttons.forEach(btn => {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-gift-fill"></i> Agregar días de regalo';
+            });
+        });
+    }
+}
+
+// Función para obtener el CSRF token
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Función para mostrar notificaciones
+function showNotification(message, type) {
+    const notification = document.createElement('div');
+    notification.textContent = message;
+
+    let backgroundColor, iconClass;
+    if (type === 'success') {
+        backgroundColor = 'linear-gradient(135deg, #28a745 0%, #20c997 100%)';
+        iconClass = 'bi-check-circle-fill';
+    } else {
+        backgroundColor = 'linear-gradient(135deg, #dc3545 0%, #c82333 100%)';
+        iconClass = 'bi-x-circle-fill';
+    }
+
+    notification.style.cssText = `
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        background: ${backgroundColor};
+        color: white;
+        padding: 16px 24px;
+        border-radius: 12px;
+        font-weight: 600;
+        z-index: 9999;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+        animation: slideInUp 0.3s ease-out;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    `;
+
+    const icon = document.createElement('i');
+    icon.className = `bi ${iconClass}`;
+    notification.prepend(icon);
+
+    document.body.appendChild(notification);
+
+    setTimeout(() => {
+        notification.style.animation = 'slideOutDown 0.3s ease-out';
+        setTimeout(() => {
+            document.body.removeChild(notification);
+        }, 300);
+    }, 3000);
+}
+</script>
+
+<style>
+@keyframes slideInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes slideOutDown {
+    from {
+        opacity: 1;
+        transform: translateY(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+}
+
+@media (max-width: 1200px) {
+    .accounts-grid {
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    }
+}
+
+@media (max-width: 768px) {
+    .accounts-grid {
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 12px;
+    }
+
+    .profile-card {
+        padding: 24px 16px;
+    }
+
+    .section-header h2 {
+        font-size: 24px;
+    }
+
+    .account-card-header h4 {
+        font-size: 15px;
+    }
+
+    .expiration-badge {
+        font-size: 12px;
+    }
+}
+
+@media (max-width: 480px) {
+    .accounts-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .account-card {
+        padding: 14px;
+    }
+
+    .account-card-header {
+        gap: 10px;
+        margin-bottom: 10px;
+        padding-bottom: 10px;
+    }
+
+    .account-logo {
+        width: 48px;
+        height: 48px;
+    }
+
+    .account-detail {
+        padding: 6px 10px;
+    }
+
+    .account-detail .detail-label {
+        font-size: 10px;
+    }
+
+    .account-detail .detail-value {
+        font-size: 12px;
+    }
+
+    .copy-btn {
+        padding: 2px;
+    }
+
+    .section-header {
+        margin: 32px 0 16px 0;
+    }
+
+    .section-header h2 {
+        font-size: 20px;
+    }
+
+    .section-header .icon {
+        width: 36px;
+        height: 36px;
+        font-size: 18px;
+    }
+}
+</media>
+</style>
+
 {% endblock body %}

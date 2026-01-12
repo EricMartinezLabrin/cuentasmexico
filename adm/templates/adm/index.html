@@ -76,6 +76,120 @@
                 <h3>Cantidad de clientes nuevos Mexico</h3>
                 <canvas id="graficoBarras2" width="400" height="300"></canvas>
             </div>
+
+            <hr class="my-4">
+
+            <!-- NUEVAS ESTADÍSTICAS DE VISITAS -->
+            <h2 class="mb-4">Estadísticas de Visitas</h2>
+            <div class="row mb-4">
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">Visitantes Únicos Hoy</h5>
+                            <p class="card-text display-6">{{ unique_visitors.unique_ips }}</p>
+                            <small class="text-muted">Por IP</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-8">
+                    <table class="table table-hover">
+                        <thead>
+                            <th colspan="2">Visitas por Página - Hoy</th>
+                        </thead>
+                        {% for page, count in page_visits_today.items %}
+                        <tr>
+                            <td>{{ page }}</td>
+                            <td>{{ count }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="2">No hay visitas registradas hoy</td>
+                        </tr>
+                        {% endfor %}
+                    </table>
+                </div>
+            </div>
+
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <table class="table table-hover">
+                        <thead>
+                            <th colspan="2">Visitas Totales por Página</th>
+                        </thead>
+                        {% for page, count in page_visits_total.items %}
+                        <tr>
+                            <td>{{ page }}</td>
+                            <td>{{ count }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="2">No hay visitas registradas</td>
+                        </tr>
+                        {% endfor %}
+                    </table>
+                </div>
+                <div class="col-md-6">
+                    <canvas id="pageVisitsChart" width="400" height="300"></canvas>
+                </div>
+            </div>
+
+            <div class="row mb-4">
+                <div class="col-md-12">
+                    <h4>Visitas de los últimos 30 días</h4>
+                    <canvas id="visitsLineChart" width="800" height="200"></canvas>
+                </div>
+            </div>
+
+            <hr class="my-4">
+
+            <!-- NUEVAS ESTADÍSTICAS DE VENTAS WEB -->
+            <h2 class="mb-4">Estadísticas de Ventas Web</h2>
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card bg-primary text-white">
+                        <div class="card-body">
+                            <h5 class="card-title">Ventas Web Hoy</h5>
+                            <p class="card-text display-6">${{ web_sales_today.total|intcomma }}</p>
+                            <small>{{ web_sales_today.count }} ventas</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-success text-white">
+                        <div class="card-body">
+                            <h5 class="card-title">Esta Semana</h5>
+                            <p class="card-text display-6">${{ web_sales_weekly.total|intcomma }}</p>
+                            <small>{{ web_sales_weekly.count }} ventas</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-info text-white">
+                        <div class="card-body">
+                            <h5 class="card-title">Este Mes</h5>
+                            <p class="card-text display-6">${{ web_sales_monthly.total|intcomma }}</p>
+                            <small>{{ web_sales_monthly.count }} ventas</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-warning text-dark">
+                        <div class="card-body">
+                            <h5 class="card-title">Este Año</h5>
+                            <p class="card-text display-6">${{ web_sales_yearly.total|intcomma }}</p>
+                            <small>{{ web_sales_yearly.count }} ventas</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row mb-4">
+                <div class="col-md-12">
+                    <h4>Ventas Web - Últimos 12 meses</h4>
+                    <canvas id="webSalesChart" width="800" height="300"></canvas>
+                </div>
+            </div>
+
         {% endblock body %}
         {% block extrajs %}
             <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -186,5 +300,141 @@
             }
           }
         });
+            </script>
+
+            <!-- Gráfico de Visitas por Página (Pie/Doughnut) -->
+            <script>
+        const pageVisitsCtx = document.getElementById('pageVisitsChart');
+        const pageVisitsLabels = [];
+        const pageVisitsData = [];
+
+        {% for page, count in page_visits_7days.items %}
+            pageVisitsLabels.push("{{ page }}");
+            pageVisitsData.push({{ count }});
+        {% endfor %}
+
+        const pageVisitsChartConfig = {
+            type: 'doughnut',
+            data: {
+                labels: pageVisitsLabels,
+                datasets: [{
+                    label: 'Visitas',
+                    data: pageVisitsData,
+                    backgroundColor: [
+                        'rgb(255, 99, 132)',
+                        'rgb(54, 162, 235)',
+                        'rgb(255, 205, 86)',
+                        'rgb(75, 192, 192)',
+                        'rgb(153, 102, 255)',
+                        'rgb(255, 159, 64)'
+                    ],
+                    hoverOffset: 40
+                }]
+            },
+            options: {
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Visitas por Página - Últimos 7 días'
+                    }
+                }
+            }
+        };
+
+        new Chart(pageVisitsCtx, pageVisitsChartConfig);
+            </script>
+
+            <!-- Gráfico de Líneas - Visitas últimos 30 días -->
+            <script>
+        const visitsLineCtx = document.getElementById('visitsLineChart');
+        const visitsLineDates = [];
+        const visitsLineData = [];
+
+        {% for item in visits_chart_data %}
+            visitsLineDates.push("{{ item.date }}");
+            visitsLineData.push({{ item.visits }});
+        {% endfor %}
+
+        const visitsLineChartConfig = {
+            type: 'line',
+            data: {
+                labels: visitsLineDates,
+                datasets: [{
+                    label: 'Visitas',
+                    data: visitsLineData,
+                    borderColor: 'rgb(75, 192, 192)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    tension: 0.1
+                }]
+            },
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                },
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Evolución de Visitas - Últimos 30 días'
+                    }
+                }
+            }
+        };
+
+        new Chart(visitsLineCtx, visitsLineChartConfig);
+            </script>
+
+            <!-- Gráfico de Ventas Web - Últimos 12 meses -->
+            <script>
+        const webSalesCtx = document.getElementById('webSalesChart');
+        const webSalesMonths = [];
+        const webSalesTotals = [];
+
+        {% for item in web_sales_chart %}
+            webSalesMonths.push("{{ item.month }} {{ item.year }}");
+            webSalesTotals.push({{ item.total }});
+        {% endfor %}
+
+        const webSalesChartConfig = {
+            type: 'bar',
+            data: {
+                labels: webSalesMonths,
+                datasets: [{
+                    label: 'Ventas Web ($)',
+                    data: webSalesTotals,
+                    backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return '$' + value.toLocaleString();
+                            }
+                        }
+                    }
+                },
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Ventas Web Mensuales - Últimos 12 meses'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return 'Total: $' + context.parsed.y.toLocaleString();
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
+        new Chart(webSalesCtx, webSalesChartConfig);
             </script>
         {% endblock extrajs %}

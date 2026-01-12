@@ -33,4 +33,5 @@ urlpatterns = [
     path('auto_update_password_api', views.auto_update_password_api, name='auto_update_password_api'),
     path('notify_tomorrows_due_date_api', views.notify_tomorrows_due_date_api, name='notify_tomorrows_due_date_api'),
     path('notify_today_due_date_api', views.notify_today_due_date_api, name='notify_today_due_date_api'),
+    path('record_service_click', views.record_service_click, name='record_service_click'),
 ]

@@ -169,3 +169,82 @@ class Credits(models.Model):
 
     def __str__(self):
         return f'{self.customer.username}: {credits} creditos.'
+
+
+class IndexCarouselImage(models.Model):
+    """Imágenes del carrusel principal del index"""
+    image = models.ImageField(upload_to="index/carousel/")
+    title = models.CharField(max_length=100, blank=True, null=True)
+    order = models.IntegerField(default=0, help_text="Orden de aparición (menor número = primero)")
+    active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['order', '-created_at']
+        verbose_name = "Imagen del Carrusel"
+        verbose_name_plural = "Imágenes del Carrusel"
+
+    def __str__(self):
+        return f"Carrusel {self.order} - {self.title or 'Sin título'}"
+
+
+class IndexPromoImage(models.Model):
+    """Imágenes de las promociones del index"""
+    POSITION_CHOICES = [
+        ('left', 'Izquierda'),
+        ('right', 'Derecha'),
+    ]
+
+    image = models.ImageField(upload_to="index/promos/")
+    title = models.CharField(max_length=100, blank=True, null=True)
+    position = models.CharField(max_length=10, choices=POSITION_CHOICES, default='left')
+    active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['position', '-created_at']
+        verbose_name = "Imagen de Promoción"
+        verbose_name_plural = "Imágenes de Promociones"
+
+    def __str__(self):
+        return f"Promo {self.get_position_display()} - {self.title or 'Sin título'}"
+
+
+class PageVisit(models.Model):
+    """Rastrear visitas por página"""
+    PAGE_CHOICES = [
+        ('home', 'Página Principal (cuentasmexico.mx)'),
+        ('myaccount', 'Mi Cuenta (/myaccount)'),
+        ('cart', 'Carrito (/cart)'),
+        ('checkout', 'Checkout'),
+        ('services', 'Servicios'),
+        ('service', 'Clic en Servicio'),
+        ('other', 'Otra'),
+    ]
+
+    page = models.CharField(max_length=50, choices=PAGE_CHOICES)
+    page_url = models.CharField(max_length=500)
+    service = models.ForeignKey(Service, on_delete=models.SET_NULL, null=True, blank=True, help_text="Servicio si se registró un clic en uno")
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(blank=True, null=True)
+    referrer = models.CharField(max_length=500, blank=True, null=True)
+    visited_at = models.DateTimeField(auto_now_add=True)
+    session_key = models.CharField(max_length=100, blank=True, null=True)
+
+    class Meta:
+        ordering = ['-visited_at']
+        verbose_name = "Visita de Página"
+        verbose_name_plural = "Visitas de Páginas"
+        indexes = [
+            models.Index(fields=['page', 'visited_at']),
+            models.Index(fields=['visited_at']),
+            models.Index(fields=['session_key']),
+        ]
+
+    def __str__(self):
+        if self.page == 'service' and self.service:
+            return f"Clic en {self.service.description} - {self.visited_at.strftime('%Y-%m-%d %H:%M')}"
+        return f"{self.get_page_display()} - {self.visited_at.strftime('%Y-%m-%d %H:%M')}"

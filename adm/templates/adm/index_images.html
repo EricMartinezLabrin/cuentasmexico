@@ -1,0 +1,160 @@
+{% extends "adm/base/base.html" %}
+{% load humanize %}
+
+{% block title %}Gestión de Imágenes del Index{% endblock %}
+
+{% block body %}
+<div class="container-fluid">
+    <h1 class="h3 mb-4 text-gray-800">Gestión de Imágenes del Index</h1>
+
+    <!-- Sección: Imágenes del Carrusel -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3 d-flex justify-content-between align-items-center">
+            <h6 class="m-0 font-weight-bold text-primary">Imágenes del Carrusel</h6>
+            <a href="{% url 'adm:carousel_image_create' %}" class="btn btn-sm btn-primary">
+                <i class="bi bi-plus-circle"></i> Agregar Imagen
+            </a>
+        </div>
+        <div class="card-body">
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle"></i> Las imágenes del carrusel deben tener una relación de aspecto 10:3 (recomendado: 2000x600px)
+            </div>
+
+            {% if carousel_images %}
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover">
+                    <thead>
+                        <tr>
+                            <th width="80">Vista Previa</th>
+                            <th>Título</th>
+                            <th width="80">Orden</th>
+                            <th width="100">Estado</th>
+                            <th width="100">Fecha</th>
+                            <th width="150">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for image in carousel_images %}
+                        <tr>
+                            <td>
+                                <img src="{{ image.image.url }}" class="img-thumbnail" style="max-width: 100px; height: auto;">
+                            </td>
+                            <td>{{ image.title|default:"Sin título" }}</td>
+                            <td class="text-center">{{ image.order }}</td>
+                            <td class="text-center">
+                                {% if image.active %}
+                                <span class="badge bg-success">Activa</span>
+                                {% else %}
+                                <span class="badge bg-secondary">Inactiva</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ image.created_at|date:"d/m/Y" }}</td>
+                            <td>
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <a href="{% url 'adm:carousel_image_update' image.pk %}" class="btn btn-warning" title="Editar">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <a href="{% url 'adm:carousel_image_toggle' image.pk %}" class="btn btn-info" title="Activar/Desactivar">
+                                        {% if image.active %}
+                                        <i class="bi bi-eye-slash"></i>
+                                        {% else %}
+                                        <i class="bi bi-eye"></i>
+                                        {% endif %}
+                                    </a>
+                                    <a href="{% url 'adm:carousel_image_delete' image.pk %}" class="btn btn-danger" title="Eliminar">
+                                        <i class="bi bi-trash"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="alert alert-warning">
+                <i class="bi bi-exclamation-triangle"></i> No hay imágenes de carrusel agregadas.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Sección: Imágenes de Promociones -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3 d-flex justify-content-between align-items-center">
+            <h6 class="m-0 font-weight-bold text-primary">Imágenes de Promociones</h6>
+            <a href="{% url 'adm:promo_image_create' %}" class="btn btn-sm btn-primary">
+                <i class="bi bi-plus-circle"></i> Agregar Imagen
+            </a>
+        </div>
+        <div class="card-body">
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle"></i> Las imágenes de promociones deben tener una relación de aspecto 5:3 (recomendado: 1000x600px)
+            </div>
+
+            {% if promo_images %}
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover">
+                    <thead>
+                        <tr>
+                            <th width="80">Vista Previa</th>
+                            <th>Título</th>
+                            <th width="100">Posición</th>
+                            <th width="100">Estado</th>
+                            <th width="100">Fecha</th>
+                            <th width="150">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for image in promo_images %}
+                        <tr>
+                            <td>
+                                <img src="{{ image.image.url }}" class="img-thumbnail" style="max-width: 100px; height: auto;">
+                            </td>
+                            <td>{{ image.title|default:"Sin título" }}</td>
+                            <td class="text-center">
+                                {% if image.position == 'left' %}
+                                <span class="badge bg-primary">Izquierda</span>
+                                {% else %}
+                                <span class="badge bg-info">Derecha</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if image.active %}
+                                <span class="badge bg-success">Activa</span>
+                                {% else %}
+                                <span class="badge bg-secondary">Inactiva</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ image.created_at|date:"d/m/Y" }}</td>
+                            <td>
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <a href="{% url 'adm:promo_image_update' image.pk %}" class="btn btn-warning" title="Editar">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <a href="{% url 'adm:promo_image_toggle' image.pk %}" class="btn btn-info" title="Activar/Desactivar">
+                                        {% if image.active %}
+                                        <i class="bi bi-eye-slash"></i>
+                                        {% else %}
+                                        <i class="bi bi-eye"></i>
+                                        {% endif %}
+                                    </a>
+                                    <a href="{% url 'adm:promo_image_delete' image.pk %}" class="btn btn-danger" title="Eliminar">
+                                        <i class="bi bi-trash"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="alert alert-warning">
+                <i class="bi bi-exclamation-triangle"></i> No hay imágenes de promociones agregadas.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
