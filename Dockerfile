@@ -52,9 +52,9 @@ COPY --from=builder /root/.local /root/.local
 # Copiar código del proyecto
 COPY . .
 
-# Crear directorios necesarios para estáticos y media
-RUN mkdir -p /app/staticfiles /app/media && \
-    chmod -R 755 /app/staticfiles /app/media
+# Crear directorios necesarios para estáticos, media y logs
+RUN mkdir -p /app/staticfiles /app/media /app/logs && \
+    chmod -R 755 /app/staticfiles /app/media /app/logs
 
 # Exponer puerto
 EXPOSE 8000
