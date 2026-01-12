@@ -66,7 +66,7 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
 # Comando por defecto para producción
 CMD ["gunicorn", \
      "--bind", "0.0.0.0:8000", \
-     "--workers", "4", \
+     "--workers", "1", \
      "--worker-class", "sync", \
      "--max-requests", "1000", \
      "--max-requests-jitter", "100", \

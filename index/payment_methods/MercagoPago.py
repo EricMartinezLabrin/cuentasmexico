@@ -57,8 +57,23 @@ class MercadoPago():
             "external_reference": str(cart_id)
         }
         preference_response = sdk.preference().create(preference_data)
-        preference = preference_response["response"]
-        return preference['init_point']
+        
+        # Verificar si hubo error en la respuesta
+        status = preference_response.get("status")
+        response = preference_response.get("response", {})
+        
+        if status != 201:
+            print(f"ERROR MercadoPago: status={status}, response={response}")
+            # Verificar errores comunes
+            if "message" in response:
+                print(f"MercadoPago message: {response['message']}")
+            return None
+        
+        if 'init_point' not in response:
+            print(f"ERROR MercadoPago: 'init_point' no encontrado en response: {response}")
+            return None
+            
+        return response['init_point']
 
     def search_payments(self, id):
         if not self.mp_access_token:
