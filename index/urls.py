@@ -63,5 +63,6 @@ urlpatterns = [
     path('api/verify-whatsapp-code/', views.verify_whatsapp_code, name='verify_whatsapp_code'),
     path('api/send-whatsapp-login-code/', views.send_whatsapp_login_code, name='send_whatsapp_login_code'),
     path('api/whatsapp-login-verify/', views.whatsapp_login_verify_and_auth, name='whatsapp_login_verify_and_auth'),
+    path('api/add-gift-days/', views.add_gift_days_to_account, name='add_gift_days_to_account'),
 ]
 

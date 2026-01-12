@@ -1,6 +1,6 @@
 # Django
 from django.shortcuts import render
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.contrib.auth.views import LoginView, LogoutView, PasswordResetView, PasswordResetDoneView, PasswordResetConfirmView, PasswordResetCompleteView
 from django.contrib.auth.models import User, Group
 from django.urls import reverse_lazy, reverse
@@ -10,6 +10,7 @@ from django.views.generic.edit import FormView
 from django.http import HttpResponseRedirect
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
 from index.models import IndexCart, IndexCartdetail
 from index.payment_methods.MercagoPago import MercadoPago
 from django.core.cache import cache
@@ -954,6 +955,14 @@ class MyAccountView(TemplateView):
         context['inactive'] = self.find_renovables(Sales.customer_sales_inactive(
             self.request.user))
         context['now'] = timezone.now()
+
+        # Obtener días de regalo disponibles del usuario
+        try:
+            user_detail = UserDetail.objects.get(user=self.request.user)
+            context['free_days'] = user_detail.free_days
+        except UserDetail.DoesNotExist:
+            context['free_days'] = 0
+
         return context
 
 
@@ -1019,9 +1028,114 @@ def search(request):
     })
 
 
+@require_http_methods(["POST"])
+@csrf_exempt
+def add_gift_days_to_account(request):
+    """
+    Agregar días de regalo a una cuenta activa del cliente
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+
+    try:
+        # Verificar que el usuario esté autenticado
+        if not request.user.is_authenticated:
+            return JsonResponse({
+                'success': False,
+                'message': 'Debes iniciar sesión para realizar esta acción'
+            }, status=401)
+
+        data = json.loads(request.body)
+        account_id = data.get('account_id')
+
+        if not account_id:
+            return JsonResponse({
+                'success': False,
+                'message': 'ID de cuenta no proporcionado'
+            }, status=400)
+
+        # Obtener el UserDetail del cliente
+        try:
+            user_detail = UserDetail.objects.get(user=request.user)
+        except UserDetail.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'message': 'No se encontró información de usuario'
+            }, status=404)
+
+        # Verificar que el cliente tenga días de regalo disponibles
+        if user_detail.free_days <= 0:
+            return JsonResponse({
+                'success': False,
+                'message': 'No tienes días de regalo disponibles'
+            }, status=400)
+
+        # Obtener la cuenta
+        try:
+            account = Account.objects.get(pk=account_id)
+        except Account.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'message': 'Cuenta no encontrada'
+            }, status=404)
+
+        # Verificar que la cuenta pertenece a una venta activa del usuario
+        try:
+            sale = Sale.objects.get(
+                account=account,
+                customer=request.user,
+                status=True
+            )
+        except Sale.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'message': 'Esta cuenta no te pertenece o no está activa'
+            }, status=403)
+
+        # Verificar que la cuenta esté activa (no expirada)
+        if sale.expiration_date < timezone.now():
+            return JsonResponse({
+                'success': False,
+                'message': 'No puedes agregar días de regalo a una cuenta expirada'
+            }, status=400)
+
+        # Agregar los días de regalo a la fecha de expiración de la venta
+        days_to_add = user_detail.free_days
+        sale.expiration_date = sale.expiration_date + timedelta(days=days_to_add)
+        sale.save()
+
+        # También actualizar la fecha de expiración de la cuenta si es necesario
+        if account.expiration_date < sale.expiration_date:
+            account.expiration_date = sale.expiration_date
+            account.save()
+
+        # Resetear los días de regalo del usuario
+        user_detail.free_days = 0
+        user_detail.save()
+
+        logger.info(f"Usuario {request.user.username} agregó {days_to_add} días de regalo a la cuenta {account_id}")
+
+        return JsonResponse({
+            'success': True,
+            'message': f'¡Se agregaron {days_to_add} día{"s" if days_to_add > 1 else ""} de regalo a tu cuenta de {account.account_name.description}!',
+            'days_added': days_to_add,
+            'new_expiration_date': sale.expiration_date.strftime('%d/%m/%Y')
+        })
+
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'message': 'Datos inválidos'
+        }, status=400)
+    except Exception as e:
+        logger.exception(f"Error al agregar días de regalo: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'message': f'Error del servidor: {str(e)}'
+        }, status=500)
+
+
 # WhatsApp Verification Views
-from django.http import JsonResponse
-from django.views.decorators.http import require_http_methods
 from .whatsapp_verification import WhatsAppVerification
 
 
