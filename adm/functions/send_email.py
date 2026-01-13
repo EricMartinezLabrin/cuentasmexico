@@ -91,7 +91,7 @@ class Email():
             # NOTA: Usar noreply@resend.dev mientras se verifica el dominio cuentasmexico.mx en Resend
             # Una vez verificado el dominio, cambiar a: "from": "noreply@cuentasmexico.mx"
             response = resend.Emails.send({
-                "from": "noreply@resend.dev",
+                "from": "noreply@cuentasmexico.mx",
                 "to": email,
                 "subject": subject,
                 "html": html_content,
