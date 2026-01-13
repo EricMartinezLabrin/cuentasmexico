@@ -3,7 +3,7 @@ from adm.models import Service
 from django.contrib.auth.models import User
 
 class IndexCart(models.Model):
-    payment_id = models.IntegerField(blank=True, null=True)
+    payment_id = models.BigIntegerField(blank=True, null=True)
     date_created = models.DateTimeField(blank=True, null=True)
     date_approved = models.DateTimeField(blank=True, null=True)
     date_last_updated = models.DateTimeField(blank=True, null=True)
@@ -18,7 +18,7 @@ class IndexCart(models.Model):
     customer = models.ForeignKey(User, models.DO_NOTHING)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'index_cart'
 
 
