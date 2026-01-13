@@ -47,7 +47,7 @@ CSRF_TRUSTED_ORIGINS = [
     'http://localhost',
     'http://127.0.0.1',
     'https://cm.fadetechs.com',
-    'http://cuentas-mxico-web-qjz8lr-93c6ac-148-113-219-180.traefik.me',
+    'https://cuentas-mxico-web-qjz8lr-93c6ac-148-113-219-180.traefik.me',
     'https://license-cdna-households-cio.trycloudflare.com'
 ]
 
