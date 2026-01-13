@@ -33,7 +33,10 @@ class MercadoPago():
         new_cart = []
         for item in cart.items():
             cart_items = {
+                "id": str(item[0]),  # ID del item para homologación
                 "title": item[1]['name'],
+                "description": f"Suscripción {item[1]['name']} - {item[1]['profiles']} perfiles",  # Descripción del item
+                "category_id": "services",  # Categoría del item para homologación
                 "quantity": item[1]['profiles'],
                 "currency_id": "MXN",
                 "unit_price": item[1]['unitPrice']*item[1]['quantity'],

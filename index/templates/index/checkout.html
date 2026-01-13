@@ -110,7 +110,12 @@
 {% endblock body %}
 
 {% block extraje %}
+<!-- MercadoPago SDK para homologación -->
+<script src="https://sdk.mercadopago.com/js/v2"></script>
 <script>
-
+  // Inicializar MercadoPago SDK (requerido para homologación)
+  const mp = new MercadoPago('{{ mp_public_key }}', {
+    locale: 'es-MX'
+  });
 </script>
 {% endblock extraje %}

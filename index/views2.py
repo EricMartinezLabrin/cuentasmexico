@@ -1,3 +1,6 @@
+# Python
+import os
+
 # Django
 from django.shortcuts import render
 from django.http import HttpResponse
@@ -77,6 +80,8 @@ class CheckOutView(TemplateView):
         context = super().get_context_data(**kwargs)
         context["business"] = BusinessInfo.data()
         context["credits"] = BusinessInfo.credits(self.request)
+        # Public Key de MercadoPago para SDK JS (homologación)
+        context["mp_public_key"] = os.environ.get('MP_PUBLIC_KEY', '')
         return context
 
 
