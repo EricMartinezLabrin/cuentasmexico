@@ -64,5 +64,12 @@ urlpatterns = [
     path('api/send-whatsapp-login-code/', views.send_whatsapp_login_code, name='send_whatsapp_login_code'),
     path('api/whatsapp-login-verify/', views.whatsapp_login_verify_and_auth, name='whatsapp_login_verify_and_auth'),
     path('api/add-gift-days/', views.add_gift_days_to_account, name='add_gift_days_to_account'),
+
+    # PayPal payment routes
+    path('paypal/create-order/', views.paypal_create_order, name='paypal_create_order'),
+    path('paypal/capture-order/', views.paypal_capture_order, name='paypal_capture_order'),
+    path('paypal/success/', views.paypal_success, name='paypal_success'),
+    path('paypal/cancel/', views.paypal_cancel, name='paypal_cancel'),
+    path('webhook/paypal/', views.paypal_webhook, name='paypal_webhook'),
 ]
 

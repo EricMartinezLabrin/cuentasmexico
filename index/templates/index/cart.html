@@ -103,19 +103,47 @@
                             Comprar <span class="fw-bold">se descontarán {{request.session.cart_total}} Créditos</span>
                         </a>
                     {% else %}
-                        {% if init_point %}
-                        <a href="{% url 'start_payment' %}?initpoint={{ init_point }}" id="buy" class="btn btn-cm btn-lg d-flex justify-content-between align-items-center" >
-                           Continuar con el pago
-                        </a>
-                        {% else %}
-                        <button class="btn btn-secondary btn-lg d-flex justify-content-between align-items-center" disabled>
-                           Procesando...
+                        <!-- Metodos de pago disponibles -->
+                        <div class="mb-3">
+                            <h6 class="mb-2">Selecciona tu metodo de pago:</h6>
+                        </div>
+
+                        {% if paypal_enabled and paypal_data %}
+                        <!-- Boton PayPal -->
+                        <div id="paypal-button-container" class="mb-3"></div>
+                        <div id="paypal-loading" class="text-center mb-3" style="display: none;">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Procesando...</span>
+                            </div>
+                            <p class="mt-2">Procesando tu pago con PayPal...</p>
+                        </div>
+                        {% endif %}
+
+                        {% if mercadopago_enabled and init_point %}
+                        <!-- Boton MercadoPago (deshabilitado por defecto) -->
+                        <div class="mt-2">
+                            <a href="{% url 'start_payment' %}?initpoint={{ init_point }}" id="buy-mp" class="btn btn-outline-secondary btn-lg w-100 d-flex justify-content-between align-items-center">
+                                <img src="https://www.mercadopago.com/org-img/MP3/home/logomp3.gif" alt="MercadoPago" style="height: 24px;">
+                                <span>Pagar con MercadoPago</span>
+                            </a>
+                        </div>
+                        {% endif %}
+
+                        {% if not paypal_enabled and not mercadopago_enabled %}
+                        <button class="btn btn-secondary btn-lg w-100" disabled>
+                           No hay metodos de pago disponibles
+                        </button>
+                        {% endif %}
+
+                        {% if paypal_enabled and not paypal_data and not mercadopago_enabled %}
+                        <button class="btn btn-secondary btn-lg w-100" disabled>
+                           Agrega productos al carrito
                         </button>
                         {% endif %}
                     {% endif %}
                 {% else %}
                     <a href="{% url 'login' %}" class="btn btn-cm btn-lg d-flex justify-content-between align-items-center">
-                        <span class="fw-bold">Inicia sesión para continuar</span>
+                        <span class="fw-bold">Inicia sesion para continuar</span>
                     </a>
                 {% endif %}
                 </div>
@@ -153,19 +181,24 @@
 </div> {% endcomment %}
 {% endblock body %}
 {% block extrajs %}
+<!-- PayPal SDK -->
+{% if paypal_enabled and paypal_data %}
+<script src="https://www.paypal.com/sdk/js?client-id={{ paypal_client_id|default:'sb' }}&currency=MXN&locale=es_MX"></script>
+{% endif %}
+
 <script>
-    const level = "{{request.user.userdetail.level.name}}";
-    
-    if (level==="Distribuidor"){
+    const level = "{{ request.user.userdetail.level.name }}";
+
+    if (level === "Distribuidor") {
         insuficient_credits()
     }
 
-    function insuficient_credits(){
-        var credits = {{credits}};
-        var bill = {{request.session.cart_total}};
+    function insuficient_credits() {
+        var credits = {{ credits }};
+        var bill = {{ request.session.cart_total }};
         const buy = document.getElementById('buy');
         const error = document.getElementById('error')
-        if (credits < bill){
+        if (credits < bill) {
             console.log('no alcanza')
             buy.className += ' disabled';
             error.innerHTML = `
@@ -174,12 +207,114 @@
                 <td colspan="5">
                     <div class="alert alert-danger" role="alert">
                         No tienes creditos suficientes. Tienes <b>${credits}</b> y necesitas <b>${bill}</b>, para continuar debes recargar.
-                    </div> 
+                    </div>
                 </td>
             </tr>
             `
         }
     }
+
+    {% if paypal_enabled and paypal_data %}
+    // PayPal Integration
+    const paypalData = {
+        cartId: '{{ paypal_data.cart_id }}',
+        items: {{ paypal_data.items|safe }},
+        subtotal: {{ paypal_data.subtotal }}
+    };
+
+    paypal.Buttons({
+        style: {
+            layout: 'vertical',
+            color: 'gold',
+            shape: 'rect',
+            label: 'paypal',
+            height: 50
+        },
+
+        // Crear la orden cuando el usuario hace clic
+        createOrder: function(data, actions) {
+            // Construir items para PayPal
+            const items = paypalData.items.map(item => ({
+                name: item.name,
+                description: item.description || '',
+                quantity: String(item.quantity),
+                unit_amount: {
+                    currency_code: 'MXN',
+                    value: String(item.itemCost.toFixed(2))
+                }
+            }));
+
+            const itemTotal = paypalData.items.reduce((sum, item) => sum + item.itemTotal, 0);
+
+            return actions.order.create({
+                purchase_units: [{
+                    reference_id: paypalData.cartId,
+                    description: 'Compra en CuentasMexico',
+                    amount: {
+                        currency_code: 'MXN',
+                        value: String(itemTotal.toFixed(2)),
+                        breakdown: {
+                            item_total: {
+                                currency_code: 'MXN',
+                                value: String(itemTotal.toFixed(2))
+                            }
+                        }
+                    },
+                    items: items
+                }]
+            });
+        },
+
+        // Capturar el pago cuando el usuario aprueba
+        onApprove: function(data, actions) {
+            // Mostrar loading
+            document.getElementById('paypal-button-container').style.display = 'none';
+            document.getElementById('paypal-loading').style.display = 'block';
+
+            return actions.order.capture().then(function(details) {
+                // Enviar al backend para procesar la entrega
+                fetch('{% url "paypal_capture_order" %}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        order_id: data.orderID,
+                        cart_id: paypalData.cartId
+                    })
+                })
+                .then(response => response.json())
+                .then(result => {
+                    if (result.success) {
+                        // Redirigir a mi cuenta
+                        window.location.href = result.redirect_url;
+                    } else {
+                        alert('Error procesando el pago: ' + result.message);
+                        document.getElementById('paypal-button-container').style.display = 'block';
+                        document.getElementById('paypal-loading').style.display = 'none';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error de conexion. Por favor intenta de nuevo.');
+                    document.getElementById('paypal-button-container').style.display = 'block';
+                    document.getElementById('paypal-loading').style.display = 'none';
+                });
+            });
+        },
+
+        // Manejar cancelacion
+        onCancel: function(data) {
+            console.log('Pago cancelado por el usuario');
+        },
+
+        // Manejar errores
+        onError: function(err) {
+            console.error('Error PayPal:', err);
+            alert('Ocurrio un error con PayPal. Por favor intenta de nuevo.');
+        }
+    }).render('#paypal-button-container');
+    {% endif %}
 </script>
 
 {% endblock extrajs %}

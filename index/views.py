@@ -13,7 +13,13 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from index.models import IndexCart, IndexCartdetail
 from index.payment_methods.MercagoPago import MercadoPago
+from index.payment_methods.PayPal import PayPal
 from django.core.cache import cache
+
+# Configuracion de metodos de pago habilitados
+# Para habilitar MercadoPago, cambiar a True
+MERCADOPAGO_ENABLED = False
+PAYPAL_ENABLED = True
 
 # local
 from .forms import RegisterUserForm, RedeemForm, WhatsAppLoginForm
@@ -58,30 +64,74 @@ def index(request):
 class CartView(TemplateView):
     template_name = "index/cart.html"
 
-    def set_cart(self):
-        cart = cache.get('cart')
-        if cart is not None:
-            return cart
-        if not self.request.session.get('cart_number'):
+    def set_cart_mercadopago(self, cart_db):
+        """Configura el pago con MercadoPago (deshabilitado por defecto)"""
+        if not MERCADOPAGO_ENABLED:
             return None
-        # Check if user is authenticated before creating cart
-        if not self.request.user.is_authenticated:
-            return None
-        cart = CartDb.create_full_cart(self)
-        if cart is None:
-            return None
+
+        cached = cache.get('cart_mp')
+        if cached is not None:
+            return cached
+
         mp = MercadoPago(self.request)
-        result = mp.Mp_ExpressCheckout(cart.id)
-        # Guarda el valor en caché durante 24 horas
-        cache.set('cart', result, timeout=60*60*24)
+        result = mp.Mp_ExpressCheckout(cart_db.id)
+        if result:
+            cache.set('cart_mp', result, timeout=60*60*24)
         return result
 
+    def set_cart_paypal(self, cart_db):
+        """Prepara los datos para PayPal"""
+        if not PAYPAL_ENABLED:
+            return None
+
+        # Preparar items del carrito para PayPal
+        items, subtotal = PayPal.get_cart_items_for_paypal(self.request)
+        if not items:
+            return None
+
+        return {
+            'cart_id': cart_db.id,
+            'items': items,
+            'subtotal': subtotal,
+            'ready': True
+        }
+
     def get_context_data(self, **kwargs):
+        import os
         context = super().get_context_data(**kwargs)
         context["business"] = BusinessInfo.data()
         context["credits"] = BusinessInfo.credits(self.request)
         context['services'] = Service.objects.filter(status=True)
-        context["init_point"] = self.set_cart()
+
+        # Metodos de pago habilitados
+        context['mercadopago_enabled'] = MERCADOPAGO_ENABLED
+        context['paypal_enabled'] = PAYPAL_ENABLED
+
+        # PayPal Client ID para el SDK de JavaScript
+        context['paypal_client_id'] = os.environ.get('PAYPAL_CLIENT_ID', 'sb')
+
+        # Inicializar valores de pago
+        context["init_point"] = None  # MercadoPago
+        context["paypal_data"] = None  # PayPal
+
+        # Solo procesar si hay carrito y usuario autenticado
+        if not self.request.session.get('cart_number'):
+            return context
+        if not self.request.user.is_authenticated:
+            return context
+
+        # Crear carrito en BD
+        cart_db = CartDb.create_full_cart(self)
+        if cart_db is None:
+            return context
+
+        # Configurar metodos de pago disponibles
+        if MERCADOPAGO_ENABLED:
+            context["init_point"] = self.set_cart_mercadopago(cart_db)
+
+        if PAYPAL_ENABLED:
+            context["paypal_data"] = self.set_cart_paypal(cart_db)
+
         return context
 
 
@@ -1345,6 +1395,448 @@ def whatsapp_login_verify_and_auth(request):
             'message': 'Datos inválidos'
         }, status=400)
     except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Error del servidor: {str(e)}'
+        }, status=500)
+
+
+# ============================================
+# PayPal Payment Views
+# ============================================
+
+@require_http_methods(["POST"])
+@csrf_exempt
+def paypal_create_order(request):
+    """
+    Crea una orden de PayPal y devuelve la URL de aprobacion.
+    Se llama via AJAX desde el boton de PayPal en el carrito.
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+
+    try:
+        if not request.user.is_authenticated:
+            return JsonResponse({
+                'success': False,
+                'message': 'Debes iniciar sesion para realizar el pago'
+            }, status=401)
+
+        data = json.loads(request.body)
+        cart_id = data.get('cart_id')
+
+        if not cart_id:
+            return JsonResponse({
+                'success': False,
+                'message': 'ID de carrito no proporcionado'
+            }, status=400)
+
+        # Verificar que el carrito existe
+        try:
+            cart = IndexCart.objects.get(pk=cart_id)
+        except IndexCart.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'message': 'Carrito no encontrado'
+            }, status=404)
+
+        # Preparar items del carrito
+        items, subtotal = PayPal.get_cart_items_for_paypal(request)
+
+        if not items:
+            return JsonResponse({
+                'success': False,
+                'message': 'No hay items en el carrito'
+            }, status=400)
+
+        # Guardar el cart_id en la sesion para recuperarlo despues
+        request.session['paypal_cart_id'] = cart_id
+
+        logger.info(f"PayPal: Orden preparada para carrito {cart_id}, total: {subtotal} MXN")
+
+        # Devolver los datos para que el frontend cree la orden via MCP
+        return JsonResponse({
+            'success': True,
+            'cart_id': cart_id,
+            'items': items,
+            'subtotal': subtotal,
+            'currency': 'MXN'
+        })
+
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'message': 'Datos invalidos'
+        }, status=400)
+    except Exception as e:
+        logger.exception(f"Error creando orden PayPal: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'message': f'Error del servidor: {str(e)}'
+        }, status=500)
+
+
+def paypal_success(request):
+    """
+    Vista de exito despues del pago de PayPal.
+    El pago se procesa en el webhook, esta vista solo muestra confirmacion.
+    """
+    order_id = request.GET.get('token')  # PayPal envia el order ID como 'token'
+
+    # Limpiar el carrito
+    cart = CartProcessor(request)
+    cart.clear()
+    cache.delete('paypal_cart_id')
+
+    return redirect('my_account')
+
+
+def paypal_cancel(request):
+    """
+    Vista cuando el usuario cancela el pago de PayPal.
+    """
+    return redirect('cart')
+
+
+@csrf_exempt
+def paypal_webhook(request):
+    """
+    Webhook para recibir notificaciones de PayPal.
+    Procesa pagos completados y entrega las cuentas al cliente.
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    try:
+        body = request.body.decode('utf-8')
+        data = json.loads(body)
+
+        logger.info(f"PayPal Webhook recibido: {data}")
+
+        event_type = data.get('event_type')
+
+        # Solo procesar pagos completados
+        if event_type == 'CHECKOUT.ORDER.APPROVED':
+            resource = data.get('resource', {})
+            order_id = resource.get('id')
+            status = resource.get('status')
+
+            if status != 'APPROVED':
+                logger.info(f"Orden PayPal {order_id} no aprobada: {status}")
+                return HttpResponse(status=200)
+
+            # Obtener el cart_id de la orden
+            # PayPal lo envia en purchase_units[0].reference_id
+            purchase_units = resource.get('purchase_units', [])
+            if not purchase_units:
+                logger.error("Orden sin purchase_units")
+                return HttpResponse(status=400)
+
+            cart_id = purchase_units[0].get('reference_id')
+            if not cart_id:
+                logger.error("Orden sin reference_id (cart_id)")
+                return HttpResponse(status=400)
+
+            # Procesar la orden
+            return process_paypal_payment(request, cart_id, order_id, resource)
+
+        elif event_type == 'PAYMENT.CAPTURE.COMPLETED':
+            # Pago capturado exitosamente
+            resource = data.get('resource', {})
+            capture_id = resource.get('id')
+            logger.info(f"PayPal captura completada: {capture_id}")
+            return HttpResponse(status=200)
+
+        # Para otros eventos, solo confirmar recepcion
+        return HttpResponse(status=200)
+
+    except json.JSONDecodeError:
+        logger.error("Error decodificando JSON del webhook PayPal")
+        return HttpResponse(status=400)
+    except Exception as e:
+        logger.exception(f"Error procesando webhook PayPal: {str(e)}")
+        return HttpResponse(status=500)
+
+
+def process_paypal_payment(request, cart_id, order_id, payment_data):
+    """
+    Procesa un pago de PayPal aprobado.
+    Similar a la logica del webhook de MercadoPago.
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+
+    try:
+        cart = IndexCart.objects.get(pk=cart_id)
+    except IndexCart.DoesNotExist:
+        logger.error(f"Carrito {cart_id} no encontrado")
+        return HttpResponse(status=404)
+
+    # Verificar si ya fue procesado
+    if cart.status_detail == 'approved':
+        logger.info(f"Carrito {cart_id} ya fue procesado")
+        return HttpResponse(status=200)
+
+    # Actualizar carrito con datos del pago
+    cart.payment_id = hash(order_id) % (10 ** 10)  # Convertir a numero
+    cart.date_approved = timezone.now()
+    cart.payment_type_id = 'paypal'
+    cart.status_detail = 'approved'
+
+    # Obtener el monto de purchase_units
+    purchase_units = payment_data.get('purchase_units', [])
+    if purchase_units:
+        amount = purchase_units[0].get('amount', {})
+        cart.transaction_amount = float(amount.get('value', 0))
+        cart.currency_id = amount.get('currency_code', 'MXN')
+
+    cart.save()
+
+    # Obtener items del carrito
+    cart_details = IndexCartdetail.objects.filter(cart=cart)
+    customer = cart.customer
+    sales_created = []
+    items_without_stock = []
+
+    for cart_detail in cart_details:
+        service_id = cart_detail.service.id
+        service_name = cart_detail.service.description
+        months = cart_detail.long
+        profiles = cart_detail.quantity
+        unit_price = cart_detail.price
+
+        expiration = timezone.now() + timedelta(days=months * 30)
+
+        logger.info(f"PayPal: Procesando {service_name}: {profiles} perfiles x {months} meses")
+
+        profiles_without_stock = 0
+        for i in range(profiles):
+            try:
+                best_account = Sales.find_best_account(
+                    service_id=service_id,
+                    months_requested=months
+                )
+
+                if best_account:
+                    sale_result = Sales.sale_ok(
+                        customer=customer,
+                        webhook_provider="PayPal",
+                        payment_type="paypal",
+                        payment_id=order_id,
+                        service_obj=best_account,
+                        expiration_date=expiration,
+                        unit_price=unit_price,
+                        request=request
+                    )
+                    if sale_result and sale_result[0]:
+                        sales_created.append(sale_result[1])
+                        logger.info(f"PayPal: Venta creada: ID {sale_result[1].id}")
+                    else:
+                        profiles_without_stock += 1
+                else:
+                    logger.warning(f"PayPal: No hay cuentas para servicio {service_id}")
+                    profiles_without_stock += 1
+            except Exception as e:
+                logger.error(f"PayPal: Error al buscar/crear cuenta: {str(e)}", exc_info=True)
+                profiles_without_stock += 1
+
+        if profiles_without_stock > 0:
+            items_without_stock.append({
+                'service_name': service_name,
+                'months': months,
+                'profiles': profiles_without_stock,
+                'price': unit_price * profiles_without_stock
+            })
+
+    # Notificar si hay items sin stock
+    if items_without_stock:
+        from adm.functions.resend_notifications import ResendEmail
+
+        customer_info = {
+            'username': customer.username,
+            'email': customer.email,
+            'user_id': customer.id
+        }
+        payment_info = {
+            'payment_id': order_id,
+            'amount': cart.transaction_amount,
+            'payment_type': 'paypal',
+            'cart_id': cart_id
+        }
+
+        ResendEmail.notify_no_stock(customer_info, items_without_stock, payment_info)
+
+        product_names = [item['service_name'] for item in items_without_stock]
+        if customer.email and customer.email != 'example@example.com':
+            ResendEmail.notify_customer_pending_delivery(
+                customer_email=customer.email,
+                customer_name=customer.username,
+                products=product_names
+            )
+
+    logger.info(f"PayPal: Webhook procesado, {len(sales_created)} ventas para carrito {cart_id}")
+    return HttpResponse(status=200)
+
+
+@require_http_methods(["POST"])
+@csrf_exempt
+def paypal_capture_order(request):
+    """
+    Captura una orden de PayPal despues de que el cliente aprueba el pago.
+    Se llama desde el frontend despues de que el cliente aprueba en PayPal.
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+
+    try:
+        data = json.loads(request.body)
+        order_id = data.get('order_id')
+        cart_id = data.get('cart_id')
+
+        if not order_id or not cart_id:
+            return JsonResponse({
+                'success': False,
+                'message': 'Faltan datos de la orden'
+            }, status=400)
+
+        logger.info(f"PayPal: Capturando orden {order_id} para carrito {cart_id}")
+
+        # Verificar que el carrito existe
+        try:
+            cart = IndexCart.objects.get(pk=cart_id)
+        except IndexCart.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'message': 'Carrito no encontrado'
+            }, status=404)
+
+        # Verificar si ya fue procesado
+        if cart.status_detail == 'approved':
+            return JsonResponse({
+                'success': True,
+                'message': 'Orden ya procesada',
+                'redirect_url': reverse('my_account')
+            })
+
+        # Procesar el pago (la captura se hace via MCP desde el frontend)
+        # Aqui procesamos la entrega de cuentas
+
+        # Actualizar carrito
+        cart.payment_id = hash(order_id) % (10 ** 10)
+        cart.date_approved = timezone.now()
+        cart.payment_type_id = 'paypal'
+        cart.status_detail = 'approved'
+
+        # Obtener el total del carrito de la sesion
+        cart.transaction_amount = request.session.get('cart_total', 0)
+        cart.currency_id = 'MXN'
+        cart.save()
+
+        # Procesar items del carrito
+        cart_details = IndexCartdetail.objects.filter(cart=cart)
+        customer = cart.customer
+        sales_created = []
+        items_without_stock = []
+
+        for cart_detail in cart_details:
+            service_id = cart_detail.service.id
+            service_name = cart_detail.service.description
+            months = cart_detail.long
+            profiles = cart_detail.quantity
+            unit_price = cart_detail.price
+
+            expiration = timezone.now() + timedelta(days=months * 30)
+
+            logger.info(f"PayPal: Procesando {service_name}: {profiles} perfiles x {months} meses")
+
+            profiles_without_stock = 0
+            for i in range(profiles):
+                try:
+                    best_account = Sales.find_best_account(
+                        service_id=service_id,
+                        months_requested=months
+                    )
+
+                    if best_account:
+                        sale_result = Sales.sale_ok(
+                            customer=customer,
+                            webhook_provider="PayPal",
+                            payment_type="paypal",
+                            payment_id=order_id,
+                            service_obj=best_account,
+                            expiration_date=expiration,
+                            unit_price=unit_price,
+                            request=request
+                        )
+                        if sale_result and sale_result[0]:
+                            sales_created.append(sale_result[1])
+                            logger.info(f"PayPal: Venta creada: ID {sale_result[1].id}")
+                        else:
+                            profiles_without_stock += 1
+                    else:
+                        logger.warning(f"PayPal: No hay cuentas para servicio {service_id}")
+                        profiles_without_stock += 1
+                except Exception as e:
+                    logger.error(f"PayPal: Error: {str(e)}", exc_info=True)
+                    profiles_without_stock += 1
+
+            if profiles_without_stock > 0:
+                items_without_stock.append({
+                    'service_name': service_name,
+                    'months': months,
+                    'profiles': profiles_without_stock,
+                    'price': unit_price * profiles_without_stock
+                })
+
+        # Notificar si hay items sin stock
+        if items_without_stock:
+            from adm.functions.resend_notifications import ResendEmail
+
+            customer_info = {
+                'username': customer.username,
+                'email': customer.email,
+                'user_id': customer.id
+            }
+            payment_info = {
+                'payment_id': order_id,
+                'amount': cart.transaction_amount,
+                'payment_type': 'paypal',
+                'cart_id': cart_id
+            }
+
+            ResendEmail.notify_no_stock(customer_info, items_without_stock, payment_info)
+
+            product_names = [item['service_name'] for item in items_without_stock]
+            if customer.email and customer.email != 'example@example.com':
+                ResendEmail.notify_customer_pending_delivery(
+                    customer_email=customer.email,
+                    customer_name=customer.username,
+                    products=product_names
+                )
+
+        # Limpiar carrito de la sesion
+        cart_processor = CartProcessor(request)
+        cart_processor.clear()
+
+        logger.info(f"PayPal: Orden completada, {len(sales_created)} ventas creadas")
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Pago procesado exitosamente',
+            'sales_count': len(sales_created),
+            'redirect_url': reverse('my_account')
+        })
+
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'message': 'Datos invalidos'
+        }, status=400)
+    except Exception as e:
+        logger.exception(f"Error capturando orden PayPal: {str(e)}")
         return JsonResponse({
             'success': False,
             'message': f'Error del servidor: {str(e)}'
