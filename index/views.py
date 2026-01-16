@@ -14,12 +14,15 @@ from django.views.decorators.http import require_http_methods
 from index.models import IndexCart, IndexCartdetail
 from index.payment_methods.MercagoPago import MercadoPago
 from index.payment_methods.PayPal import PayPal
+from index.payment_methods.Stripe import StripePayment
 from django.core.cache import cache
+import stripe
 
 # Configuracion de metodos de pago habilitados
 # Para habilitar MercadoPago, cambiar a True
 MERCADOPAGO_ENABLED = False
 PAYPAL_ENABLED = True
+STRIPE_ENABLED = True
 
 # local
 from .forms import RegisterUserForm, RedeemForm, WhatsAppLoginForm
@@ -96,6 +99,23 @@ class CartView(TemplateView):
             'ready': True
         }
 
+    def set_cart_stripe(self, cart_db):
+        """Prepara los datos para Stripe"""
+        if not STRIPE_ENABLED:
+            return None
+
+        # Preparar items del carrito para Stripe
+        items, subtotal = StripePayment.get_cart_items_for_stripe(self.request)
+        if not items:
+            return None
+
+        return {
+            'cart_id': cart_db.id,
+            'items': items,
+            'subtotal': subtotal,
+            'ready': True
+        }
+
     def get_context_data(self, **kwargs):
         import os
         context = super().get_context_data(**kwargs)
@@ -106,13 +126,18 @@ class CartView(TemplateView):
         # Metodos de pago habilitados
         context['mercadopago_enabled'] = MERCADOPAGO_ENABLED
         context['paypal_enabled'] = PAYPAL_ENABLED
+        context['stripe_enabled'] = STRIPE_ENABLED
 
         # PayPal Client ID para el SDK de JavaScript
         context['paypal_client_id'] = os.environ.get('PAYPAL_CLIENT_ID', 'sb')
 
+        # Stripe Publishable Key para el SDK de JavaScript
+        context['stripe_publishable_key'] = os.environ.get('STRIPE_PUBLISHABLE_KEY', '')
+
         # Inicializar valores de pago
         context["init_point"] = None  # MercadoPago
         context["paypal_data"] = None  # PayPal
+        context["stripe_data"] = None  # Stripe
 
         # Solo procesar si hay carrito y usuario autenticado
         if not self.request.session.get('cart_number'):
@@ -131,6 +156,9 @@ class CartView(TemplateView):
 
         if PAYPAL_ENABLED:
             context["paypal_data"] = self.set_cart_paypal(cart_db)
+
+        if STRIPE_ENABLED:
+            context["stripe_data"] = self.set_cart_stripe(cart_db)
 
         return context
 
@@ -1841,3 +1869,345 @@ def paypal_capture_order(request):
             'success': False,
             'message': f'Error del servidor: {str(e)}'
         }, status=500)
+
+
+# ============================================
+# Stripe Payment Views
+# ============================================
+
+@require_http_methods(["POST"])
+@csrf_exempt
+def stripe_create_checkout_session(request):
+    """
+    Crea una sesion de Stripe Checkout y devuelve el session_id.
+    Se llama via AJAX desde el boton de Stripe en el carrito.
+    """
+    import os
+    import logging
+    logger = logging.getLogger(__name__)
+
+    try:
+        if not request.user.is_authenticated:
+            return JsonResponse({
+                'success': False,
+                'message': 'Debes iniciar sesion para realizar el pago'
+            }, status=401)
+
+        data = json.loads(request.body)
+        cart_id = data.get('cart_id')
+
+        if not cart_id:
+            return JsonResponse({
+                'success': False,
+                'message': 'ID de carrito no proporcionado'
+            }, status=400)
+
+        # Verificar que el carrito existe
+        try:
+            cart = IndexCart.objects.get(pk=cart_id)
+        except IndexCart.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'message': 'Carrito no encontrado'
+            }, status=404)
+
+        # Configurar Stripe
+        stripe.api_key = os.environ.get('STRIPE_SECRET_KEY')
+        site_url = os.environ.get('SITE_URL', 'https://www.cuentasmexico.mx')
+
+        # Preparar items del carrito
+        cart_session = request.session.get('cart_number')
+        if not cart_session:
+            return JsonResponse({
+                'success': False,
+                'message': 'No hay items en el carrito'
+            }, status=400)
+
+        line_items = []
+        for item_id, item_data in cart_session.items():
+            # Calcular precio por perfil (unitPrice * cantidad de meses)
+            item_cost = float(item_data['unitPrice']) * float(item_data['quantity'])
+            # Stripe espera precios en centavos
+            unit_amount_cents = int(round(item_cost * 100))
+
+            line_items.append({
+                'price_data': {
+                    'currency': 'mxn',
+                    'product_data': {
+                        'name': item_data['name'][:127],
+                        'description': f"{item_data['profiles']} perfil(es) x {item_data['quantity']} mes(es)",
+                    },
+                    'unit_amount': unit_amount_cents,
+                },
+                'quantity': int(item_data['profiles']),
+            })
+
+        # Crear sesion de checkout
+        checkout_session = stripe.checkout.Session.create(
+            payment_method_types=['card'],
+            line_items=line_items,
+            mode='payment',
+            success_url=f"{site_url}/stripe/success/?session_id={{CHECKOUT_SESSION_ID}}",
+            cancel_url=f"{site_url}/stripe/cancel/",
+            metadata={
+                'cart_id': str(cart_id),
+            },
+            locale='es',
+        )
+
+        # Guardar cart_id en la sesion
+        request.session['stripe_cart_id'] = cart_id
+
+        logger.info(f"Stripe: Sesion creada {checkout_session.id} para carrito {cart_id}")
+
+        return JsonResponse({
+            'success': True,
+            'session_id': checkout_session.id,
+            'url': checkout_session.url
+        })
+
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'message': 'Datos invalidos'
+        }, status=400)
+    except stripe.error.StripeError as e:
+        logger.error(f"Error de Stripe: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'message': f'Error de Stripe: {str(e)}'
+        }, status=500)
+    except Exception as e:
+        logger.exception(f"Error creando sesion Stripe: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'message': f'Error del servidor: {str(e)}'
+        }, status=500)
+
+
+def stripe_success(request):
+    """
+    Vista de exito despues del pago de Stripe.
+    Procesa el pago y entrega las cuentas.
+    """
+    import os
+    import logging
+    logger = logging.getLogger(__name__)
+
+    session_id = request.GET.get('session_id')
+
+    if not session_id:
+        return redirect('cart')
+
+    try:
+        # Configurar Stripe
+        stripe.api_key = os.environ.get('STRIPE_SECRET_KEY')
+
+        # Obtener la sesion de Stripe
+        session = stripe.checkout.Session.retrieve(session_id)
+
+        if session.payment_status != 'paid':
+            logger.warning(f"Stripe: Sesion {session_id} no pagada: {session.payment_status}")
+            return redirect('cart')
+
+        # Obtener cart_id de los metadata
+        cart_id = session.metadata.get('cart_id')
+        if not cart_id:
+            logger.error("Stripe: Sesion sin cart_id en metadata")
+            return redirect('cart')
+
+        # Procesar el pago
+        result = process_stripe_payment(request, cart_id, session_id, session)
+
+        # Limpiar el carrito
+        cart_processor = CartProcessor(request)
+        cart_processor.clear()
+        cache.delete('stripe_cart_id')
+
+        return redirect('my_account')
+
+    except stripe.error.StripeError as e:
+        logger.error(f"Error obteniendo sesion de Stripe: {str(e)}")
+        return redirect('cart')
+    except Exception as e:
+        logger.exception(f"Error en stripe_success: {str(e)}")
+        return redirect('cart')
+
+
+def stripe_cancel(request):
+    """
+    Vista cuando el usuario cancela el pago de Stripe.
+    """
+    return redirect('cart')
+
+
+@csrf_exempt
+def stripe_webhook(request):
+    """
+    Webhook para recibir notificaciones de Stripe.
+    Procesa pagos completados y entrega las cuentas al cliente.
+    """
+    import os
+    import logging
+    logger = logging.getLogger(__name__)
+
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    payload = request.body
+    sig_header = request.META.get('HTTP_STRIPE_SIGNATURE')
+    webhook_secret = os.environ.get('STRIPE_WEBHOOK_SECRET')
+
+    try:
+        # Verificar firma del webhook si hay secret configurado
+        if webhook_secret:
+            event = stripe.Webhook.construct_event(
+                payload, sig_header, webhook_secret
+            )
+        else:
+            # Sin verificacion (solo para desarrollo)
+            data = json.loads(payload)
+            event = stripe.Event.construct_from(data, stripe.api_key)
+
+        logger.info(f"Stripe Webhook recibido: {event.type}")
+
+        # Manejar el evento
+        if event.type == 'checkout.session.completed':
+            session = event.data.object
+
+            # Solo procesar si el pago fue exitoso
+            if session.payment_status == 'paid':
+                cart_id = session.metadata.get('cart_id')
+                if cart_id:
+                    process_stripe_payment(request, cart_id, session.id, session)
+
+        elif event.type == 'payment_intent.succeeded':
+            payment_intent = event.data.object
+            logger.info(f"Stripe: PaymentIntent exitoso: {payment_intent.id}")
+
+        # Confirmar recepcion del evento
+        return HttpResponse(status=200)
+
+    except ValueError as e:
+        logger.error(f"Payload invalido de Stripe webhook: {str(e)}")
+        return HttpResponse(status=400)
+    except stripe.error.SignatureVerificationError as e:
+        logger.error(f"Firma de webhook invalida: {str(e)}")
+        return HttpResponse(status=400)
+    except Exception as e:
+        logger.exception(f"Error procesando webhook Stripe: {str(e)}")
+        return HttpResponse(status=500)
+
+
+def process_stripe_payment(request, cart_id, session_id, session_data):
+    """
+    Procesa un pago de Stripe completado.
+    Similar a la logica del webhook de PayPal/MercadoPago.
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+
+    try:
+        cart = IndexCart.objects.get(pk=cart_id)
+    except IndexCart.DoesNotExist:
+        logger.error(f"Carrito {cart_id} no encontrado")
+        return False
+
+    # Verificar si ya fue procesado
+    if cart.status_detail == 'approved':
+        logger.info(f"Carrito {cart_id} ya fue procesado")
+        return True
+
+    # Actualizar carrito con datos del pago
+    cart.payment_id = hash(session_id) % (10 ** 10)  # Convertir a numero
+    cart.date_approved = timezone.now()
+    cart.payment_type_id = 'stripe'
+    cart.status_detail = 'approved'
+    cart.transaction_amount = session_data.amount_total / 100 if hasattr(session_data, 'amount_total') else 0
+    cart.currency_id = session_data.currency.upper() if hasattr(session_data, 'currency') else 'MXN'
+    cart.save()
+
+    # Obtener items del carrito
+    cart_details = IndexCartdetail.objects.filter(cart=cart)
+    customer = cart.customer
+    sales_created = []
+    items_without_stock = []
+
+    for cart_detail in cart_details:
+        service_id = cart_detail.service.id
+        service_name = cart_detail.service.description
+        months = cart_detail.long
+        profiles = cart_detail.quantity
+        unit_price = cart_detail.price
+
+        expiration = timezone.now() + timedelta(days=months * 30)
+
+        logger.info(f"Stripe: Procesando {service_name}: {profiles} perfiles x {months} meses")
+
+        profiles_without_stock = 0
+        for i in range(profiles):
+            try:
+                best_account = Sales.find_best_account(
+                    service_id=service_id,
+                    months_requested=months
+                )
+
+                if best_account:
+                    sale_result = Sales.sale_ok(
+                        customer=customer,
+                        webhook_provider="Stripe",
+                        payment_type="stripe",
+                        payment_id=session_id,
+                        service_obj=best_account,
+                        expiration_date=expiration,
+                        unit_price=unit_price,
+                        request=request
+                    )
+                    if sale_result and sale_result[0]:
+                        sales_created.append(sale_result[1])
+                        logger.info(f"Stripe: Venta creada: ID {sale_result[1].id}")
+                    else:
+                        profiles_without_stock += 1
+                else:
+                    logger.warning(f"Stripe: No hay cuentas para servicio {service_id}")
+                    profiles_without_stock += 1
+            except Exception as e:
+                logger.error(f"Stripe: Error al buscar/crear cuenta: {str(e)}", exc_info=True)
+                profiles_without_stock += 1
+
+        if profiles_without_stock > 0:
+            items_without_stock.append({
+                'service_name': service_name,
+                'months': months,
+                'profiles': profiles_without_stock,
+                'price': unit_price * profiles_without_stock
+            })
+
+    # Notificar si hay items sin stock
+    if items_without_stock:
+        from adm.functions.resend_notifications import ResendEmail
+
+        customer_info = {
+            'username': customer.username,
+            'email': customer.email,
+            'user_id': customer.id
+        }
+        payment_info = {
+            'payment_id': session_id,
+            'amount': cart.transaction_amount,
+            'payment_type': 'stripe',
+            'cart_id': cart_id
+        }
+
+        ResendEmail.notify_no_stock(customer_info, items_without_stock, payment_info)
+
+        product_names = [item['service_name'] for item in items_without_stock]
+        if customer.email and customer.email != 'example@example.com':
+            ResendEmail.notify_customer_pending_delivery(
+                customer_email=customer.email,
+                customer_name=customer.username,
+                products=product_names
+            )
+
+    logger.info(f"Stripe: Pago procesado, {len(sales_created)} ventas para carrito {cart_id}")
+    return True

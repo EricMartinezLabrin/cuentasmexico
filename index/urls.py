@@ -71,5 +71,11 @@ urlpatterns = [
     path('paypal/success/', views.paypal_success, name='paypal_success'),
     path('paypal/cancel/', views.paypal_cancel, name='paypal_cancel'),
     path('webhook/paypal/', views.paypal_webhook, name='paypal_webhook'),
+
+    # Stripe payment routes
+    path('stripe/create-checkout-session/', views.stripe_create_checkout_session, name='stripe_create_checkout_session'),
+    path('stripe/success/', views.stripe_success, name='stripe_success'),
+    path('stripe/cancel/', views.stripe_cancel, name='stripe_cancel'),
+    path('webhook/stripe/', views.stripe_webhook, name='stripe_webhook'),
 ]
 
