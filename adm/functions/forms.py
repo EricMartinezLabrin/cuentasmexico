@@ -180,31 +180,31 @@ class AccountsForm(forms.ModelForm):
     class Meta:
         model = Account
         fields = ['business', 'supplier', 'account_name', 'expiration_date',
-                  'email', 'password', 'comments', 'renovable', 'created_by', 'modified_by', 'renewal_date', 'external_status']
+                  'email', 'password', 'pin', 'comments', 'renovable', 'created_by',
+                  'modified_by', 'renewal_date', 'external_status']
         labels = {
             'business': 'Empresa',
             'supplier': 'Proveedor',
-            'account_name': 'Cuenta',
+            'account_name': 'Servicio',
             'expiration_date': 'Fecha de Vencimiento',
-            'email': 'E-Mail',
+            'email': 'Correo Electrónico',
             'password': 'Contraseña',
+            'pin': 'PIN (Opcional)',
             'comments': 'Comentarios',
             'renovable': '¿Es renovable?',
             'external_status': 'Estado Externo'
-
         }
         widgets = {
             'business': forms.TextInput(attrs={'value': 1, 'type': 'hidden'}),
-            'supplier': forms.Select(attrs={'class': 'form-control'}),
-            'account_name': forms.Select(attrs={'class': 'form-control'}),
-            'expiration_date': forms.DateInput(attrs={'class': 'form-control'}),
-            'email': forms.EmailInput(attrs={'class': 'form-control'}),
-            'password': forms.TextInput(attrs={'class': 'form-control'}),
-            'pin': forms.NumberInput(attrs={'class': 'form-control', 'max': 5}),
-            'comments': forms.TextInput(attrs={'class': 'form-control'}),
-            'renovable': forms.CheckboxInput(),
-            'external_status': forms.Select(attrs={'class': 'form-control'})
-
+            'supplier': forms.Select(attrs={'class': 'form-select'}),
+            'account_name': forms.Select(attrs={'class': 'form-select'}),
+            'expiration_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'email': forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'correo@ejemplo.com'}),
+            'password': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Contraseña de la cuenta'}),
+            'pin': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'PIN de acceso', 'min': 0, 'max': 9999}),
+            'comments': forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': 'Notas adicionales...'}),
+            'renovable': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'external_status': forms.Select(attrs={'class': 'form-select'})
         }
 
 

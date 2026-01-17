@@ -1,236 +1,534 @@
 {% extends "adm/base/base.html" %}
 {% block title %}
-    Cuentas
+    {% if form.instance.pk %}Editar Cuenta{% else %}Nueva Cuenta{% endif %}
 {% endblock title %}
-{% block body %}
-    <div class="container-fluid bg-light py-5 min-vh-100">
-        <div class="row justify-content-center">
-            <div class="col-12 cuentas-max-width">
-                <div class="d-flex align-items-center mb-5 mt-2 ps-2">
-                    <i class="bi bi-person-plus-fill display-4 text-primary me-3"></i>
-                    <div>
-                        <h1 class="fw-bold mb-1 text-primary">Gestión de Cuentas</h1>
-                        <div class="text-muted fs-6">Crea o edita cuentas y perfiles de manera sencilla y rápida</div>
-                    </div>
-                </div>
 
-                <div class="card border-0 mb-5 cuentas-card-max">
-                    <div class="card-body p-5">
-                        <form method="post" autocomplete="off">
-                            {% csrf_token %}
-                            <div class="row g-4">
-                                <div class="col-12 col-md-6">
-                                    <div class="mb-4">
-                                        <label class="form-label fw-semibold">{{ form.supplier.label }}</label>
-                                        {{ form.supplier }}
-                                    </div>
-                                    <div class="mb-4">
-                                        <label class="form-label fw-semibold">{{ form.account_name.label }}</label>
-                                        {{ form.account_name }}
-                                    </div>
-                                    <div class="mb-4">
-                                        <label class="form-label fw-semibold">{{ form.expiration_date.label }}</label>
-                                        <input type="date"
-                                               name="{{ form.expiration_date.name }}"
-                                               id="newExpiration"
-                                               value="{{ form.expiration_date.value|date:'Y-m-d' }}"
-                                               class="form-control">
-                                    </div>
-                                    <div class="mb-4">
-                                        <label for="renewal_date" class="form-label fw-semibold">Fecha de Renovación</label>
-                                        <input type="date"
-                                               name="renewal_date"
-                                               id="renewal_date"
-                                               value="{{ form.renewal_date.value|date:'Y-m-d' }}"
-                                               class="form-control">
-                                    </div>
-                                    <div class="form-check mb-4 ps-0">
-                                        <input type="checkbox"
-                                               name="status"
-                                               id="status"
-                                               class="form-check-input ms-1"
-                                               checked>
-                                        <label for="status" class="form-check-label ms-2">¿Reactivar suspendidas?</label>
-                                    </div>
-                                </div>
-                                <div class="col-12 col-md-6">
-                                    <div class="mb-4">
-                                        <label class="form-label fw-semibold">{{ form.email.label }}</label>
-                                        {{ form.email }}
-                                    </div>
-                                    <div class="mb-4">
-                                        <label class="form-label fw-semibold">{{ form.password.label }}</label>
-                                        {{ form.password }}
-                                    </div>
-                                    <div class="mb-4">
-                                        <label class="form-label fw-semibold">{{ form.comments.label }}</label>
-                                        {{ form.comments }}
-                                    </div>
-                                    <div class="form-check mb-4 ps-0">
-                                        {{ form.renovable }}
-                                        <label class="form-check-label ms-2">{{ form.renovable.label }}</label>
-                                    </div>
-                                    <div id="sugested"></div>
-                                </div>
-                            </div>
-                            {{ form.business }}
-                            <input type="hidden"
-                                   name="last_expiration_date"
-                                   id="last_expiration_date"
-                                   value="{{ form.expiration_date.value|date:'Y-m-d' }}">
-                            <input type="hidden"
-                                   name="{{ form.created_by.name }}"
-                                   value="{{ request.user.id }}">
-                            <input type="hidden"
-                                   name="{{ form.modified_by.name }}"
-                                   value="{{ request.user.id }}">
-                            <div class="d-flex flex-wrap gap-3 justify-content-end mt-5">
-                                <button type="submit" class="btn btn-primary px-5 py-2 fw-bold fs-5">
-                                    <i class="bi bi-check2-circle me-2"></i>Terminar
-                                </button>
-                                <a href="{% url 'adm:accounts' %}"
-                                   class="btn btn-outline-secondary px-5 py-2 fw-bold fs-5"><i class="bi bi-x-circle me-2"></i>Cancelar</a>
-                            </div>
-                        </form>
+{% block extracss %}
+<style>
+    .account-form-card {
+        border-radius: 16px;
+        box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+        background: #fff;
+    }
+    .form-section {
+        background: #f8f9fa;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    .form-section-title {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #6c757d;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .form-section-title i {
+        font-size: 1rem;
+    }
+    .form-floating > .form-control,
+    .form-floating > .form-select {
+        height: calc(3.5rem + 2px);
+        border-radius: 8px;
+    }
+    .form-floating > label {
+        padding: 1rem 0.75rem;
+    }
+    .form-check-card {
+        background: #fff;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 1rem 1.25rem;
+        transition: all 0.2s ease;
+        cursor: pointer;
+    }
+    .form-check-card:hover {
+        border-color: #0d6efd;
+        box-shadow: 0 2px 8px rgba(13, 110, 253, 0.15);
+    }
+    .form-check-card.checked {
+        border-color: #0d6efd;
+        background: #f0f7ff;
+    }
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.375rem;
+        padding: 0.375rem 0.75rem;
+        border-radius: 50px;
+        font-size: 0.8rem;
+        font-weight: 500;
+    }
+    .status-disponible { background: #d1fae5; color: #065f46; }
+    .status-no-disponible { background: #fee2e2; color: #991b1b; }
+    .status-suspendida { background: #e5e7eb; color: #374151; }
+    .related-accounts-card {
+        border-left: 4px solid #0d6efd;
+    }
+    .btn-action {
+        padding: 0.75rem 2rem;
+        font-weight: 600;
+        border-radius: 8px;
+        transition: all 0.2s ease;
+    }
+    .btn-action:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    .password-toggle {
+        cursor: pointer;
+        padding: 0.375rem 0.75rem;
+    }
+    .input-group-text {
+        background: #f8f9fa;
+        border-left: none;
+    }
+    .suggested-date-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 12px;
+        padding: 1rem;
+    }
+    .suggested-date-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+    }
+</style>
+{% endblock extracss %}
+
+{% block body %}
+<div class="container-fluid bg-light py-4 min-vh-100">
+    <div class="row justify-content-center">
+        <div class="col-12 col-xl-10 col-xxl-9">
+            <!-- Header -->
+            <div class="d-flex align-items-center justify-content-between mb-4">
+                <div class="d-flex align-items-center">
+                    <div class="bg-primary bg-gradient rounded-3 p-3 me-3">
+                        <i class="bi bi-{% if form.instance.pk %}pencil-square{% else %}plus-lg{% endif %} text-white fs-4"></i>
+                    </div>
+                    <div>
+                        <h1 class="fw-bold mb-0 h3">{% if form.instance.pk %}Editar Cuenta{% else %}Nueva Cuenta{% endif %}</h1>
+                        <p class="text-muted mb-0 small">{% if form.instance.pk %}Modifica los datos de la cuenta existente{% else %}Completa los datos para crear una nueva cuenta{% endif %}</p>
                     </div>
                 </div>
-                                {% if related_accounts %}
-                    <div class="cuentas-related-card">
-                        <div class="card border-0 cuentas-card-max">
-                            <div class="card-body p-4">
-                                <h5 class="fw-bold mb-3 text-primary">
-                                    <i class="bi bi-people-fill me-2"></i>Perfiles relacionados
-                                </h5>
-                                <div class="table-responsive rounded cuentas-table-min">
-                                    <table class="table cuentas-related-table table-hover align-middle mb-0 bg-white cuentas-table-full">
-                                        <thead>
-                                            <tr>
-                                                <th scope="col">Email</th>
-                                                <th scope="col">Perfil</th>
-                                                <th scope="col">Estado</th>
-                                                <th scope="col">Vencimiento</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {% for acc in related_accounts %}
-                                                <tr>
-                                                    <td class="text-break">{{ acc.email }}</td>
-                                                    <td>
-                                                        <span class="badge bg-info text-dark">{{ acc.profile }}</span>
-                                                    </td>
-                                                    <td>
-                                                        {% if acc.status %}
-                                                            <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Activa</span>
-                                                        {% else %}
-                                                            <span class="badge bg-danger"><i class="bi bi-x-circle me-1"></i>Inactiva</span>
-                                                        {% endif %}
-                                                    </td>
-                                                    <td>
-                                                        <span class="badge bg-light text-dark border border-1 border-primary">{{ acc.expiration_date|date:'d-m-Y' }}</span>
-                                                    </td>
-                                                </tr>
-                                            {% endfor %}
-                                        </tbody>
-                                    </table>
+                <a href="{% url 'adm:accounts' %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-2"></i>Volver
+                </a>
+            </div>
+
+            <!-- Main Form Card -->
+            <div class="account-form-card p-4 p-lg-5 mb-4">
+                <form method="post" autocomplete="off" id="accountForm">
+                    {% csrf_token %}
+                    {{ form.business }}
+                    <input type="hidden" name="{{ form.created_by.name }}" value="{{ request.user.id }}">
+                    <input type="hidden" name="{{ form.modified_by.name }}" value="{{ request.user.id }}">
+                    <input type="hidden" name="last_expiration_date" id="last_expiration_date" value="{{ form.expiration_date.value|date:'Y-m-d' }}">
+
+                    <div class="row g-4">
+                        <!-- Left Column -->
+                        <div class="col-12 col-lg-6">
+                            <!-- Proveedor y Servicio -->
+                            <div class="form-section">
+                                <div class="form-section-title">
+                                    <i class="bi bi-building"></i>
+                                    Proveedor y Servicio
                                 </div>
-                                <div class="mt-4 text-end">
-                                    <button id="toggle-all-status" class="btn btn-warning">
-                                        <span id="toggle-all-status-text">Suspender/Reactivar todas</span>
-                                    </button>
+                                <div class="row g-3">
+                                    <div class="col-12">
+                                        <div class="form-floating">
+                                            {{ form.supplier }}
+                                            <label for="{{ form.supplier.id_for_label }}">
+                                                <i class="bi bi-person-badge me-1"></i>{{ form.supplier.label }}
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-12">
+                                        <div class="form-floating">
+                                            {{ form.account_name }}
+                                            <label for="{{ form.account_name.id_for_label }}">
+                                                <i class="bi bi-tv me-1"></i>{{ form.account_name.label }}
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Credenciales -->
+                            <div class="form-section">
+                                <div class="form-section-title">
+                                    <i class="bi bi-key"></i>
+                                    Credenciales de Acceso
+                                </div>
+                                <div class="row g-3">
+                                    <div class="col-12">
+                                        <div class="form-floating">
+                                            {{ form.email }}
+                                            <label for="{{ form.email.id_for_label }}">
+                                                <i class="bi bi-envelope me-1"></i>{{ form.email.label }}
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-12 col-md-7">
+                                        <div class="input-group">
+                                            <div class="form-floating flex-grow-1">
+                                                <input type="password"
+                                                       name="{{ form.password.name }}"
+                                                       id="id_password"
+                                                       value="{{ form.password.value|default:'' }}"
+                                                       class="form-control"
+                                                       placeholder="Contraseña"
+                                                       style="border-right: none;">
+                                                <label for="id_password">
+                                                    <i class="bi bi-lock me-1"></i>{{ form.password.label }}
+                                                </label>
+                                            </div>
+                                            <span class="input-group-text password-toggle" onclick="togglePassword()">
+                                                <i class="bi bi-eye" id="toggleIcon"></i>
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="col-12 col-md-5">
+                                        <div class="form-floating">
+                                            {{ form.pin }}
+                                            <label for="{{ form.pin.id_for_label }}">
+                                                <i class="bi bi-123 me-1"></i>{{ form.pin.label }}
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right Column -->
+                        <div class="col-12 col-lg-6">
+                            <!-- Fechas -->
+                            <div class="form-section">
+                                <div class="form-section-title">
+                                    <i class="bi bi-calendar3"></i>
+                                    Fechas
+                                </div>
+                                <div class="row g-3">
+                                    <div class="col-12 col-md-6">
+                                        <div class="form-floating">
+                                            <input type="date"
+                                                   name="{{ form.expiration_date.name }}"
+                                                   id="newExpiration"
+                                                   value="{{ form.expiration_date.value|date:'Y-m-d' }}"
+                                                   class="form-control"
+                                                   required>
+                                            <label for="newExpiration">
+                                                <i class="bi bi-calendar-x me-1"></i>Vencimiento
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-12 col-md-6">
+                                        <div class="form-floating">
+                                            <input type="date"
+                                                   name="renewal_date"
+                                                   id="renewal_date"
+                                                   value="{{ form.renewal_date.value|date:'Y-m-d' }}"
+                                                   class="form-control">
+                                            <label for="renewal_date">
+                                                <i class="bi bi-arrow-repeat me-1"></i>Renovación
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-12" id="suggestedContainer" style="display: none;">
+                                        <div class="suggested-date-card">
+                                            <div class="d-flex align-items-center justify-content-between">
+                                                <div>
+                                                    <small class="d-block opacity-75">Renovación sugerida</small>
+                                                    <span class="suggested-date-value" id="suggestedDate">--/--/----</span>
+                                                </div>
+                                                <i class="bi bi-lightbulb fs-3 opacity-75"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Estado y Opciones -->
+                            <div class="form-section">
+                                <div class="form-section-title">
+                                    <i class="bi bi-gear"></i>
+                                    Estado y Opciones
+                                </div>
+                                <div class="row g-3">
+                                    <div class="col-12">
+                                        <div class="form-floating">
+                                            {{ form.external_status }}
+                                            <label for="{{ form.external_status.id_for_label }}">
+                                                <i class="bi bi-flag me-1"></i>{{ form.external_status.label }}
+                                            </label>
+                                        </div>
+                                        <small class="text-muted mt-1 d-block">
+                                            <i class="bi bi-info-circle me-1"></i>
+                                            Estado visible para sistemas externos
+                                        </small>
+                                    </div>
+                                    <div class="col-12 col-md-6">
+                                        <label class="form-check-card d-flex align-items-center gap-3 mb-0" id="renovableCard">
+                                            <input type="checkbox"
+                                                   name="{{ form.renovable.name }}"
+                                                   id="{{ form.renovable.id_for_label }}"
+                                                   class="form-check-input m-0"
+                                                   style="width: 1.25em; height: 1.25em;"
+                                                   {% if form.renovable.value %}checked{% endif %}>
+                                            <div>
+                                                <span class="fw-semibold d-block">Renovable</span>
+                                                <small class="text-muted">Se puede renovar</small>
+                                            </div>
+                                        </label>
+                                    </div>
+                                    <div class="col-12 col-md-6">
+                                        <label class="form-check-card d-flex align-items-center gap-3 mb-0" id="statusCard">
+                                            <input type="checkbox"
+                                                   name="status"
+                                                   id="status"
+                                                   class="form-check-input m-0"
+                                                   style="width: 1.25em; height: 1.25em;"
+                                                   checked>
+                                            <div>
+                                                <span class="fw-semibold d-block">Reactivar</span>
+                                                <small class="text-muted">Reactivar suspendidas</small>
+                                            </div>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Comentarios -->
+                            <div class="form-section mb-0">
+                                <div class="form-section-title">
+                                    <i class="bi bi-chat-left-text"></i>
+                                    Notas Adicionales
+                                </div>
+                                <div class="form-floating">
+                                    {{ form.comments }}
+                                    <label for="{{ form.comments.id_for_label }}">{{ form.comments.label }}</label>
                                 </div>
                             </div>
                         </div>
                     </div>
-                {% endif %}
+
+                    <!-- Action Buttons -->
+                    <div class="d-flex flex-wrap gap-3 justify-content-end mt-4 pt-4 border-top">
+                        <a href="{% url 'adm:accounts' %}" class="btn btn-outline-secondary btn-action">
+                            <i class="bi bi-x-lg me-2"></i>Cancelar
+                        </a>
+                        <button type="submit" class="btn btn-primary btn-action">
+                            <i class="bi bi-check-lg me-2"></i>
+                            {% if form.instance.pk %}Guardar Cambios{% else %}Crear Cuenta{% endif %}
+                        </button>
+                    </div>
+                </form>
             </div>
+
+            <!-- Related Accounts Section -->
+            {% if related_accounts %}
+            <div class="account-form-card related-accounts-card p-4">
+                <div class="d-flex align-items-center justify-content-between mb-4">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="bg-info bg-opacity-10 rounded-circle p-2">
+                            <i class="bi bi-people text-info fs-5"></i>
+                        </div>
+                        <div>
+                            <h5 class="fw-bold mb-0">Perfiles Relacionados</h5>
+                            <small class="text-muted">{{ related_accounts|length }} perfil{% if related_accounts|length > 1 %}es{% endif %} encontrado{% if related_accounts|length > 1 %}s{% endif %} con las mismas credenciales</small>
+                        </div>
+                    </div>
+                    <button id="toggle-all-status" class="btn btn-warning btn-sm">
+                        <i class="bi bi-arrow-repeat me-1"></i>
+                        <span id="toggle-all-status-text">Cambiar Estado</span>
+                    </button>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0" id="relatedAccountsTable">
+                        <thead class="table-light">
+                            <tr>
+                                <th scope="col" class="fw-semibold">Email</th>
+                                <th scope="col" class="fw-semibold text-center">Perfil</th>
+                                <th scope="col" class="fw-semibold text-center">Estado Interno</th>
+                                <th scope="col" class="fw-semibold text-center">Estado Externo</th>
+                                <th scope="col" class="fw-semibold text-center">Vencimiento</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for acc in related_accounts %}
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <i class="bi bi-envelope text-muted"></i>
+                                        <span class="text-break">{{ acc.email }}</span>
+                                    </div>
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge bg-primary bg-opacity-10 text-primary fw-semibold px-3 py-2">
+                                        Perfil {{ acc.profile }}
+                                    </span>
+                                </td>
+                                <td class="text-center">
+                                    {% if acc.status %}
+                                        <span class="status-badge status-disponible">
+                                            <i class="bi bi-check-circle-fill"></i>Activa
+                                        </span>
+                                    {% else %}
+                                        <span class="status-badge status-no-disponible">
+                                            <i class="bi bi-x-circle-fill"></i>Inactiva
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    {% if acc.external_status == 'Disponible' %}
+                                        <span class="status-badge status-disponible">
+                                            <i class="bi bi-check-circle-fill"></i>{{ acc.external_status }}
+                                        </span>
+                                    {% elif acc.external_status == 'No Disponible' %}
+                                        <span class="status-badge status-no-disponible">
+                                            <i class="bi bi-x-circle-fill"></i>{{ acc.external_status }}
+                                        </span>
+                                    {% else %}
+                                        <span class="status-badge status-suspendida">
+                                            <i class="bi bi-pause-circle-fill"></i>{{ acc.external_status }}
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge bg-light text-dark border fw-normal">
+                                        <i class="bi bi-calendar3 me-1"></i>{{ acc.expiration_date|date:'d/m/Y' }}
+                                    </span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
         </div>
     </div>
+</div>
 {% endblock body %}
+
 {% block extrajs %}
-    <script>
-    // Botón AJAX para suspender/reactivar todas las cuentas relacionadas
-    document.addEventListener('DOMContentLoaded', function() {
-        const btn = document.getElementById('toggle-all-status');
-        if (btn) {
-            btn.addEventListener('click', function(e) {
-                e.preventDefault();
-                btn.disabled = true;
-                fetch(window.location.pathname + '?toggle_all=1', {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ toggle_all: true })
-                })
-                .then(r => r.json())
-                .then(data => {
-                    if (data.success) {
-                        // Actualizar la tabla de perfiles relacionados
-                        data.related_accounts.forEach(function(acc, idx) {
-                            const row = document.querySelectorAll('.cuentas-related-table tbody tr')[idx];
-                            if (row) {
-                                const statusCell = row.querySelector('td:nth-child(3) span');
-                                if (statusCell) {
-                                    if (acc.status) {
-                                        statusCell.className = 'badge bg-success';
-                                        statusCell.innerHTML = '<i class="bi bi-check-circle me-1"></i>Activa';
-                                    } else {
-                                        statusCell.className = 'badge bg-danger';
-                                        statusCell.innerHTML = '<i class="bi bi-x-circle me-1"></i>Inactiva';
-                                    }
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Toggle password visibility
+    window.togglePassword = function() {
+        const passwordInput = document.getElementById('id_password');
+        const toggleIcon = document.getElementById('toggleIcon');
+        if (passwordInput.type === 'password') {
+            passwordInput.type = 'text';
+            toggleIcon.classList.remove('bi-eye');
+            toggleIcon.classList.add('bi-eye-slash');
+        } else {
+            passwordInput.type = 'password';
+            toggleIcon.classList.remove('bi-eye-slash');
+            toggleIcon.classList.add('bi-eye');
+        }
+    };
+
+    // Checkbox card styling
+    const checkboxCards = document.querySelectorAll('.form-check-card');
+    checkboxCards.forEach(card => {
+        const checkbox = card.querySelector('input[type="checkbox"]');
+        if (checkbox.checked) card.classList.add('checked');
+        checkbox.addEventListener('change', () => {
+            card.classList.toggle('checked', checkbox.checked);
+        });
+    });
+
+    // Suggested renewal date calculation
+    const lastExpirationDateInput = document.getElementById('last_expiration_date');
+    const newExpirationInput = document.getElementById('newExpiration');
+    const renewalDateInput = document.getElementById('renewal_date');
+    const suggestedContainer = document.getElementById('suggestedContainer');
+    const suggestedDate = document.getElementById('suggestedDate');
+
+    function calculateSuggestedDate() {
+        const lastExpiration = lastExpirationDateInput.value;
+        const newExpiration = newExpirationInput.value;
+        const renewalDate = renewalDateInput.value;
+
+        if (!lastExpiration || !newExpiration || !renewalDate) {
+            suggestedContainer.style.display = 'none';
+            return;
+        }
+
+        const lastDate = new Date(lastExpiration);
+        const newDate = new Date(newExpiration);
+        const renewal = new Date(renewalDate);
+
+        const diffInDays = Math.round(Math.abs(newDate - lastDate) / (1000 * 60 * 60 * 24));
+        const suggested = new Date(renewal.getTime() + diffInDays * 24 * 60 * 60 * 1000);
+
+        const day = suggested.getDate().toString().padStart(2, '0');
+        const month = (suggested.getMonth() + 1).toString().padStart(2, '0');
+        const year = suggested.getFullYear();
+
+        suggestedDate.textContent = `${day}/${month}/${year}`;
+        suggestedContainer.style.display = 'block';
+    }
+
+    newExpirationInput.addEventListener('change', calculateSuggestedDate);
+    renewalDateInput.addEventListener('change', calculateSuggestedDate);
+
+    // Toggle all related accounts status
+    const toggleBtn = document.getElementById('toggle-all-status');
+    if (toggleBtn) {
+        toggleBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            toggleBtn.disabled = true;
+            toggleBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Procesando...';
+
+            fetch(window.location.pathname + '?toggle_all=1', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ toggle_all: true })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    data.related_accounts.forEach(function(acc, idx) {
+                        const row = document.querySelectorAll('#relatedAccountsTable tbody tr')[idx];
+                        if (row) {
+                            const statusCell = row.querySelector('td:nth-child(3) span');
+                            if (statusCell) {
+                                if (acc.status) {
+                                    statusCell.className = 'status-badge status-disponible';
+                                    statusCell.innerHTML = '<i class="bi bi-check-circle-fill"></i>Activa';
+                                } else {
+                                    statusCell.className = 'status-badge status-no-disponible';
+                                    statusCell.innerHTML = '<i class="bi bi-x-circle-fill"></i>Inactiva';
                                 }
                             }
-                        });
-                        btn.disabled = false;
-                        btn.classList.remove('btn-warning');
-                        btn.classList.add('btn-success');
-                        document.getElementById('toggle-all-status-text').textContent = data.all_active ? 'Suspender todas' : 'Reactivar todas';
-                    } else {
-                        btn.disabled = false;
-                    }
-                })
-                .catch(() => { btn.disabled = false; });
+                        }
+                    });
+                    toggleBtn.classList.remove('btn-warning');
+                    toggleBtn.classList.add('btn-success');
+                    document.getElementById('toggle-all-status-text').textContent =
+                        data.all_active ? 'Suspender Todas' : 'Reactivar Todas';
+                }
+                toggleBtn.disabled = false;
+                toggleBtn.innerHTML = '<i class="bi bi-arrow-repeat me-1"></i><span id="toggle-all-status-text">' +
+                    (data.all_active ? 'Suspender Todas' : 'Reactivar Todas') + '</span>';
+            })
+            .catch(() => {
+                toggleBtn.disabled = false;
+                toggleBtn.innerHTML = '<i class="bi bi-arrow-repeat me-1"></i><span id="toggle-all-status-text">Cambiar Estado</span>';
             });
-        }
-    });
-    let sugested = document.getElementById('sugested');
-    let lastExpirationDateInput = document.getElementById('last_expiration_date');
-    let newExpirationInput = document.getElementById('newExpiration');
-    let renewalDateInput = document.getElementById('renewal_date');
-    
-    newExpirationInput.addEventListener('change', () => {
-      let lastExpirationDate = lastExpirationDateInput.value;
-      let newExpiration = newExpirationInput.value;
-      let renewalDate = renewalDateInput.value;
-    
-      const lastExpirationDateFormated = new Date(lastExpirationDate);
-      const newExpirationDate = new Date(newExpiration);
-      const renewalDateFormated = new Date(renewalDate)
-    
-      const differenceInDays = (date1, date2) => {
-        const diffInMs = Math.abs(date2 - date1);
-        return diffInMs / (1000 * 60 * 60 * 24);
-      };
-    
-      const daysOfAccount = Math.round(
-        differenceInDays(lastExpirationDateFormated, newExpirationDate)
-      );
-    
-      const suggestedDay = new Date(
-        renewalDateFormated.getTime() + daysOfAccount * 24 * 60 * 60 * 1000
-      );
-    
-      const day = suggestedDay.getDate().toString().padStart(2, '0');
-      const month = (suggestedDay.getMonth() + 1).toString().padStart(2, '0');
-      const year = suggestedDay.getFullYear().toString();
-      const formattedDate = `${day}/${month}/${year}`;
-    
-      sugested.innerHTML = `
-      <label for="sugested">Fecha de renovación sugerida</label>
-          <input type="text" id="sugested" value="${formattedDate}" disabled>
-        `;
-    });
-    </script>
+        });
+    }
+});
+</script>
 {% endblock extrajs %}

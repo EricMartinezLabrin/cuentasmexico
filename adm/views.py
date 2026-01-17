@@ -624,10 +624,13 @@ def AccountsCreateView(request):
                         expiration_date = expiration_date_dt
         # Si no es string, se asume que ya es datetime
         comments = request.POST.get('comments')
-        if request.POST.get('renovable') == 'on':
-            renovable = True
-        else:
-            renovable = False
+        renovable = request.POST.get('renovable') == 'on'
+
+        # Obtener campos adicionales
+        external_status = request.POST.get('external_status', 'Disponible')
+        pin_value = request.POST.get('pin')
+        pin = int(pin_value) if pin_value and pin_value.strip() else None
+
         profile = account_name.perfil_quantity
         for i in range(profile+1):
             if i == 0:
@@ -643,7 +646,9 @@ def AccountsCreateView(request):
                 renovable=renovable,
                 created_by=created_by,
                 modified_by=modified_by,
-                profile=i
+                profile=i,
+                external_status=external_status,
+                pin=pin
             )
         return redirect(success_url)
     else:
