@@ -1103,7 +1103,8 @@ def SalesSearchView(request):
             accounts_query = Account.objects.filter(
                 account_name=service, 
                 customer=None, 
-                status=True
+                status=True,
+                external_status='Disponible'
             ).select_related('account_name').only(
                 'id', 'email', 'password', 'expiration_date', 'profile', 'account_name'
             ).annotate(
@@ -1152,7 +1153,7 @@ def SalesSearchView(request):
         service = Service.objects.get(pk=service_id)
         duration = code.long
         accounts = Account.objects.filter(
-            account_name=service, customer=None, status=True).order_by('-expiration_date')
+            account_name=service, customer=None, status=True, external_status='Disponible').order_by('-expiration_date')
         if duration == 0.25:
             better_acc_expiration_date = timezone.now() + timedelta(days=7)
         else:
@@ -1276,7 +1277,8 @@ def SalesChangeView(request, pk):
     accounts = Account.objects.filter(
         account_name_id=selected_service_id,
         status=True,
-        customer=None
+        customer=None,
+        external_status='Disponible'
     ).order_by('profile')
 
     # Obtener todos los servicios activos

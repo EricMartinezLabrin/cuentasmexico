@@ -76,6 +76,7 @@ urlpatterns = [
     path('stripe/create-checkout-session/', views.stripe_create_checkout_session, name='stripe_create_checkout_session'),
     path('stripe/success/', views.stripe_success, name='stripe_success'),
     path('stripe/cancel/', views.stripe_cancel, name='stripe_cancel'),
+    path('stripe/payment-pending/<int:cart_id>/', views.stripe_payment_pending, name='stripe_payment_pending'),
     path('webhook/stripe/', views.stripe_webhook, name='stripe_webhook'),
 ]
 

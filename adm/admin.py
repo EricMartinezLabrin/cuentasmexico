@@ -11,7 +11,8 @@ class ParteAdmin(admin.ModelAdmin):
 	
 class SearchAccount(admin.ModelAdmin):
     search_fields = ['email']
-    list_filter = ['status','account_name_id']
+    list_filter = ['status','account_name_id', 'external_status']
+    list_display = ['email', 'account_name', 'status', 'external_status', 'expiration_date']
 
 # Register your models here.
 admin.site.register(Bank)

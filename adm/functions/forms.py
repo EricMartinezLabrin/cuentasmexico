@@ -180,7 +180,7 @@ class AccountsForm(forms.ModelForm):
     class Meta:
         model = Account
         fields = ['business', 'supplier', 'account_name', 'expiration_date',
-                  'email', 'password', 'comments', 'renovable', 'created_by', 'modified_by', 'renewal_date']
+                  'email', 'password', 'comments', 'renovable', 'created_by', 'modified_by', 'renewal_date', 'external_status']
         labels = {
             'business': 'Empresa',
             'supplier': 'Proveedor',
@@ -189,7 +189,8 @@ class AccountsForm(forms.ModelForm):
             'email': 'E-Mail',
             'password': 'Contraseña',
             'comments': 'Comentarios',
-            'renovable': '¿Es renovable?'
+            'renovable': '¿Es renovable?',
+            'external_status': 'Estado Externo'
 
         }
         widgets = {
@@ -201,7 +202,8 @@ class AccountsForm(forms.ModelForm):
             'password': forms.TextInput(attrs={'class': 'form-control'}),
             'pin': forms.NumberInput(attrs={'class': 'form-control', 'max': 5}),
             'comments': forms.TextInput(attrs={'class': 'form-control'}),
-            'renovable': forms.CheckboxInput()
+            'renovable': forms.CheckboxInput(),
+            'external_status': forms.Select(attrs={'class': 'form-control'})
 
         }
 

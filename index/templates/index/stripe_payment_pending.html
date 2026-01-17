@@ -1,0 +1,381 @@
+{% extends 'index/base/base.html' %}
+{% block title %}Pago Pendiente{% endblock title %}
+{% block body %}
+
+<style>
+    .pending-container {
+        max-width: 600px;
+        margin: 40px auto;
+        padding: 0 20px;
+    }
+
+    .pending-card {
+        background: white;
+        border-radius: 20px;
+        padding: 40px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        text-align: center;
+    }
+
+    .pending-icon {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 40px;
+        margin: 0 auto 24px;
+        animation: pulse 2s infinite;
+    }
+
+    .pending-icon.oxxo {
+        background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+        color: #d63031;
+    }
+
+    .pending-icon.bank {
+        background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+        color: #00b894;
+    }
+
+    @keyframes pulse {
+        0%, 100% {
+            transform: scale(1);
+            opacity: 1;
+        }
+        50% {
+            transform: scale(1.05);
+            opacity: 0.8;
+        }
+    }
+
+    .pending-title {
+        font-size: 24px;
+        font-weight: 700;
+        color: #2d3436;
+        margin-bottom: 16px;
+    }
+
+    .pending-subtitle {
+        font-size: 16px;
+        color: #636e72;
+        margin-bottom: 32px;
+        line-height: 1.6;
+    }
+
+    .payment-info {
+        background: #f8f9fa;
+        border-radius: 12px;
+        padding: 24px;
+        margin-bottom: 24px;
+        text-align: left;
+    }
+
+    .payment-info-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 12px 0;
+        border-bottom: 1px solid #e9ecef;
+    }
+
+    .payment-info-row:last-child {
+        border-bottom: none;
+    }
+
+    .payment-info-label {
+        color: #636e72;
+        font-size: 14px;
+    }
+
+    .payment-info-value {
+        color: #2d3436;
+        font-weight: 600;
+        font-size: 14px;
+    }
+
+    .voucher-btn {
+        display: inline-block;
+        background: linear-gradient(135deg, #d63031 0%, #e17055 100%);
+        color: white;
+        padding: 16px 32px;
+        border-radius: 12px;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 16px;
+        margin-bottom: 16px;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .voucher-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(214, 48, 49, 0.3);
+        color: white;
+        text-decoration: none;
+    }
+
+    .bank-btn {
+        background: linear-gradient(135deg, #00b894 0%, #00cec9 100%);
+    }
+
+    .bank-btn:hover {
+        box-shadow: 0 6px 20px rgba(0, 184, 148, 0.3);
+    }
+
+    .expires-warning {
+        background: #fff3cd;
+        border-radius: 8px;
+        padding: 12px 16px;
+        margin-top: 24px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .expires-warning i {
+        color: #ffc107;
+        font-size: 20px;
+    }
+
+    .expires-warning-text {
+        color: #856404;
+        font-size: 14px;
+    }
+
+    .status-badge {
+        display: inline-block;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-size: 14px;
+        font-weight: 600;
+        margin-bottom: 24px;
+    }
+
+    .status-badge.awaiting {
+        background: #fff3cd;
+        color: #856404;
+    }
+
+    .status-badge.approved {
+        background: #d4edda;
+        color: #155724;
+    }
+
+    .instructions-list {
+        text-align: left;
+        margin: 24px 0;
+        padding: 0;
+        list-style: none;
+    }
+
+    .instructions-list li {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 12px 0;
+        border-bottom: 1px solid #f0f0f0;
+    }
+
+    .instructions-list li:last-child {
+        border-bottom: none;
+    }
+
+    .step-number {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        font-weight: 600;
+        flex-shrink: 0;
+    }
+
+    .step-text {
+        color: #2d3436;
+        font-size: 14px;
+        line-height: 1.5;
+    }
+
+    .back-link {
+        display: inline-block;
+        color: #667eea;
+        text-decoration: none;
+        font-size: 14px;
+        margin-top: 24px;
+    }
+
+    .back-link:hover {
+        text-decoration: underline;
+    }
+
+    .cart-items {
+        background: #f8f9fa;
+        border-radius: 12px;
+        padding: 16px;
+        margin-bottom: 24px;
+    }
+
+    .cart-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px 0;
+        font-size: 14px;
+    }
+
+    .cart-item-name {
+        color: #2d3436;
+    }
+
+    .cart-item-details {
+        color: #636e72;
+    }
+</style>
+
+<div class="pending-container">
+    <div class="pending-card">
+        {% if payment_method == 'oxxo' %}
+            <div class="pending-icon oxxo">
+                <i class="fas fa-store"></i>
+            </div>
+            <h1 class="pending-title">Pago en OXXO Pendiente</h1>
+            <p class="pending-subtitle">
+                Hemos generado tu ficha de pago. Visita cualquier tienda OXXO y realiza el pago para recibir tus cuentas.
+            </p>
+
+            <span class="status-badge awaiting">
+                <i class="fas fa-clock me-2"></i>Esperando pago
+            </span>
+
+            {% if voucher_url %}
+                <div class="mb-4">
+                    <a href="{{ voucher_url }}" target="_blank" class="voucher-btn">
+                        <i class="fas fa-file-invoice me-2"></i>Ver Ficha de Pago
+                    </a>
+                </div>
+            {% endif %}
+
+            <ul class="instructions-list">
+                <li>
+                    <span class="step-number">1</span>
+                    <span class="step-text">Haz clic en "Ver Ficha de Pago" para descargar o imprimir tu ficha</span>
+                </li>
+                <li>
+                    <span class="step-number">2</span>
+                    <span class="step-text">Lleva la ficha a cualquier tienda OXXO y muestra el codigo de barras</span>
+                </li>
+                <li>
+                    <span class="step-number">3</span>
+                    <span class="step-text">Paga en efectivo el monto indicado</span>
+                </li>
+                <li>
+                    <span class="step-number">4</span>
+                    <span class="step-text">Recibiras tus cuentas automaticamente una vez confirmado el pago (usualmente en 24 horas)</span>
+                </li>
+            </ul>
+
+            {% if expires_at %}
+            <div class="expires-warning">
+                <i class="fas fa-exclamation-triangle"></i>
+                <span class="expires-warning-text">
+                    <strong>Importante:</strong> Esta ficha expira el {{ expires_at|date:"d/m/Y" }} a las {{ expires_at|time:"H:i" }}.
+                    Realiza tu pago antes de esta fecha.
+                </span>
+            </div>
+            {% endif %}
+
+        {% elif payment_method == 'bank_transfer' %}
+            <div class="pending-icon bank">
+                <i class="fas fa-university"></i>
+            </div>
+            <h1 class="pending-title">Transferencia Bancaria Pendiente</h1>
+            <p class="pending-subtitle">
+                Realiza una transferencia SPEI con los datos proporcionados para completar tu compra.
+            </p>
+
+            <span class="status-badge awaiting">
+                <i class="fas fa-clock me-2"></i>Esperando transferencia
+            </span>
+
+            <ul class="instructions-list">
+                <li>
+                    <span class="step-number">1</span>
+                    <span class="step-text">Ingresa a tu banca en linea o app bancaria</span>
+                </li>
+                <li>
+                    <span class="step-number">2</span>
+                    <span class="step-text">Realiza una transferencia SPEI con el monto exacto</span>
+                </li>
+                <li>
+                    <span class="step-number">3</span>
+                    <span class="step-text">Usa la referencia y datos bancarios proporcionados por Stripe</span>
+                </li>
+                <li>
+                    <span class="step-number">4</span>
+                    <span class="step-text">Recibiras tus cuentas automaticamente al confirmar el pago (puede tomar hasta 24 horas en dias habiles)</span>
+                </li>
+            </ul>
+
+        {% else %}
+            <div class="pending-icon bank">
+                <i class="fas fa-hourglass-half"></i>
+            </div>
+            <h1 class="pending-title">Pago Pendiente</h1>
+            <p class="pending-subtitle">
+                Tu pago esta siendo procesado. Te notificaremos cuando se complete.
+            </p>
+
+            <span class="status-badge awaiting">
+                <i class="fas fa-clock me-2"></i>Procesando pago
+            </span>
+        {% endif %}
+
+        <div class="payment-info">
+            <div class="payment-info-row">
+                <span class="payment-info-label">Numero de orden</span>
+                <span class="payment-info-value">#{{ cart.id }}</span>
+            </div>
+            <div class="payment-info-row">
+                <span class="payment-info-label">Estado</span>
+                <span class="payment-info-value">
+                    {% if cart.payment_status == 'awaiting_payment' %}
+                        Esperando pago
+                    {% elif cart.payment_status == 'approved' %}
+                        Aprobado
+                    {% elif cart.payment_status == 'expired' %}
+                        Expirado
+                    {% else %}
+                        {{ cart.payment_status }}
+                    {% endif %}
+                </span>
+            </div>
+            {% if cart.transaction_amount %}
+            <div class="payment-info-row">
+                <span class="payment-info-label">Monto</span>
+                <span class="payment-info-value">${{ cart.transaction_amount }} MXN</span>
+            </div>
+            {% endif %}
+        </div>
+
+        {% if cart_details %}
+        <div class="cart-items">
+            <h6 class="mb-3" style="color: #2d3436; font-weight: 600;">Productos:</h6>
+            {% for item in cart_details %}
+            <div class="cart-item">
+                <span class="cart-item-name">{{ item.service.description }}</span>
+                <span class="cart-item-details">{{ item.quantity }} perfil(es) x {{ item.long }} mes(es)</span>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <a href="{% url 'my_account' %}" class="back-link">
+            <i class="fas fa-arrow-left me-2"></i>Volver a Mi Cuenta
+        </a>
+    </div>
+</div>
+
+{% endblock body %}

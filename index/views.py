@@ -1952,18 +1952,80 @@ def stripe_create_checkout_session(request):
                 'quantity': int(item_data['profiles']),
             })
 
-        # Crear sesion de checkout
-        checkout_session = stripe.checkout.Session.create(
-            payment_method_types=['card'],
-            line_items=line_items,
-            mode='payment',
-            success_url=f"{site_url}/stripe/success/?session_id={{CHECKOUT_SESSION_ID}}",
-            cancel_url=f"{site_url}/stripe/cancel/",
-            metadata={
+        # Crear sesion de checkout con métodos de pago adicionales
+        # Incluye: card, oxxo y customer_balance (SPEI/transferencia bancaria)
+
+        # Obtener email del usuario
+        user_email = None
+        if hasattr(request, 'user') and hasattr(request.user, 'email') and request.user.email:
+            user_email = request.user.email
+
+        logger.info(f"Stripe DEBUG - cart_id: {cart_id}")
+        logger.info(f"Stripe DEBUG - user_email: {user_email}")
+        logger.info(f"Stripe DEBUG - line_items count: {len(line_items)}")
+
+        # Crear o buscar customer en Stripe (requerido para customer_balance/SPEI)
+        stripe_customer = None
+        if user_email:
+            # Buscar si ya existe un customer con ese email
+            existing_customers = stripe.Customer.list(email=user_email, limit=1)
+            if existing_customers.data:
+                stripe_customer = existing_customers.data[0]
+                logger.info(f"Stripe DEBUG - Customer existente encontrado: {stripe_customer.id}")
+            else:
+                # Crear nuevo customer
+                stripe_customer = stripe.Customer.create(
+                    email=user_email,
+                    metadata={
+                        'cart_id': str(cart_id),
+                        'source': 'checkout_session'
+                    }
+                )
+                logger.info(f"Stripe DEBUG - Nuevo customer creado: {stripe_customer.id}")
+        else:
+            # Si no hay email, crear customer sin email
+            stripe_customer = stripe.Customer.create(
+                metadata={
+                    'cart_id': str(cart_id),
+                    'source': 'checkout_session_anonymous'
+                }
+            )
+            logger.info(f"Stripe DEBUG - Customer anónimo creado: {stripe_customer.id}")
+
+        # Preparar parámetros de la sesión con todos los métodos de pago
+        session_params = {
+            'customer': stripe_customer.id,
+            'payment_method_types': ['card', 'oxxo', 'customer_balance'],
+            'payment_method_options': {
+                'oxxo': {
+                    'expires_after_days': 3,
+                },
+                'customer_balance': {
+                    'funding_type': 'bank_transfer',
+                    'bank_transfer': {
+                        'type': 'mx_bank_transfer',
+                    },
+                },
+            },
+            'line_items': line_items,
+            'mode': 'payment',
+            'success_url': f"{site_url}/stripe/success/?session_id={{CHECKOUT_SESSION_ID}}",
+            'cancel_url': f"{site_url}/stripe/cancel/",
+            'metadata': {
                 'cart_id': str(cart_id),
             },
-            locale='es',
-        )
+            'locale': 'es',
+        }
+
+        logger.info(f"Stripe DEBUG - session_params customer: {stripe_customer.id}")
+
+        checkout_session = stripe.checkout.Session.create(**session_params)
+
+        # Guardar información de la sesión en el carrito para pagos diferidos
+        cart.stripe_session_id = checkout_session.id
+        cart.payment_status = 'awaiting_payment'
+        cart.date_created = timezone.now()
+        cart.save()
 
         # Guardar cart_id en la sesion
         request.session['stripe_cart_id'] = cart_id
@@ -1982,7 +2044,12 @@ def stripe_create_checkout_session(request):
             'message': 'Datos invalidos'
         }, status=400)
     except stripe.error.StripeError as e:
-        logger.error(f"Error de Stripe: {str(e)}")
+        logger.error(f"Stripe ERROR - tipo: {type(e).__name__}")
+        logger.error(f"Stripe ERROR - mensaje: {str(e)}")
+        logger.error(f"Stripe ERROR - request_id: {getattr(e, 'request_id', 'N/A')}")
+        logger.error(f"Stripe ERROR - http_status: {getattr(e, 'http_status', 'N/A')}")
+        logger.error(f"Stripe ERROR - code: {getattr(e, 'code', 'N/A')}")
+        logger.error(f"Stripe ERROR - param: {getattr(e, 'param', 'N/A')}")
         return JsonResponse({
             'success': False,
             'message': f'Error de Stripe: {str(e)}'
@@ -1999,6 +2066,7 @@ def stripe_success(request):
     """
     Vista de exito despues del pago de Stripe.
     Procesa el pago y entrega las cuentas.
+    Soporta pagos diferidos: OXXO y transferencia bancaria.
     """
     import os
     import logging
@@ -2016,25 +2084,68 @@ def stripe_success(request):
         # Obtener la sesion de Stripe
         session = stripe.checkout.Session.retrieve(session_id)
 
-        if session.payment_status != 'paid':
-            logger.warning(f"Stripe: Sesion {session_id} no pagada: {session.payment_status}")
-            return redirect('cart')
-
         # Obtener cart_id de los metadata
         cart_id = session.metadata.get('cart_id')
         if not cart_id:
             logger.error("Stripe: Sesion sin cart_id en metadata")
             return redirect('cart')
 
-        # Procesar el pago
-        result = process_stripe_payment(request, cart_id, session_id, session)
+        # Obtener el carrito
+        try:
+            cart = IndexCart.objects.get(pk=cart_id)
+        except IndexCart.DoesNotExist:
+            logger.error(f"Carrito {cart_id} no encontrado")
+            return redirect('cart')
 
-        # Limpiar el carrito
-        cart_processor = CartProcessor(request)
-        cart_processor.clear()
-        cache.delete('stripe_cart_id')
+        # Verificar estado del pago
+        if session.payment_status == 'paid':
+            # Pago completado inmediatamente (tarjeta)
+            result = process_stripe_payment(request, cart_id, session_id, session)
 
-        return redirect('my_account')
+            # Limpiar el carrito
+            cart_processor = CartProcessor(request)
+            cart_processor.clear()
+            cache.delete('stripe_cart_id')
+
+            return redirect('my_account')
+
+        elif session.payment_status == 'unpaid':
+            # Pago diferido (OXXO o transferencia) - mostrar página de espera
+            cart.payment_status = 'awaiting_payment'
+            cart.stripe_session_id = session_id
+
+            # Detectar tipo de método de pago
+            if hasattr(session, 'payment_intent') and session.payment_intent:
+                try:
+                    payment_intent = stripe.PaymentIntent.retrieve(session.payment_intent)
+                    if payment_intent.next_action:
+                        next_action = payment_intent.next_action
+                        if hasattr(next_action, 'oxxo_display_details'):
+                            cart.payment_method_type = 'oxxo'
+                            cart.hosted_voucher_url = next_action.oxxo_display_details.hosted_voucher_url
+                            if hasattr(next_action.oxxo_display_details, 'expires_after'):
+                                from datetime import datetime
+                                cart.payment_expires_at = datetime.fromtimestamp(
+                                    next_action.oxxo_display_details.expires_after,
+                                    tz=timezone.utc
+                                )
+                        elif hasattr(next_action, 'display_bank_transfer_instructions'):
+                            cart.payment_method_type = 'bank_transfer'
+                except Exception as e:
+                    logger.warning(f"No se pudo obtener detalles de pago diferido: {e}")
+
+            cart.save()
+
+            # Limpiar el carrito de la sesión
+            cart_processor = CartProcessor(request)
+            cart_processor.clear()
+
+            # Redirigir a la página de estado de pago pendiente
+            return redirect('stripe_payment_pending', cart_id=cart_id)
+
+        else:
+            logger.warning(f"Stripe: Estado de pago desconocido: {session.payment_status}")
+            return redirect('cart')
 
     except stripe.error.StripeError as e:
         logger.error(f"Error obteniendo sesion de Stripe: {str(e)}")
@@ -2042,6 +2153,70 @@ def stripe_success(request):
     except Exception as e:
         logger.exception(f"Error en stripe_success: {str(e)}")
         return redirect('cart')
+
+
+def stripe_payment_pending(request, cart_id):
+    """
+    Vista para mostrar el estado de un pago pendiente (OXXO/transferencia).
+    """
+    import os
+    import logging
+    logger = logging.getLogger(__name__)
+
+    try:
+        cart = IndexCart.objects.get(pk=cart_id)
+    except IndexCart.DoesNotExist:
+        return redirect('cart')
+
+    # Verificar que el usuario sea el dueño del carrito
+    if cart.customer != request.user:
+        return redirect('cart')
+
+    # Obtener detalles del carrito
+    cart_details = IndexCartdetail.objects.filter(cart=cart)
+
+    # Configurar Stripe para obtener información actualizada
+    stripe.api_key = os.environ.get('STRIPE_SECRET_KEY')
+
+    # Obtener información actualizada de la sesión si existe
+    voucher_url = cart.hosted_voucher_url
+    expires_at = cart.payment_expires_at
+    bank_instructions = None
+
+    if cart.stripe_session_id:
+        try:
+            session = stripe.checkout.Session.retrieve(cart.stripe_session_id)
+
+            # Si ya se pagó, procesar y redirigir
+            if session.payment_status == 'paid':
+                cart.payment_status = 'approved'
+                cart.save()
+                process_stripe_payment(request, cart_id, session.id, session)
+                return redirect('my_account')
+
+            # Obtener detalles del pago pendiente
+            if hasattr(session, 'payment_intent') and session.payment_intent:
+                payment_intent = stripe.PaymentIntent.retrieve(session.payment_intent)
+                if payment_intent.next_action:
+                    next_action = payment_intent.next_action
+                    if hasattr(next_action, 'oxxo_display_details'):
+                        voucher_url = next_action.oxxo_display_details.hosted_voucher_url
+                    elif hasattr(next_action, 'display_bank_transfer_instructions'):
+                        bank_instructions = next_action.display_bank_transfer_instructions
+
+        except Exception as e:
+            logger.warning(f"Error obteniendo sesión de Stripe: {e}")
+
+    context = {
+        'cart': cart,
+        'cart_details': cart_details,
+        'voucher_url': voucher_url,
+        'expires_at': expires_at,
+        'bank_instructions': bank_instructions,
+        'payment_method': cart.payment_method_type,
+    }
+
+    return render(request, 'index/stripe_payment_pending.html', context)
 
 
 def stripe_cancel(request):
@@ -2056,6 +2231,7 @@ def stripe_webhook(request):
     """
     Webhook para recibir notificaciones de Stripe.
     Procesa pagos completados y entrega las cuentas al cliente.
+    Soporta pagos diferidos: OXXO y transferencia bancaria.
     """
     import os
     import logging
@@ -2084,16 +2260,85 @@ def stripe_webhook(request):
         # Manejar el evento
         if event.type == 'checkout.session.completed':
             session = event.data.object
+            cart_id = session.metadata.get('cart_id')
 
-            # Solo procesar si el pago fue exitoso
-            if session.payment_status == 'paid':
-                cart_id = session.metadata.get('cart_id')
-                if cart_id:
+            if cart_id:
+                try:
+                    cart = IndexCart.objects.get(pk=cart_id)
+                    # Guardar el tipo de método de pago usado
+                    payment_method_types = session.get('payment_method_types', [])
+                    if payment_method_types:
+                        cart.payment_method_type = payment_method_types[0] if isinstance(payment_method_types, list) else str(payment_method_types)
+
+                    # Procesar según el estado del pago
+                    if session.payment_status == 'paid':
+                        # Pago completado inmediatamente (tarjeta)
+                        cart.payment_status = 'approved'
+                        cart.save()
+                        process_stripe_payment(request, cart_id, session.id, session)
+                    elif session.payment_status == 'unpaid':
+                        # Pago diferido (OXXO o transferencia) - esperando pago
+                        cart.payment_status = 'awaiting_payment'
+                        cart.stripe_session_id = session.id
+
+                        # Para OXXO, obtener la URL del voucher
+                        if hasattr(session, 'payment_intent'):
+                            try:
+                                payment_intent = stripe.PaymentIntent.retrieve(session.payment_intent)
+                                if payment_intent.next_action:
+                                    next_action = payment_intent.next_action
+                                    if hasattr(next_action, 'oxxo_display_details'):
+                                        cart.hosted_voucher_url = next_action.oxxo_display_details.hosted_voucher_url
+                                        cart.payment_expires_at = timezone.datetime.fromtimestamp(
+                                            next_action.oxxo_display_details.expires_after,
+                                            tz=timezone.utc
+                                        )
+                                    elif hasattr(next_action, 'display_bank_transfer_instructions'):
+                                        # Transferencia bancaria
+                                        cart.payment_method_type = 'bank_transfer'
+                            except Exception as e:
+                                logger.warning(f"No se pudo obtener next_action: {e}")
+
+                        cart.save()
+                        logger.info(f"Stripe: Pago diferido iniciado para carrito {cart_id}")
+                except IndexCart.DoesNotExist:
+                    logger.error(f"Carrito {cart_id} no encontrado")
+
+        elif event.type == 'checkout.session.async_payment_succeeded':
+            # Pago diferido completado (OXXO pagado, transferencia recibida)
+            session = event.data.object
+            cart_id = session.metadata.get('cart_id')
+            if cart_id:
+                logger.info(f"Stripe: Pago diferido completado para carrito {cart_id}")
+                try:
+                    cart = IndexCart.objects.get(pk=cart_id)
+                    cart.payment_status = 'approved'
+                    cart.save()
                     process_stripe_payment(request, cart_id, session.id, session)
+                except IndexCart.DoesNotExist:
+                    logger.error(f"Carrito {cart_id} no encontrado")
+
+        elif event.type == 'checkout.session.async_payment_failed':
+            # Pago diferido fallido o expirado
+            session = event.data.object
+            cart_id = session.metadata.get('cart_id')
+            if cart_id:
+                logger.warning(f"Stripe: Pago diferido fallido para carrito {cart_id}")
+                try:
+                    cart = IndexCart.objects.get(pk=cart_id)
+                    cart.payment_status = 'expired'
+                    cart.save()
+                except IndexCart.DoesNotExist:
+                    logger.error(f"Carrito {cart_id} no encontrado")
 
         elif event.type == 'payment_intent.succeeded':
             payment_intent = event.data.object
             logger.info(f"Stripe: PaymentIntent exitoso: {payment_intent.id}")
+
+        elif event.type == 'payment_intent.requires_action':
+            # El pago requiere acción del cliente (mostrar voucher OXXO, etc.)
+            payment_intent = event.data.object
+            logger.info(f"Stripe: PaymentIntent requiere acción: {payment_intent.id}")
 
         # Confirmar recepcion del evento
         return HttpResponse(status=200)

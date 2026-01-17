@@ -165,6 +165,9 @@ class Account(models.Model):
     profile = models.IntegerField(null=True, blank=True, default=1)
     sent = models.BooleanField(null=True, blank=True, default=False)
     renovable = models.BooleanField(null=True, blank=True, default=False)
+    external_status = models.CharField(
+        max_length=50, default='Disponible', 
+        choices=[('Disponible', 'Disponible'), ('No Disponible', 'No Disponible'), ('Suspendida', 'Suspendida')])
 
     def __str__(self):
         return self.account_name.description + "," + self.email
