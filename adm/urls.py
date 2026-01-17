@@ -152,4 +152,12 @@ urlpatterns = [
          login_required(views.PromoImageDeleteView.as_view()), name='promo_image_delete'),
     path('promo-image/toggle/<int:pk>',
          login_required(views.TogglePromoImageStatus), name='promo_image_toggle'),
+
+    # Gestión de Promociones
+    path('promociones/', login_required(views.PromocionesView), name='promociones'),
+    path('promociones/create/', login_required(views.PromocionCreateView), name='promocion_create'),
+    path('promociones/update/<int:pk>', login_required(views.PromocionUpdateView), name='promocion_update'),
+    path('promociones/delete/<int:pk>', login_required(views.PromocionDeleteView), name='promocion_delete'),
+    path('promociones/toggle/<int:pk>', login_required(views.PromocionToggleStatusView), name='promocion_toggle'),
+    path('promociones/fechas-disponibles/', login_required(views.PromocionFechasDisponiblesView), name='promocion_fechas_disponibles'),
 ]

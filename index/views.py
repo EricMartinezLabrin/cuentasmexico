@@ -45,6 +45,7 @@ import json
 
 def index(request):
     from adm.models import IndexCarouselImage, IndexPromoImage
+    from adm.functions.promociones import PromocionManager
     template_name = "index/index.html"
 
     # Obtener imágenes activas
@@ -55,13 +56,22 @@ def index(request):
     promo_left = promo_images.filter(position='left').first()
     promo_right = promo_images.filter(position='right').first()
 
+    # Obtener servicios y aplicar promociones
+    servicios = Service.objects.filter(status=True)
+    servicios_con_promocion = PromocionManager.aplicar_promociones_a_servicios(servicios)
+
+    # Obtener banners de promociones
+    promociones_banner = PromocionManager.obtener_promociones_banner()
+
     return render(request, template_name, {
         'business': BusinessInfo.data(),
         'credits': BusinessInfo.credits(request),
         'services': Service.objects.filter(status=True),
+        'servicios_con_promocion': servicios_con_promocion,
         'carousel_images': carousel_images,
         'promo_left': promo_left,
         'promo_right': promo_right,
+        'promociones_banner': promociones_banner,
     })
 
 
