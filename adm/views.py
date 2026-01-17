@@ -4,12 +4,12 @@ from django.shortcuts import render
 from django.http import HttpResponse, HttpRequest
 from django.views.generic import DetailView, CreateView, UpdateView, TemplateView, ListView, DeleteView
 from django.urls import reverse, reverse_lazy
-from django.contrib.auth.decorators import permission_required
+from django.contrib.auth.decorators import permission_required, login_required
 from django.contrib.auth.models import User
 from django.shortcuts import redirect
 from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
 from django.http import JsonResponse
-from django.db.models import Sum, Prefetch, Case, When, IntegerField
+from django.db.models import Sum, Prefetch, Case, When, IntegerField, Q
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.db.models import DateTimeField, ExpressionWrapper, F
@@ -241,6 +241,15 @@ class MainUserUpdateView(UserAccessMixin, UpdateView):
     form_class = UserMainForm
     template_name = 'adm/user_edit.html'
     success_url = reverse_lazy('adm:user')
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Agregar user_detail al contexto
+        try:
+            context['user_detail'] = self.object.userdetail
+        except:
+            context['user_detail'] = None
+        return context
 
 class UserView(UserAccessMixin, ListView):
     """
@@ -251,6 +260,150 @@ class UserView(UserAccessMixin, ListView):
     template_name = 'adm/user.html'
     permission_required = 'is_superuser'
     paginate_by = 30
+
+    def get_queryset(self):
+        # Optimización: traer solo los campos necesarios y prefetch user_detail
+        from django.db.models import Prefetch
+        queryset = User.objects.only(
+            'id', 'first_name', 'last_name', 'username', 'email', 
+            'is_active', 'is_staff', 'is_superuser'
+        ).prefetch_related(
+            Prefetch('userdetail')
+        )
+        
+        # Filtro por búsqueda (nombre, usuario o email)
+        search = self.request.GET.get('search', '').strip()
+        if search:
+            # Optimizar búsqueda: usar iexact para términos cortos
+            if len(search) == 1:
+                queryset = queryset.filter(
+                    Q(username__istartswith=search) |
+                    Q(first_name__istartswith=search) |
+                    Q(last_name__istartswith=search)
+                )
+            else:
+                queryset = queryset.filter(
+                    Q(first_name__icontains=search) |
+                    Q(last_name__icontains=search) |
+                    Q(username__icontains=search) |
+                    Q(email__icontains=search)
+                )
+        
+        # Filtro por estado (activo/inactivo)
+        active_filter = self.request.GET.get('active_filter', '')
+        if active_filter == 'active':
+            queryset = queryset.filter(is_active=True)
+        elif active_filter == 'inactive':
+            queryset = queryset.filter(is_active=False)
+        
+        # Filtro por rol (staff/admin)
+        role_filter = self.request.GET.get('role_filter', '')
+        if role_filter == 'staff':
+            queryset = queryset.filter(is_staff=True, is_superuser=False)
+        elif role_filter == 'superuser':
+            queryset = queryset.filter(is_superuser=True)
+        elif role_filter == 'customer':
+            queryset = queryset.filter(is_staff=False, is_superuser=False)
+        
+        # Ordenamiento
+        sort = self.request.GET.get('sort', '-id')
+        if sort in ['username', 'email', 'first_name', 'is_active', 'is_staff', 'id', '-username', '-email', '-first_name', '-is_active', '-is_staff', '-id']:
+            queryset = queryset.order_by(sort)
+        
+        return queryset
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['search'] = self.request.GET.get('search', '')
+        context['active_filter'] = self.request.GET.get('active_filter', '')
+        context['role_filter'] = self.request.GET.get('role_filter', '')
+        context['sort'] = self.request.GET.get('sort', '-id')
+        return context
+
+@login_required
+@permission_required('is_superuser', 'adm:no-permission')
+def ChangeUserPhone(request, pk):
+    """
+    Vista segura para cambiar el número de teléfono de un usuario
+    """
+    try:
+        user = User.objects.get(pk=pk)
+        user_detail = user.userdetail
+    except (User.DoesNotExist, UserDetail.DoesNotExist):
+        return redirect('adm:user')
+    
+    from .functions.forms import UserPhoneChangeForm
+    
+    if request.method == 'POST':
+        form = UserPhoneChangeForm(request.POST)
+        if form.is_valid():
+            # Guardar datos antiguos
+            old_lada = user_detail.lada
+            old_phone_number = user_detail.phone_number
+            
+            # Actualizar con nuevos datos
+            new_lada = form.cleaned_data['new_lada']
+            new_phone_number = form.cleaned_data['new_phone_number']
+            reason = form.cleaned_data.get('reason', '')
+            
+            # Actualizar el teléfono
+            user_detail.lada = new_lada
+            user_detail.phone_number = new_phone_number
+            user_detail.save()
+            
+            # Registrar en el historial
+            from .models import UserPhoneHistory
+            UserPhoneHistory.objects.create(
+                user_detail=user_detail,
+                old_lada=old_lada,
+                old_phone_number=old_phone_number,
+                new_lada=new_lada,
+                new_phone_number=new_phone_number,
+                changed_by=request.user,
+                reason=reason
+            )
+            
+            # Redirigir a la vista de edición
+            return redirect('adm:user_mainupdate', pk=pk)
+    else:
+        form = UserPhoneChangeForm(initial={
+            'new_lada': user_detail.lada,
+            'new_phone_number': user_detail.phone_number
+        })
+    
+    context = {
+        'form': form,
+        'user': user,
+        'user_detail': user_detail
+    }
+    return render(request, 'adm/user_phone_change.html', context)
+
+@login_required
+@permission_required('is_superuser', 'adm:no-permission')
+def ToggleUserStatus(request, pk):
+    """
+    Cambia el estado activo/inactivo de un usuario
+    """
+    try:
+        user = User.objects.get(pk=pk)
+        user.is_active = not user.is_active
+        user.save()
+        
+        if request.META.get('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': True,
+                'is_active': user.is_active,
+                'message': 'Estado actualizado correctamente'
+            })
+        else:
+            return redirect(request.META.get('HTTP_REFERER', 'adm:user'))
+    except User.DoesNotExist:
+        if request.META.get('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': False,
+                'message': 'Usuario no encontrado'
+            }, status=404)
+        return redirect('adm:user')
 
 class ServiceView(UserAccessMixin, ListView):
     """
@@ -471,10 +624,13 @@ def AccountsCreateView(request):
                         expiration_date = expiration_date_dt
         # Si no es string, se asume que ya es datetime
         comments = request.POST.get('comments')
-        if request.POST.get('renovable') == 'on':
-            renovable = True
-        else:
-            renovable = False
+        renovable = request.POST.get('renovable') == 'on'
+
+        # Obtener campos adicionales
+        external_status = request.POST.get('external_status', 'Disponible')
+        pin_value = request.POST.get('pin')
+        pin = int(pin_value) if pin_value and pin_value.strip() else None
+
         profile = account_name.perfil_quantity
         for i in range(profile+1):
             if i == 0:
@@ -490,7 +646,9 @@ def AccountsCreateView(request):
                 renovable=renovable,
                 created_by=created_by,
                 modified_by=modified_by,
-                profile=i
+                profile=i,
+                external_status=external_status,
+                pin=pin
             )
         return redirect(success_url)
     else:
@@ -950,7 +1108,8 @@ def SalesSearchView(request):
             accounts_query = Account.objects.filter(
                 account_name=service, 
                 customer=None, 
-                status=True
+                status=True,
+                external_status='Disponible'
             ).select_related('account_name').only(
                 'id', 'email', 'password', 'expiration_date', 'profile', 'account_name'
             ).annotate(
@@ -999,7 +1158,7 @@ def SalesSearchView(request):
         service = Service.objects.get(pk=service_id)
         duration = code.long
         accounts = Account.objects.filter(
-            account_name=service, customer=None, status=True).order_by('-expiration_date')
+            account_name=service, customer=None, status=True, external_status='Disponible').order_by('-expiration_date')
         if duration == 0.25:
             better_acc_expiration_date = timezone.now() + timedelta(days=7)
         else:
@@ -1123,7 +1282,8 @@ def SalesChangeView(request, pk):
     accounts = Account.objects.filter(
         account_name_id=selected_service_id,
         status=True,
-        customer=None
+        customer=None,
+        external_status='Disponible'
     ).order_by('profile')
 
     # Obtener todos los servicios activos

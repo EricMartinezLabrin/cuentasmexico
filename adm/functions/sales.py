@@ -44,7 +44,8 @@ class Sales():
         available_accounts = Account.objects.filter(
             account_name=service,
             status=True,
-            customer=None
+            customer=None,
+            external_status='Disponible'
         ).select_related('account_name')
 
         if not available_accounts.exists():
@@ -124,7 +125,7 @@ class Sales():
         # account as a and service as sev
         for a in serv:
             result[a.description] = Account.objects.filter(
-                status=True, customer=None, account_name=a).count()
+                status=True, customer=None, account_name=a, external_status='Disponible').count()
         return result, serv
 
     def is_email(request, customer):
@@ -598,7 +599,7 @@ class Sales():
                     for a in account:
                         # Busca cuentas libres con relacion a la busqueda anterior
                         selected = Account.objects.filter(
-                            account_name=service, email=a.account.email, status=True, customer=None)
+                            account_name=service, email=a.account.email, status=True, customer=None, external_status='Disponible')
                         if selected.count() > 0:
                             # si existe una retorna el resultado
                             return True, selected[0]
@@ -609,12 +610,12 @@ class Sales():
 
                 # find empty accounts
                 empty = Account.objects.filter(
-                    account_name=service, status=True, customer=None)
+                    account_name=service, status=True, customer=None, external_status='Disponible')
                 if empty.count() == 0:
                     return False, "No hay cuentas disponibles, porfavor comunicate al whats app +521 833 535 5863"
                 for e in empty:
                     q = Account.objects.filter(
-                        email=e.email, account_name=service, status=True, customer=None)
+                        email=e.email, account_name=service, status=True, customer=None, external_status='Disponible')
                     if q.count() == service.perfil_quantity:
                         return True, q[0]
                 if not esta:
@@ -624,12 +625,12 @@ class Sales():
                     if account.count() > 0:
                         for a in account:
                             acc = Account.objects.filter(
-                                email=a.account.email, password=a.account.password, account_name=a.account.account_name, customer=None, status=True)
+                                email=a.account.email, password=a.account.password, account_name=a.account.account_name, customer=None, status=True, external_status='Disponible')
                             if acc.count() > 0:
                                 return True, acc[0]
                             else:
                                 acc = Account.objects.filter(
-                                    account_name=service, customer=None, status=True, renovable=True)
+                                    account_name=service, customer=None, status=True, renovable=True, external_status='Disponible')
                                 if acc.count() > 0:
                                     return True, acc[0]
                     else:

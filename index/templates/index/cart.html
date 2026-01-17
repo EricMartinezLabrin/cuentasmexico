@@ -103,19 +103,123 @@
                             Comprar <span class="fw-bold">se descontarán {{request.session.cart_total}} Créditos</span>
                         </a>
                     {% else %}
-                        {% if init_point %}
-                        <a href="{% url 'start_payment' %}?initpoint={{ init_point }}" id="buy" class="btn btn-cm btn-lg d-flex justify-content-between align-items-center" >
-                           Continuar con el pago
-                        </a>
-                        {% else %}
-                        <button class="btn btn-secondary btn-lg d-flex justify-content-between align-items-center" disabled>
-                           Procesando...
+                        <!-- Metodos de pago disponibles -->
+                        <div class="mb-3">
+                            <h6 class="mb-2">Selecciona tu metodo de pago:</h6>
+                        </div>
+
+                        {% if stripe_enabled and stripe_data %}
+                        <!-- Stripe: Tarjeta, OXXO y Transferencia SPEI -->
+                        <div class="stripe-payment-card mb-4" style="border: 2px solid #635bff; border-radius: 16px; overflow: hidden;">
+                            <!-- Header con gradiente -->
+                            <div style="background: linear-gradient(135deg, #635bff 0%, #8b5cf6 100%); padding: 16px 20px;">
+                                <div class="d-flex align-items-center justify-content-between">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <i class="fas fa-shield-alt text-white"></i>
+                                        <span class="text-white fw-bold">Pago Seguro</span>
+                                    </div>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="50" height="21" viewBox="0 0 60 25" fill="none">
+                                        <path fill-rule="evenodd" clip-rule="evenodd" d="M60 12.8C60 8.55 57.85 5.15 53.8 5.15C49.75 5.15 47.15 8.55 47.15 12.75C47.15 17.7 50.15 20.45 54.45 20.45C56.55 20.45 58.15 19.95 59.35 19.25V15.85C58.15 16.5 56.8 16.9 55.1 16.9C53.45 16.9 51.95 16.35 51.75 14.35H59.95C59.95 14.15 60 13.25 60 12.8ZM51.7 11.35C51.7 9.45 52.85 8.55 53.8 8.55C54.7 8.55 55.8 9.45 55.8 11.35H51.7Z" fill="white"/>
+                                        <path fill-rule="evenodd" clip-rule="evenodd" d="M40.9 5.15C39.2 5.15 38.15 5.95 37.55 6.5L37.35 5.4H33.35V25L37.95 24.05L37.95 19.55C38.55 19.95 39.45 20.5 40.85 20.5C43.75 20.5 46.35 18.15 46.35 12.6C46.35 7.55 43.7 5.15 40.9 5.15ZM39.85 16.75C38.85 16.75 38.25 16.4 37.95 16L37.95 9.65C38.25 9.2 38.9 8.85 39.85 8.85C41.35 8.85 42.35 10.55 42.35 12.8C42.35 15.1 41.35 16.75 39.85 16.75Z" fill="white"/>
+                                        <path fill-rule="evenodd" clip-rule="evenodd" d="M28.1 4.1L32.7 3.15V0L28.1 0.95V4.1Z" fill="white"/>
+                                        <path d="M32.7 5.4H28.1V20.2H32.7V5.4Z" fill="white"/>
+                                        <path fill-rule="evenodd" clip-rule="evenodd" d="M23.55 6.6L23.3 5.4H19.35V20.2H23.95V10.1C25.05 8.7 26.95 8.95 27.5 9.15V5.4C26.9 5.15 24.65 4.8 23.55 6.6Z" fill="white"/>
+                                        <path fill-rule="evenodd" clip-rule="evenodd" d="M14.45 1.9L10 2.85L9.95 16.15C9.95 18.6 11.8 20.5 14.25 20.5C15.6 20.5 16.55 20.25 17.1 19.95V16.4C16.6 16.6 14.45 17.25 14.45 14.8V9H17.1V5.4H14.45V1.9Z" fill="white"/>
+                                        <path fill-rule="evenodd" clip-rule="evenodd" d="M4.65 9.65C4.65 9 5.2 8.75 6.1 8.75C7.35 8.75 8.95 9.15 10.2 9.85V5.7C8.85 5.15 7.5 4.95 6.1 4.95C2.45 4.95 0 6.95 0 10C0 14.55 6.3 13.85 6.3 15.8C6.3 16.55 5.6 16.8 4.65 16.8C3.3 16.8 1.5 16.25 0.1 15.45V19.65C1.6 20.3 3.15 20.55 4.65 20.55C8.4 20.55 11 18.6 11 15.5C11 10.6 4.65 11.45 4.65 9.65Z" fill="white"/>
+                                    </svg>
+                                </div>
+                            </div>
+
+                            <!-- Métodos de pago disponibles -->
+                            <div style="background: #fafafa; padding: 16px 20px;">
+                                <p class="mb-3 text-muted" style="font-size: 13px;">Elige como pagar en el siguiente paso:</p>
+                                <div class="row g-2 mb-3">
+                                    <!-- Tarjeta -->
+                                    <div class="col-4">
+                                        <div class="text-center p-2 rounded" style="background: white; border: 1px solid #e0e0e0;">
+                                            <i class="fas fa-credit-card mb-1" style="font-size: 20px; color: #635bff;"></i>
+                                            <div style="font-size: 11px; font-weight: 600; color: #333;">Tarjeta</div>
+                                            <div style="font-size: 9px; color: #888;">Debito/Credito</div>
+                                        </div>
+                                    </div>
+                                    <!-- OXXO -->
+                                    <div class="col-4">
+                                        <div class="text-center p-2 rounded" style="background: white; border: 1px solid #e0e0e0;">
+                                            <i class="fas fa-store mb-1" style="font-size: 20px; color: #d63031;"></i>
+                                            <div style="font-size: 11px; font-weight: 600; color: #333;">OXXO</div>
+                                            <div style="font-size: 9px; color: #888;">Pago en tienda</div>
+                                        </div>
+                                    </div>
+                                    <!-- Transferencia -->
+                                    <div class="col-4">
+                                        <div class="text-center p-2 rounded" style="background: white; border: 1px solid #e0e0e0;">
+                                            <i class="fas fa-university mb-1" style="font-size: 20px; color: #00b894;"></i>
+                                            <div style="font-size: 11px; font-weight: 600; color: #333;">SPEI</div>
+                                            <div style="font-size: 9px; color: #888;">Transferencia</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Botón de pago -->
+                            <div style="padding: 0 20px 20px 20px; background: #fafafa;">
+                                <button id="stripe-checkout-button" class="btn w-100 py-3" style="background: linear-gradient(135deg, #635bff 0%, #8b5cf6 100%); border: none; border-radius: 12px; color: white; font-weight: 600; font-size: 16px; transition: all 0.3s ease;">
+                                    <i class="fas fa-lock me-2"></i>Continuar al pago seguro
+                                </button>
+                            </div>
+                        </div>
+                        <div id="stripe-loading" class="text-center mb-4" style="display: none;">
+                            <div class="spinner-border" style="color: #635bff;" role="status">
+                                <span class="visually-hidden">Procesando...</span>
+                            </div>
+                            <p class="mt-2" style="color: #635bff;">Redirigiendo al pago seguro...</p>
+                        </div>
+                        {% endif %}
+
+                        {% if paypal_enabled and paypal_data %}
+                        <!-- Separador -->
+                        {% if stripe_enabled and stripe_data %}
+                        <div class="d-flex align-items-center mb-3">
+                            <hr class="flex-grow-1" style="border-color: #ddd;">
+                            <span class="px-3 text-muted" style="font-size: 12px;">o paga con</span>
+                            <hr class="flex-grow-1" style="border-color: #ddd;">
+                        </div>
+                        {% endif %}
+                        <!-- Boton PayPal -->
+                        <div id="paypal-button-container" class="mb-3"></div>
+                        <div id="paypal-loading" class="text-center mb-3" style="display: none;">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Procesando...</span>
+                            </div>
+                            <p class="mt-2">Procesando tu pago con PayPal...</p>
+                        </div>
+                        {% endif %}
+
+                        {% if mercadopago_enabled and init_point %}
+                        <!-- Boton MercadoPago (deshabilitado por defecto) -->
+                        <div class="mt-2">
+                            <a href="{% url 'start_payment' %}?initpoint={{ init_point }}" id="buy-mp" class="btn btn-outline-secondary btn-lg w-100 d-flex justify-content-between align-items-center">
+                                <img src="https://www.mercadopago.com/org-img/MP3/home/logomp3.gif" alt="MercadoPago" style="height: 24px;">
+                                <span>Pagar con MercadoPago</span>
+                            </a>
+                        </div>
+                        {% endif %}
+
+                        {% if not paypal_enabled and not mercadopago_enabled and not stripe_enabled %}
+                        <button class="btn btn-secondary btn-lg w-100" disabled>
+                           No hay metodos de pago disponibles
+                        </button>
+                        {% endif %}
+
+                        {% if paypal_enabled and not paypal_data and not mercadopago_enabled and stripe_enabled and not stripe_data %}
+                        <button class="btn btn-secondary btn-lg w-100" disabled>
+                           Agrega productos al carrito
                         </button>
                         {% endif %}
                     {% endif %}
                 {% else %}
                     <a href="{% url 'login' %}" class="btn btn-cm btn-lg d-flex justify-content-between align-items-center">
-                        <span class="fw-bold">Inicia sesión para continuar</span>
+                        <span class="fw-bold">Inicia sesion para continuar</span>
                     </a>
                 {% endif %}
                 </div>
@@ -153,19 +257,24 @@
 </div> {% endcomment %}
 {% endblock body %}
 {% block extrajs %}
+<!-- PayPal SDK -->
+{% if paypal_enabled and paypal_data %}
+<script src="https://www.paypal.com/sdk/js?client-id={{ paypal_client_id|default:'sb' }}&currency=MXN&locale=es_MX"></script>
+{% endif %}
+
 <script>
-    const level = "{{request.user.userdetail.level.name}}";
-    
-    if (level==="Distribuidor"){
+    const level = "{{ request.user.userdetail.level.name }}";
+
+    if (level === "Distribuidor") {
         insuficient_credits()
     }
 
-    function insuficient_credits(){
-        var credits = {{credits}};
-        var bill = {{request.session.cart_total}};
+    function insuficient_credits() {
+        var credits = {{ credits }};
+        var bill = {{ request.session.cart_total }};
         const buy = document.getElementById('buy');
         const error = document.getElementById('error')
-        if (credits < bill){
+        if (credits < bill) {
             console.log('no alcanza')
             buy.className += ' disabled';
             error.innerHTML = `
@@ -174,12 +283,157 @@
                 <td colspan="5">
                     <div class="alert alert-danger" role="alert">
                         No tienes creditos suficientes. Tienes <b>${credits}</b> y necesitas <b>${bill}</b>, para continuar debes recargar.
-                    </div> 
+                    </div>
                 </td>
             </tr>
             `
         }
     }
+
+    {% if paypal_enabled and paypal_data %}
+    // PayPal Integration
+    const paypalData = {
+        cartId: '{{ paypal_data.cart_id }}',
+        items: {{ paypal_data.items|safe }},
+        subtotal: {{ paypal_data.subtotal }}
+    };
+
+    paypal.Buttons({
+        style: {
+            layout: 'vertical',
+            color: 'gold',
+            shape: 'rect',
+            label: 'paypal',
+            height: 50
+        },
+
+        // Crear la orden cuando el usuario hace clic
+        createOrder: function(data, actions) {
+            // Construir items para PayPal
+            const items = paypalData.items.map(item => ({
+                name: item.name,
+                description: item.description || '',
+                quantity: String(item.quantity),
+                unit_amount: {
+                    currency_code: 'MXN',
+                    value: String(item.itemCost.toFixed(2))
+                }
+            }));
+
+            const itemTotal = paypalData.items.reduce((sum, item) => sum + item.itemTotal, 0);
+
+            return actions.order.create({
+                purchase_units: [{
+                    reference_id: paypalData.cartId,
+                    description: 'Compra en CuentasMexico',
+                    amount: {
+                        currency_code: 'MXN',
+                        value: String(itemTotal.toFixed(2)),
+                        breakdown: {
+                            item_total: {
+                                currency_code: 'MXN',
+                                value: String(itemTotal.toFixed(2))
+                            }
+                        }
+                    },
+                    items: items
+                }]
+            });
+        },
+
+        // Capturar el pago cuando el usuario aprueba
+        onApprove: function(data, actions) {
+            // Mostrar loading
+            document.getElementById('paypal-button-container').style.display = 'none';
+            document.getElementById('paypal-loading').style.display = 'block';
+
+            return actions.order.capture().then(function(details) {
+                // Enviar al backend para procesar la entrega
+                fetch('{% url "paypal_capture_order" %}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        order_id: data.orderID,
+                        cart_id: paypalData.cartId
+                    })
+                })
+                .then(response => response.json())
+                .then(result => {
+                    if (result.success) {
+                        // Redirigir a mi cuenta
+                        window.location.href = result.redirect_url;
+                    } else {
+                        alert('Error procesando el pago: ' + result.message);
+                        document.getElementById('paypal-button-container').style.display = 'block';
+                        document.getElementById('paypal-loading').style.display = 'none';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error de conexion. Por favor intenta de nuevo.');
+                    document.getElementById('paypal-button-container').style.display = 'block';
+                    document.getElementById('paypal-loading').style.display = 'none';
+                });
+            });
+        },
+
+        // Manejar cancelacion
+        onCancel: function(data) {
+            console.log('Pago cancelado por el usuario');
+        },
+
+        // Manejar errores
+        onError: function(err) {
+            console.error('Error PayPal:', err);
+            alert('Ocurrio un error con PayPal. Por favor intenta de nuevo.');
+        }
+    }).render('#paypal-button-container');
+    {% endif %}
+
+    {% if stripe_enabled and stripe_data %}
+    // Stripe Integration
+    const stripeData = {
+        cartId: '{{ stripe_data.cart_id }}',
+        items: {{ stripe_data.items|safe }},
+        subtotal: {{ stripe_data.subtotal }}
+    };
+
+    document.getElementById('stripe-checkout-button').addEventListener('click', function() {
+        // Mostrar loading
+        document.getElementById('stripe-checkout-button').style.display = 'none';
+        document.getElementById('stripe-loading').style.display = 'block';
+
+        // Crear sesion de checkout en el backend
+        fetch('{% url "stripe_create_checkout_session" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                cart_id: stripeData.cartId
+            })
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success && result.url) {
+                // Redirigir a Stripe Checkout
+                window.location.href = result.url;
+            } else {
+                alert('Error: ' + (result.message || 'No se pudo crear la sesion de pago'));
+                document.getElementById('stripe-checkout-button').style.display = 'flex';
+                document.getElementById('stripe-loading').style.display = 'none';
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error de conexion. Por favor intenta de nuevo.');
+            document.getElementById('stripe-checkout-button').style.display = 'flex';
+            document.getElementById('stripe-loading').style.display = 'none';
+        });
+    });
+    {% endif %}
 </script>
 
 {% endblock extrajs %}

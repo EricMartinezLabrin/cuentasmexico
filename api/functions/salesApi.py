@@ -71,7 +71,7 @@ class SalesApi():
             except Service.MultipleObjectsReturned:
                 return False
             acc = Account.objects.filter(
-                status=True, customer=None, account_name=account_obj)
+                status=True, customer=None, account_name=account_obj, external_status='Disponible')
             if acc.count() > 0:
                 account = acc[0]
 

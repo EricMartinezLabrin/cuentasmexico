@@ -40,16 +40,12 @@ SECRET_KEY = 'django-insecure-uf41q9_1%4#x4!k4a)pa#pqc&5aj^-s)*f5lcicaui-$m2@s*e
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['localhost','127.0.0.1','www.cuentasmexico.mx','cuentasmexico.mx','cm.fadetechs.com','cuentas-mxico-web-qjz8lr-93c6ac-148-113-219-180.traefik.me','license-cdna-households-cio.trycloudflare.com']
-CSRF_TRUSTED_ORIGINS = [
-    'https://www.cuentasmexico.mx',
-    'https://cuentasmexico.mx',
-    'http://localhost',
-    'http://127.0.0.1',
-    'https://cm.fadetechs.com',
-    'https://cuentas-mxico-web-qjz8lr-93c6ac-148-113-219-180.traefik.me',
-    'https://license-cdna-households-cio.trycloudflare.com'
-]
+# ALLOWED_HOSTS desde variable de entorno (separados por coma)
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+
+# CSRF_TRUSTED_ORIGINS desde variable de entorno (separados por coma)
+# Debe incluir el protocolo (https:// o http://)
+CSRF_TRUSTED_ORIGINS = os.getenv('CSRF_TRUSTED_ORIGINS', 'http://localhost,http://127.0.0.1').split(',')
 
 
 # Application definition
@@ -94,9 +90,15 @@ LOGIN_REDIRECT_URL = '/adm/sales'
 LOGIN_URL = '/login'
 LOGOUT_REDIRECT_URL = '/login'
 
-# Configuración de CORS para permitir credenciales
+# Configuración de CORS desde variables de entorno
 CORS_ALLOW_CREDENTIALS = True
-CORS_ALLOW_ALL_ORIGINS = True
+# Si CORS_ALLOWED_ORIGINS está vacío o es '*', permite todos los orígenes
+_cors_origins = os.getenv('CORS_ALLOWED_ORIGINS', '*')
+if _cors_origins == '*' or not _cors_origins:
+    CORS_ALLOW_ALL_ORIGINS = True
+else:
+    CORS_ALLOW_ALL_ORIGINS = False
+    CORS_ALLOWED_ORIGINS = _cors_origins.split(',')
 
 ROOT_URLCONF = 'CuentasMexico.urls'
 
@@ -256,12 +258,6 @@ CACHES = {
         }
     }
 }
-
-CORS_ORIGIN_ALLOW_ALL = True
-
-#CORS_ALLOWED_ORIGINS = [
-#    "https://app.cuentasmexico.mx"
-#]
 
 # Configuración de logging
 LOGGING = {

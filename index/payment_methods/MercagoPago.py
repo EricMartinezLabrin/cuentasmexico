@@ -10,6 +10,7 @@ from django.utils import timezone
 
 # Local
 from index.models import IndexCart, IndexCartdetail
+from index.payment_methods.utils import get_masked_product_name, get_masked_description
 
 
 class MercadoPago():
@@ -32,15 +33,26 @@ class MercadoPago():
 
         new_cart = []
         for item in cart.items():
+            # Usar nombres camuflados para pasarelas de pago
+            item_id = item[0]
+            item_data = item[1]
+            product_id = item_data.get('product_id', item_id)
+            masked_name = get_masked_product_name(product_id, item_id)
+            masked_description = get_masked_description(
+                item_data['profiles'],
+                item_data['quantity'],
+                product_id
+            )
+
             cart_items = {
-                "id": str(item[0]),  # ID del item para homologación
-                "title": item[1]['name'],
-                "description": f"Suscripción {item[1]['name']} - {item[1]['profiles']} perfiles",  # Descripción del item
+                "id": str(item_id),  # ID del item para homologación
+                "title": masked_name,
+                "description": masked_description,
                 "category_id": "services",  # Categoría del item para homologación
-                "quantity": item[1]['profiles'],
+                "quantity": item_data['profiles'],
                 "currency_id": "MXN",
-                "unit_price": item[1]['unitPrice']*item[1]['quantity'],
-                "picture_url": f'https://cuentasmexico.mx/{item[1]["image"]}',
+                "unit_price": item_data['unitPrice']*item_data['quantity'],
+                "picture_url": f'https://cuentasmexico.mx/{item_data["image"]}',
             }
             new_cart.append(cart_items)
 

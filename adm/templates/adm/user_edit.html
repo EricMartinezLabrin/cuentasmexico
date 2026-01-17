@@ -1,15 +1,297 @@
 {% extends 'adm/base/base.html' %}
 {% block title %}
-    Editar Cliente
+    Editar Usuario
 {% endblock title %}
 {% block body %}
-    <h1>Editar Cliente</h1>
-    {% if message %}<div class="alert alert-danger" role="alert">{{ message }}</div>{% endif %}
-    <form method="post">
-        {% csrf_token %}
-        <p>
-            {{ form.as_p }}
-            <input type="submit" value="Continuar" class="btn btn-cm">
-            <a href="{% url 'adm:sales' %}" class="btn btn-cm-cancel">Cancelar</a>
-        </form>
-    {% endblock body %}
+    <div class="container-fluid">
+        <!-- Header -->
+        <div class="mb-4">
+            <div class="d-flex align-items-center gap-3 mb-3">
+                <a href="{% url 'adm:user' %}" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-arrow-left"></i> Volver
+                </a>
+                <h1 class="mb-0">Editar Usuario</h1>
+            </div>
+            <p class="text-muted mb-0">Usuario: <code>{{ object.username }}</code></p>
+        </div>
+
+        <!-- Alertas -->
+        {% if message %}
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                <i class="bi bi-exclamation-circle"></i> {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        {% endif %}
+        
+        {% if form.non_field_errors %}
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                <i class="bi bi-exclamation-circle"></i> 
+                {% for error in form.non_field_errors %}
+                    <div>{{ error }}</div>
+                {% endfor %}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        {% endif %}
+
+        <!-- Formulario -->
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <form method="post" novalidate>
+                    {% csrf_token %}
+
+                    <!-- Sección de Información Personal -->
+                    <div class="mb-4">
+                        <h5 class="card-title border-bottom pb-3">
+                            <i class="bi bi-person-circle"></i> Información Personal
+                        </h5>
+                        
+                        <div class="row">
+                            <!-- Nombres -->
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.first_name.id_for_label }}" class="form-label fw-bold">
+                                    {{ form.first_name.label }}
+                                </label>
+                                {{ form.first_name }}
+                                {% if form.first_name.errors %}
+                                    <div class="text-danger small mt-1">
+                                        {% for error in form.first_name.errors %}
+                                            <i class="bi bi-exclamation-circle"></i> {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+
+                            <!-- Apellidos -->
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.last_name.id_for_label }}" class="form-label fw-bold">
+                                    {{ form.last_name.label }}
+                                </label>
+                                {{ form.last_name }}
+                                {% if form.last_name.errors %}
+                                    <div class="text-danger small mt-1">
+                                        {% for error in form.last_name.errors %}
+                                            <i class="bi bi-exclamation-circle"></i> {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Email -->
+                        <div class="row">
+                            <div class="col-12 mb-3">
+                                <label for="{{ form.email.id_for_label }}" class="form-label fw-bold">
+                                    {{ form.email.label }}
+                                </label>
+                                {{ form.email }}
+                                {% if form.email.errors %}
+                                    <div class="text-danger small mt-1">
+                                        {% for error in form.email.errors %}
+                                            <i class="bi bi-exclamation-circle"></i> {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sección de Información de Contacto (UserDetail) -->
+                    {% if user_detail %}
+                        <div class="mb-4">
+                            <div class="d-flex justify-content-between align-items-center pb-3 border-bottom">
+                                <h5 class="card-title mb-0">
+                                    <i class="bi bi-telephone"></i> Información de Contacto
+                                </h5>
+                                <a href="{% url 'adm:user_change_phone' object.id %}" class="btn btn-sm btn-warning">
+                                    <i class="bi bi-pencil"></i> Cambiar Teléfono
+                                </a>
+                            </div>
+                            
+                            <div class="row mt-3">
+                                <!-- Teléfono -->
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-bold">Teléfono</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">+{{ user_detail.lada }}</span>
+                                        <input type="text" class="form-control" value="{{ user_detail.phone_number }}" disabled>
+                                    </div>
+                                    <small class="text-muted">Contacto: +{{ user_detail.lada }} {{ user_detail.phone_number }}</small>
+                                </div>
+
+                                <!-- País -->
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-bold">País</label>
+                                    <input type="text" class="form-control" value="{{ user_detail.country }}" disabled>
+                                </div>
+                            </div>
+
+                            <!-- Información Adicional -->
+                            <div class="row">
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label fw-bold">Nivel</label>
+                                    <input type="text" class="form-control" value="{{ user_detail.level|default:'No asignado' }}" disabled>
+                                </div>
+
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label fw-bold">Días Gratis</label>
+                                    <input type="text" class="form-control" value="{{ user_detail.free_days }}" disabled>
+                                </div>
+
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label fw-bold">Referencia</label>
+                                    <input type="text" class="form-control" value="{{ user_detail.reference|default:'-' }}" disabled>
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
+
+                    <!-- Sección de Permisos -->
+                    <div class="mb-4">
+                        <h5 class="card-title border-bottom pb-3">
+                            <i class="bi bi-shield-lock"></i> Permisos y Estado
+                        </h5>
+
+                        <!-- Toggles -->
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-check form-switch mb-3">
+                                    {{ form.is_staff }}
+                                    <label class="form-check-label" for="{{ form.is_staff.id_for_label }}">
+                                        <strong>{{ form.is_staff.label }}</strong>
+                                        <small class="text-muted d-block mt-1">
+                                            Marca si es parte del equipo de trabajo
+                                        </small>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="form-check form-switch mb-3">
+                                    {{ form.is_active }}
+                                    <label class="form-check-label" for="{{ form.is_active.id_for_label }}">
+                                        <strong>{{ form.is_active.label }}</strong>
+                                        <small class="text-muted d-block mt-1">
+                                            Marca para activar la cuenta
+                                        </small>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Información de Sistema -->
+                    <div class="alert alert-info" role="alert">
+                        <i class="bi bi-info-circle"></i> <strong>Información del Sistema:</strong>
+                        <ul class="mb-0 mt-2">
+                            <li>Usuario: <code>{{ object.username }}</code></li>
+                            <li>ID: <code>{{ object.id }}</code></li>
+                            <li>Creado: {{ object.date_joined|date:"d/m/Y H:i" }}</li>
+                            <li>Última actividad: {{ object.last_login|default:"Nunca" }}</li>
+                        </ul>
+                    </div>
+
+                    <!-- Botones de Acción -->
+                    <div class="d-flex gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="bi bi-check-circle"></i> Guardar Cambios
+                        </button>
+                        <a href="{% url 'adm:user' %}" class="btn btn-secondary btn-lg">
+                            <i class="bi bi-x-circle"></i> Cancelar
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Historial de Cambios de Teléfono -->
+        {% if user_detail.phone_history.all %}
+            <div class="card shadow-sm mt-4">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">
+                        <i class="bi bi-clock-history"></i> Historial de Cambios de Teléfono
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Fecha y Hora</th>
+                                    <th>Teléfono Anterior</th>
+                                    <th>Teléfono Nuevo</th>
+                                    <th>Cambio Realizado Por</th>
+                                    <th>Motivo</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for change in user_detail.phone_history.all %}
+                                    <tr>
+                                        <td>
+                                            <small class="text-muted">
+                                                {{ change.changed_at|date:"d/m/Y H:i:s" }}
+                                            </small>
+                                        </td>
+                                        <td>
+                                            {% if change.old_phone_full == "No registrado" %}
+                                                <span class="badge bg-secondary">{{ change.old_phone_full }}</span>
+                                            {% else %}
+                                                <code>{{ change.old_phone_full }}</code>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <strong><code>{{ change.new_phone_full }}</code></strong>
+                                        </td>
+                                        <td>
+                                            <small>{{ change.changed_by.get_full_name|default:change.changed_by.username }}</small>
+                                        </td>
+                                        <td>
+                                            {% if change.reason %}
+                                                <small class="text-muted">{{ change.reason }}</small>
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+
+    <style>
+        .form-control-lg {
+            padding: 0.75rem 1rem;
+            font-size: 1rem;
+        }
+        
+        .card {
+            border: none;
+            border-radius: 8px;
+        }
+        
+        .card-title {
+            margin-bottom: 0;
+            font-size: 1.1rem;
+            color: #333;
+        }
+        
+        .form-check-label {
+            margin-left: 0.5rem;
+            cursor: pointer;
+        }
+        
+        .form-switch .form-check-input {
+            width: 3rem;
+            height: 1.5rem;
+            margin-top: 0.25rem;
+        }
+        
+        .form-switch .form-check-input:checked {
+            background-color: #198754;
+            border-color: #198754;
+        }
+    </style>
+{% endblock body %}

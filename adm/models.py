@@ -108,6 +108,38 @@ class Supplier(models.Model):
         return self.name
 
 
+class UserPhoneHistory(models.Model):
+    """
+    Registro histórico de cambios de teléfono de usuarios
+    """
+    user_detail = models.ForeignKey(UserDetail, on_delete=models.CASCADE, related_name='phone_history')
+    old_phone_number = models.CharField(max_length=16, null=True, blank=True)
+    old_lada = models.IntegerField(null=True, blank=True)
+    new_phone_number = models.CharField(max_length=16, null=False)
+    new_lada = models.IntegerField(null=False)
+    changed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    changed_at = models.DateTimeField(auto_now_add=True)
+    reason = models.TextField(null=True, blank=True, max_length=500)
+    
+    class Meta:
+        ordering = ['-changed_at']
+        verbose_name = 'Historial de Cambios de Teléfono'
+        verbose_name_plural = 'Historiales de Cambios de Teléfono'
+    
+    def __str__(self):
+        return f"{self.user_detail.user.username} - {self.changed_at}"
+    
+    @property
+    def old_phone_full(self):
+        if self.old_lada and self.old_phone_number:
+            return f"+{self.old_lada} {self.old_phone_number}"
+        return "No registrado"
+    
+    @property
+    def new_phone_full(self):
+        return f"+{self.new_lada} {self.new_phone_number}"
+
+
 class Account(models.Model):
     business = models.ForeignKey(Business, on_delete=models.DO_NOTHING)
     supplier = models.ForeignKey(
@@ -133,6 +165,9 @@ class Account(models.Model):
     profile = models.IntegerField(null=True, blank=True, default=1)
     sent = models.BooleanField(null=True, blank=True, default=False)
     renovable = models.BooleanField(null=True, blank=True, default=False)
+    external_status = models.CharField(
+        max_length=50, default='Disponible', 
+        choices=[('Disponible', 'Disponible'), ('No Disponible', 'No Disponible'), ('Suspendida', 'Suspendida')])
 
     def __str__(self):
         return self.account_name.description + "," + self.email

@@ -10,100 +10,223 @@
             crossorigin="anonymous"></script>
 {% endblock head %}
 {% block body %}
-    {% if customer.username %}
-        <h1>Ventas a {{ customer.username }}</h1>
-        <p class="details">
-            Username:{{ customer.username }} <i class="bi bi-ticket-detailed-fill"></i> {{ customer.email }} <i class="bi bi-telephone-fill"></i> {{ customer.userdetail.phone_number }} <i class="bi bi-flag-fill"></i> {{ customer.userdetail.country }} <a class="cm" href="{% url 'adm:user_update' customer.userdetail.id %}">Editar...</a> <a class="cm"
-    href="{% url 'adm:user_mainupdate' customer.userdetail.id %}">Datos Personales...</a>
-        </p>
-    {% elif customer.email %}
-        <h1>Ventas a {{ customer.email }}</h1>
-        <p class="details">
-            Username:{{ customer.username }} <i class="bi bi-ticket-detailed-fill"></i> {{ customer.email }} <i class="bi bi-telephone-fill"></i> {{ customer.userdetail.phone_number }} <i class="bi bi-flag-fill"></i> {{ customer.userdetail.country }}  <a class="cm" href="{% url 'adm:user_update' customer.userdetail.id %}">Editar...</a> <a class="cm"
-    href="{% url 'adm:user_mainupdate' customer.userdetail.id %}">Datos Personales...</a>
-        </p>
-    {% elif  customer.userdetail.phone_number %}
-        <h1>Ventas a {{ customer.userdetail.phone_number }}</h1>
-        <p class="details">
-            Username:{{ customer.username }} <i class="bi bi-ticket-detailed-fill"></i> {{ customer.email }} <i class="bi bi-telephone-fill"></i> {{ customer.userdetail.phone_number }} <i class="bi bi-flag-fill"></i> {{ customer.userdetail.country }}  <a class="cm" href="{% url 'adm:user_update' customer.userdetail.id %}">Editar...</a> <a class="cm"
-    href="{% url 'adm:user_mainupdate' customer.userdetail.id %}">Datos Personales...</a>
-        </p>
-    {% elif not customer %}
-        <h1>Ventas</h1>
-    {% else %}
-        <h1>Ventas</h1>
-        <div class="alert alert-danger" role="alert">{{ customer }}</div>
-    {% endif %}
-    {% if customer.userdetail.free_days > 0 %}
-        <div class="alert alert-success" role="alert">
-            <h2>Felicidades</h2>
-            <p>Tienes {{ customer.userdetail.free_days }} dias gratis para utilizar en la compra de tus servicios.</p>
+<div class="container-fluid py-4">
+    <!-- Available Accounts Info - Small Cards -->
+    {% if availables %}
+        <div class="row g-2 mb-4">
+            {% for key, value in availables.items %}
+                <div class="col-6 col-sm-4 col-md-3 col-lg-2">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-body p-2 text-center">
+                            <small class="text-muted d-block">{{ key }}</small>
+                            <h5 class="card-title mb-0" style="color: #0d6efd;">{{ value }}</h5>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
         </div>
     {% endif %}
-    <!--Available Account-->
-    <div class="d-flex mb-4">
-        {% for key,value in availables.items %}<b class="ms-2">{{ key }}:</b> {{ value }}{% endfor %}
-    </div>
-    <!--Seach Box-->
-    <form method="post" action="{% url 'adm:sales' %}" class="d-flex w-100">
-        {% csrf_token %}
-        <input type="text"
-               class="form-control"
-               name="customer"
-               placeholder="Ingresa email o whats app sin codigo de pais"
-               autofocus>
-        <input type="submit" value="Buscar Cliente" class="btn btn-cm ms-2">
-        <a href="{% url 'adm:sales' %}" class="btn btn-cm-cancel ms-2">Limpiar</a>
-        {% if customer and customer.userdetail.country %}
-            {% if customer.userdetail.country == '??' %}
-            {% else %}
-                <a href="{% url 'adm:sales_create' customer.id %}"
-                   class="btn btn-primary ms-2">Venta</a>
-                <a href="#"
-                   class="btn btn-info ms-2"
-                   data-bs-toggle="modal"
-                   data-bs-target="#staticBackdrop">Codigo</a>
-            {% endif %}
+
+    <!-- Header -->
+    <div class="mb-4">
+        {% if customer.username or customer.email or customer.userdetail.phone_number %}
+            <div class="card border-0 shadow-sm">
+                <div class="card-body p-4">
+                    <div class="row align-items-center">
+                        <div class="col">
+                            <h3 class="card-title mb-3">
+                                <i class="bi bi-receipt me-2" style="color: #0d6efd;"></i>
+                                {% if customer.username %}
+                                    Ventas a {{ customer.username }}
+                                {% elif customer.email %}
+                                    Ventas a {{ customer.email }}
+                                {% else %}
+                                    Ventas a {{ customer.userdetail.phone_number }}
+                                {% endif %}
+                            </h3>
+                            <!-- Customer Info Grid -->
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <div class="d-flex align-items-center">
+                                        <div style="background: #e7f3ff; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;" class="me-3">
+                                            <i class="bi bi-person" style="color: #0d6efd; font-size: 20px;"></i>
+                                        </div>
+                                        <div>
+                                            <small class="text-muted d-block">Usuario</small>
+                                            <strong>{{ customer.username }}</strong>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="d-flex align-items-center">
+                                        <div style="background: #fff3e0; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;" class="me-3">
+                                            <i class="bi bi-envelope" style="color: #ff9800; font-size: 20px;"></i>
+                                        </div>
+                                        <div>
+                                            <small class="text-muted d-block">Email</small>
+                                            <strong>{{ customer.email }}</strong>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="d-flex align-items-center">
+                                        <div style="background: #f3e5f5; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;" class="me-3">
+                                            <i class="bi bi-telephone" style="color: #9c27b0; font-size: 20px;"></i>
+                                        </div>
+                                        <div>
+                                            <small class="text-muted d-block">Teléfono</small>
+                                            <strong>{{ customer.userdetail.phone_number }}</strong>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="d-flex align-items-center">
+                                        <div style="background: #e8f5e9; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;" class="me-3">
+                                            <i class="bi bi-globe" style="color: #4caf50; font-size: 20px;"></i>
+                                        </div>
+                                        <div>
+                                            <small class="text-muted d-block">País</small>
+                                            <strong>{{ customer.userdetail.country }}</strong>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <div class="btn-group-vertical" role="group">
+                                <a href="{% url 'adm:user_mainupdate' customer.id %}" class="btn btn-sm btn-outline-secondary" title="Datos personales">
+                                    <i class="bi bi-person-gear me-2"></i> Datos Personales
+                                </a>
+                                <a href="{% url 'adm:user_change_phone' customer.id %}" class="btn btn-sm btn-outline-secondary" title="Cambiar teléfono">
+                                    <i class="bi bi-telephone-fill me-2"></i> Cambiar Teléfono
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% else %}
+            <h3 class="mb-0">
+                <i class="bi bi-receipt me-2" style="color: #0d6efd;"></i>
+                Ventas
+            </h3>
         {% endif %}
-    </form>
-    <!--Country do not seted-->
-    {% if customer and not customer.userdetail.country or customer.userdetail.country == '??' %}
-        <div class="alert alert-danger mt-3" role="alert">
-            Para crear una venta debes completar el perfil del cliente haciendo clic <a href="{% url 'adm:user_update' customer.userdetail.id %}"
-    class="alert-link">aqui</a>.
+    </div>
+
+    <!-- Free Days Alert -->
+    {% if customer.userdetail.free_days > 0 %}
+        <div class="alert alert-success alert-dismissible fade show d-flex align-items-center mb-4" role="alert">
+            <i class="bi bi-gift-fill me-3" style="font-size: 24px;"></i>
+            <div>
+                <strong>¡Felicidades!</strong>
+                <p class="mb-0">Tienes <span class="badge bg-success">{{ customer.userdetail.free_days }} días gratis</span> para utilizar en la compra de servicios.</p>
+            </div>
+            <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert"></button>
         </div>
     {% endif %}
-    <!--Error message-->
-    {% if message %}<div class="alert alert-danger mt-4" role="alert">{{ message }}</div>{% endif %}
+
+    <!-- Search & Action Bar -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body p-3">
+            <form method="post" action="{% url 'adm:sales' %}">
+                {% csrf_token %}
+                <div class="row g-2">
+                    <div class="col-md-6">
+                        <input type="text"
+                               class="form-control form-control-lg"
+                               name="customer"
+                               placeholder="Buscar por email o teléfono..."
+                               autofocus
+                               style="border-radius: 8px;">
+                    </div>
+                    <div class="col-md-auto d-flex gap-2">
+                        <button type="submit" class="btn btn-primary btn-lg" style="border-radius: 8px;">
+                            <i class="bi bi-search me-2"></i> Buscar
+                        </button>
+                        <a href="{% url 'adm:sales' %}" class="btn btn-outline-secondary btn-lg" style="border-radius: 8px;">
+                            <i class="bi bi-x-lg me-2"></i> Limpiar
+                        </a>
+                        {% if customer and customer.userdetail.country %}
+                            {% if customer.userdetail.country != '??' %}
+                                <a href="{% url 'adm:sales_create' customer.id %}" class="btn btn-success btn-lg" style="border-radius: 8px;" title="Crear nueva venta">
+                                    <i class="bi bi-plus-circle me-2"></i> Nueva Venta
+                                </a>
+                                <button type="button" class="btn btn-info btn-lg" style="border-radius: 8px;" data-bs-toggle="modal" data-bs-target="#staticBackdrop" title="Canjear código">
+                                    <i class="bi bi-ticket-perforated me-2"></i> Canjear Código
+                                </button>
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Country Alert -->
+    {% if customer and not customer.userdetail.country or customer.userdetail.country == '??' %}
+        <div class="alert alert-danger alert-dismissible fade show d-flex align-items-center mb-4" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-3" style="font-size: 20px;"></i>
+            <div>
+                <strong>Perfil Incompleto</strong>
+                <p class="mb-0">Para crear ventas, debes completar el perfil. <a href="{% url 'adm:user_update' customer.userdetail.id %}" class="alert-link fw-bold">Completar perfil →</a></p>
+            </div>
+            <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert"></button>
+        </div>
+    {% endif %}
+
+    <!-- Error Message -->
+    {% if message %}
+        <div class="alert alert-danger alert-dismissible fade show mb-4" role="alert">
+            <i class="bi bi-exclamation-circle-fill me-2"></i>
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    {% endif %}
     {% if customer %}
-        <h6 class="mt-4">Activas</h6>
-        {% if active %}
-            <table class="table table-hover">
-                <thead>
-                    <th></th>
-                    <th></th>
-                    <th>E-Mail</th>
-                    <th>Clave</th>
-                    <th>Pin</th>
-                    <th>Perfil</th>
-                    <th>F.Compra</th>
-                    <th>F.Vencimiento Cliente</th>
-                    <th>F.Vencimiento Cuenta</th>
-                    <th>Vendedor</th>
-                    <th>Acciones</th>
-                </thead>
-                <tbody>
-                    {% for a in active %}
-                        <tr class="text-center">
-                            <td class="t-img">
-                                <img src="{{ a.account.account_name.logo.url }}"
-                                     alt="{{ a.account.account_name.description }}"
-                                     width="30">
-                            </td>
-                            <td>
-                                {% if a.account.renovable %}<i class="bi bi-star-fill" style="color:orange"></i>{% endif %}
-                                <!--Copiado-->
-                                <textarea id="{{a.id}}" style="position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none;" tabindex="-1" aria-hidden="true" readonly>
+        <!-- Active Accounts Section -->
+        <div class="mb-5">
+            <div class="d-flex align-items-center mb-3">
+                <h5 class="mb-0">
+                    <span class="badge bg-success me-2">
+                        <i class="bi bi-check-circle me-1"></i>
+                        Activas ({{ active|length }})
+                    </span>
+                </h5>
+            </div>
+
+            {% if active %}
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="text-center" style="width: 50px;"><i class="bi bi-image"></i></th>
+                                <th class="text-center" style="width: 50px;"></th>
+                                <th>E-Mail</th>
+                                <th>Clave</th>
+                                <th>Pin</th>
+                                <th>Perfil</th>
+                                <th>F. Compra</th>
+                                <th>F. Vencimiento</th>
+                                <th>F. Vencimiento Cuenta</th>
+                                <th>Vendedor</th>
+                                <th class="text-center">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for a in active %}
+                                <tr class="align-middle">
+                                    <td class="text-center">
+                                        <img src="{{ a.account.account_name.logo.url }}"
+                                             alt="{{ a.account.account_name.description }}"
+                                             width="35"
+                                             height="35"
+                                             style="object-fit: contain;">
+                                    </td>
+                                    <td class="text-center">
+                                        {% if a.account.renovable %}
+                                            <i class="bi bi-star-fill" style="color: #ffc107; font-size: 18px;" title="Renovable"></i>
+                                        {% endif %}
+                                        <textarea id="{{a.id}}" style="position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none;" tabindex="-1" aria-hidden="true" readonly>
 *E-Mail:* {{a.account.email}}
 *Clave:* {{a.account.password}}  
 *Perfil:* {{a.account.profile}}
@@ -117,203 +240,433 @@ Inicie sesión con el *EMAIL* y *CLAVE* recibidos.
 Gracias por tu preferencia.
 Recuerda que los únicos canales oficiales de atención son:
 WhatsApp y Telegram al número 833 535 5863.
-                        </textarea>
-                                <textarea id="{{a.id}}2" style="border:none;background-color:transparent;overflow: hidden;resize: none;" rows="1" cols="1" readonly>
+                                        </textarea>
+                                        <textarea id="{{a.id}}2" style="border:none;background-color:transparent;overflow: hidden;resize: none;" rows="1" cols="1" readonly>
                             *Muchas Gracias por tu compra!*
                             Para ver tus claves siempre actualizadas descarga nuestra app *Cuentas Mexico* desde Play store haciendo click aqui: https://play.google.com/store/apps/details?id=com.luinmack.CuentasMexicoApp
                             Tambien verlas desde Iphone, Ipad o PC en https://app.cuentasmexico.mx
                             Tus usuario para la aplicacion es:
                             *{{a.customer.username}}*
                             Preguntame por la clave si no la tienes o no la recuerdas.
-</textarea>
-                            </td>
-                            <td>
-                                <span style="cursor:pointer;
-                                             text-decoration:underline;
-                                             color:#0d6efd"
-                                      onclick="copyAcc('{{ a.id }}')"
-                                      title="Copiar claves de esta cuenta">{{ a.account.email }}</span>
-                            </td>
-                            <td>{{ a.account.password }}</td>
-                            <td>{{ a.account.pin }}</td>
-                            <td>{{ a.account.profile }}</td>
-                            <td>{{ a.created_at|date:'d-m-Y' }}</td>
-                            <td>{{ a.expiration_date|date:'d-m-Y' }}</td>
-                            <td>{{ a.account.expiration_date|date:'d-m-Y' }}</td>
-                            <td>{{ a.user_seller }}</td>
-                            <td>
-                                <a href="{% url 'adm:sales_update_status' a.id a.customer.id a.status %}"
-                                   title="Suspender"
-                                   class="cm">
-                                    <i class="bi bi-stop-circle"></i>
-                                </a>
-                                <a href="{% url 'adm:sales_renew' a.id %}" title="Renovar" class="cm">
-                                    <i class="bi bi-currency-dollar"></i>
-                                </a>
-                                <a href="{% url 'adm:sales_change' a.id %}" title="Cambiar" class="cm">
-                                    <i class="bi bi-shuffle"></i>
-                                </a>
-                                <a href="#"
-                                   onclick="abrir_modal_edicion('{% url 'adm:key_adjust' a.id %}')"
-                                   title="Ajustar Vencimiento"
-                                   class="cm">
-                                    <i class="bi bi-calendar-event"></i>
-                                </a>
-                                <a href="#"
-                                   onclick="copyAcc('{{ a.id }}')"
-                                   title="Copiar Claves"
-                                   class="cm">
-                                    <i class="bi bi-clipboard"></i>
-                                </a>
-                                <a href="#"
-                                   onclick="copyAcc('{{ a.id }}2')"
-                                   title="Entregar Links"
-                                   class="cm">
-                                    <i class="bi bi-clipboard2-heart"></i>
-                                </a>
-                                {% if customer.userdetail.free_days > 0 %}
-                                    <a href="{% url 'adm:sales_add_free_days' a.id customer.userdetail.free_days %}"
-                                       title="Agregar {{ customer.userdetail.free_days }} dias gratis"
-                                       class="cm">
-                                        <i class="bi bi-arrow-up-circle-fill"></i>
-                                    </a>
-                                {% endif %}
-                            </td>
+                                        </textarea>
+                                    </td>
+                                    <td>
+                                        <span style="cursor:pointer; text-decoration:underline; color:#0d6efd; font-weight: 500;"
+                                              onclick="copyAcc('{{ a.id }}')"
+                                              title="Click para copiar claves">
+                                            {{ a.account.email }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <code style="background-color: #f0f0f0; padding: 4px 8px; border-radius: 4px;">
+                                            {{ a.account.password }}
+                                        </code>
+                                    </td>
+                                    <td>
+                                        <code style="background-color: #f0f0f0; padding: 4px 8px; border-radius: 4px;">
+                                            {{ a.account.pin }}
+                                        </code>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-info">{{ a.account.profile }}</span>
+                                    </td>
+                                    <td class="text-nowrap">{{ a.created_at|date:'d/m/Y' }}</td>
+                                    <td class="text-nowrap">{{ a.expiration_date|date:'d/m/Y' }}</td>
+                                    <td class="text-nowrap">{{ a.account.expiration_date|date:'d/m/Y' }}</td>
+                                    <td>{{ a.user_seller }}</td>
+                                    <td class="text-center">
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <button class="btn btn-outline-info" 
+                                                    onclick="getHomeCode('{{ a.account.email }}')"
+                                                    title="Obtener Código Hogar"
+                                                    type="button">
+                                                <i class="bi bi-key"></i>
+                                            </button>
+                                            <a href="{% url 'adm:sales_update_status' a.id a.customer.id a.status %}"
+                                               title="Suspender"
+                                               class="btn btn-outline-warning">
+                                                <i class="bi bi-stop-circle"></i>
+                                            </a>
+                                            <a href="{% url 'adm:sales_renew' a.id %}" title="Renovar" class="btn btn-outline-success">
+                                                <i class="bi bi-arrow-clockwise"></i>
+                                            </a>
+                                            <a href="{% url 'adm:sales_change' a.id %}" title="Cambiar Cuenta" class="btn btn-outline-primary">
+                                                <i class="bi bi-shuffle"></i>
+                                            </a>
+                                            <a href="#"
+                                               onclick="abrir_modal_edicion('{% url 'adm:key_adjust' a.id %}')"
+                                               title="Ajustar Vencimiento"
+                                               class="btn btn-outline-secondary">
+                                                <i class="bi bi-calendar-event"></i>
+                                            </a>
+                                            <a href="#"
+                                               onclick="copyAcc('{{ a.id }}')"
+                                               title="Copiar Claves"
+                                               class="btn btn-outline-dark">
+                                                <i class="bi bi-clipboard"></i>
+                                            </a>
+                                            <a href="#"
+                                               onclick="copyAcc('{{ a.id }}2')"
+                                               title="Entregar Links"
+                                               class="btn btn-outline-success">
+                                                <i class="bi bi-clipboard2-heart"></i>
+                                            </a>
+                                            {% if customer.userdetail.free_days > 0 %}
+                                                <a href="{% url 'adm:sales_add_free_days' a.id customer.userdetail.free_days %}"
+                                                   title="Agregar {{ customer.userdetail.free_days }} días gratis"
+                                                   class="btn btn-outline-success">
+                                                    <i class="bi bi-gift-fill"></i>
+                                                </a>
+                                            {% endif %}
+                                        </div>
+                                    </td>
                         </tr>
                     {% endfor %}
                 </tbody>
-            </table>
-        {% else %}
-            <div class="alert alert-danger" role="alert">No hay cuentas activas disponibles</div>
-        {% endif %}
+                    </table>
+                </div>
+            {% else %}
+                <div class="alert alert-info mb-0" role="alert">
+                    <i class="bi bi-info-circle me-2"></i>
+                    No hay cuentas activas disponibles
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Inactive Accounts Section -->
         {% if inactive %}
-            <table class="table table-hover">
-                <h6 class="mt-4">Inactivas</h6>
-                <thead>
-                    <th></th>
-                    <th></th>
-                    <th>E-Mail</th>
-                    <th>Clave</th>
-                    <th>Pin</th>
-                    <th>Perfil</th>
-                    <th>F.Compra</th>
-                    <th>F.Vencimiento Cliente</th>
-                    <th>F.Vencimiento Cuenta</th>
-                    <th>Vendedor</th>
-                    <th>Acciones</th>
-                </thead>
-                <tbody>
-                    {% for a in inactive %}
-                        <tr class="text-center">
-                            <td class="t-img">
-                                <img src="{{ a.account.account_name.logo.url }}"
-                                     alt="{{ a.account.account_name.description }}"
-                                     width="30"
-                                     height="30"
-                                     >
-                            </td>
-                            <td>
-                                {% if a.account.renovable %}<i class="bi bi-star-fill" ></i>{% endif %}
-                            </td>
-                            <td>{{ a.account.email }}</td>
-                            <td>{{ a.account.password }}</td>
-                            <td>{{ a.account.pin }}</td>
-                            <td>{{ a.account.profile }}</td>
-                            <td>{{ a.created_at|date:'d-m-Y' }}</td>
-                            <td>{{ a.expiration_date|date:'d-m-Y' }}</td>
-                            <td>{{ a.account.expiration_date|date:'d-m-Y' }}</td>
-                            <td>{{ a.user_seller }}</td>
-                            <td>
-                                {% if a.old_acc %}
-                                    <a href="#"
-                                       onclick="abrir_modal_edicion('{% url 'adm:sales_old' a.id %}')"
-                                       title="Ver Historico"
-                                       class="cm">
-                                        <i class="bi bi-archive"></i>
-                                    </a>
-                                {% endif %}
-                            </td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-            <!-- Paginación para inactivos -->
-            {% if inactive.has_other_pages %}
-                <nav aria-label="Paginación de ventas inactivas">
-                    <ul class="pagination justify-content-center">
-                        {% if inactive.has_previous %}
-                            <li class="page-item">
-                                <a class="page-link"
-                                   href="?inactive_page=1{% if customer %}&customer={{ customer.userdetail.id }}{% endif %}">&laquo; Primera</a>
-                            </li>
-                            <li class="page-item">
-                                <a class="page-link"
-                                   href="?inactive_page={{ inactive.previous_page_number }}{% if customer %}&customer={{ customer.userdetail.id }}{% endif %}">Anterior</a>
-                            </li>
-                        {% endif %}
-                        {% for num in inactive.paginator.page_range %}
-                            {% if num == inactive.number %}
-                                <li class="page-item active">
-                                    <span class="page-link">{{ num }}</span>
-                                </li>
-                            {% elif num > inactive.number|add:-3 and num < inactive.number|add:3 %}
+            <div class="mb-5">
+                <div class="d-flex align-items-center mb-3">
+                    <h5 class="mb-0">
+                        <span class="badge bg-danger me-2">
+                            <i class="bi bi-x-circle me-1"></i>
+                            Inactivas ({{ inactive.paginator.count }})
+                        </span>
+                    </h5>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="text-center" style="width: 50px;"><i class="bi bi-image"></i></th>
+                                <th class="text-center" style="width: 50px;"></th>
+                                <th>E-Mail</th>
+                                <th>Clave</th>
+                                <th>Pin</th>
+                                <th>Perfil</th>
+                                <th>F. Compra</th>
+                                <th>F. Vencimiento Cliente</th>
+                                <th>F. Vencimiento Cuenta</th>
+                                <th>Vendedor</th>
+                                <th class="text-center">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for a in inactive %}
+                                <tr class="align-middle">
+                                    <td class="text-center">
+                                        <img src="{{ a.account.account_name.logo.url }}"
+                                             alt="{{ a.account.account_name.description }}"
+                                             width="35"
+                                             height="35"
+                                             style="object-fit: contain;">
+                                    </td>
+                                    <td class="text-center">
+                                        {% if a.account.renovable %}
+                                            <i class="bi bi-star-fill" style="color: #ffc107; font-size: 18px;" title="Renovable"></i>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ a.account.email }}</td>
+                                    <td>
+                                        <code style="background-color: #f0f0f0; padding: 4px 8px; border-radius: 4px;">
+                                            {{ a.account.password }}
+                                        </code>
+                                    </td>
+                                    <td>
+                                        <code style="background-color: #f0f0f0; padding: 4px 8px; border-radius: 4px;">
+                                            {{ a.account.pin }}
+                                        </code>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary">{{ a.account.profile }}</span>
+                                    </td>
+                                    <td class="text-nowrap">{{ a.created_at|date:'d/m/Y' }}</td>
+                                    <td class="text-nowrap">{{ a.expiration_date|date:'d/m/Y' }}</td>
+                                    <td class="text-nowrap">{{ a.account.expiration_date|date:'d/m/Y' }}</td>
+                                    <td>{{ a.user_seller }}</td>
+                                    <td class="text-center">
+                                        {% if a.old_acc %}
+                                            <a href="#"
+                                               onclick="abrir_modal_edicion('{% url 'adm:sales_old' a.id %}')"
+                                               title="Ver Histórico"
+                                               class="btn btn-sm btn-outline-secondary">
+                                                <i class="bi bi-archive"></i>
+                                            </a>
+                                        {% else %}
+                                            <span class="text-muted small">—</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination for Inactive Accounts -->
+                {% if inactive.has_other_pages %}
+                    <nav aria-label="Paginación de cuentas inactivas" class="mt-3">
+                        <ul class="pagination justify-content-center mb-0">
+                            {% if inactive.has_previous %}
                                 <li class="page-item">
                                     <a class="page-link"
-                                       href="?inactive_page={{ num }}{% if customer %}&customer={{ customer.userdetail.id }}{% endif %}">{{ num }}</a>
+                                       href="?inactive_page=1{% if customer %}&customer={{ customer.id }}{% endif %}">&laquo; Primera</a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link"
+                                       href="?inactive_page={{ inactive.previous_page_number }}{% if customer %}&customer={{ customer.id }}{% endif %}">Anterior</a>
                                 </li>
                             {% endif %}
-                        {% endfor %}
-                        {% if inactive.has_next %}
-                            <li class="page-item">
-                                <a class="page-link"
-                                   href="?inactive_page={{ inactive.next_page_number }}{% if customer %}&customer={{ customer.userdetail.id }}{% endif %}">Siguiente</a>
-                            </li>
-                            <li class="page-item">
-                                <a class="page-link"
-                                   href="?inactive_page={{ inactive.paginator.num_pages }}{% if customer %}&customer={{ customer.userdetail.id }}{% endif %}">Última &raquo;</a>
-                            </li>
-                        {% endif %}
-                    </ul>
-                </nav>
-            {% endif %}
+                            {% for num in inactive.paginator.page_range %}
+                                {% if num == inactive.number %}
+                                    <li class="page-item active">
+                                        <span class="page-link">{{ num }}</span>
+                                    </li>
+                                {% elif num > inactive.number|add:-3 and num < inactive.number|add:3 %}
+                                    <li class="page-item">
+                                        <a class="page-link"
+                                           href="?inactive_page={{ num }}{% if customer %}&customer={{ customer.id }}{% endif %}">{{ num }}</a>
+                                    </li>
+                                {% endif %}
+                            {% endfor %}
+                            {% if inactive.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link"
+                                       href="?inactive_page={{ inactive.next_page_number }}{% if customer %}&customer={{ customer.id }}{% endif %}">Siguiente</a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link"
+                                       href="?inactive_page={{ inactive.paginator.num_pages }}{% if customer %}&customer={{ customer.id }}{% endif %}">Última &raquo;</a>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                {% endif %}
+            </div>
         {% endif %}
     {% endif %}
-    <!-- Modal -->
-    <div class="modal fade"
-         id="staticBackdrop"
-         data-bs-backdrop="static"
-         data-bs-keyboard="false"
-         tabindex="-1"
-         aria-labelledby="staticBackdropLabel"
-         aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <form action="{% url 'adm:cupon_redeem' %}" method="post">
-                    {% csrf_token %}
-                    <div class="modal-header">
-                        <h1 class="modal-title fs-5" id="staticBackdropLabel">Canjeando codigo a {{ customer.username }}</h1>
-                        <button type="button"
-                                class="btn-close"
-                                data-bs-dismiss="modal"
-                                aria-label="Close"></button>
+
+<!-- Coupon Redemption Modal -->
+<div class="modal fade"
+     id="staticBackdrop"
+     data-bs-backdrop="static"
+     data-bs-keyboard="false"
+     tabindex="-1"
+     aria-labelledby="staticBackdropLabel"
+     aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0">
+            <form action="{% url 'adm:cupon_redeem' %}" method="post">
+                {% csrf_token %}
+                <div class="modal-header bg-light border-bottom">
+                    <h5 class="modal-title" id="staticBackdropLabel">
+                        <i class="bi bi-ticket-perforated me-2" style="color: #0d6efd;"></i>
+                        Canjear Código
+                    </h5>
+                    <button type="button"
+                            class="btn-close"
+                            data-bs-dismiss="modal"
+                            aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <p class="text-muted mb-3">Ingresa el código del cupón para <strong>{{ customer.username }}</strong></p>
+                    <label for="code" class="form-label fw-bold">Código del Cupón</label>
+                    <input type="text" 
+                           id="code" 
+                           name="code" 
+                           class="form-control form-control-lg"
+                           placeholder="Ej: ABC123XYZ"
+                           autofocus
+                           style="border-radius: 8px;">
+                    <input type="hidden" name="customer" value="{{ customer.id }}">
+                </div>
+                <div class="modal-footer bg-light border-top">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-circle me-2"></i> Canjear
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Home Code Modal -->
+<div class="modal fade" id="homeCodeModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0">
+            <div class="modal-header bg-light border-bottom">
+                <h5 class="modal-title">
+                    <i class="bi bi-key me-2" style="color: #0d6efd;"></i>
+                    Código Hogar
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div id="homeCodeContent">
+                    <div class="text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Cargando...</span>
+                        </div>
+                        <p class="mt-3 text-muted">Buscando código hogar...</p>
                     </div>
-                    <div class="modal-body">
-                        <label for="code">Ingresa el codigo del cupon</label>
-                        <input type="text" id="code" name="code" class="form-control" autofocus>
-                        <input type="hidden" name="customer" value="{{ customer.id }}">
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-cm-cancel" data-bs-dismiss="modal">Cancelar</button>
-                        <button type="submit" class="btn btn-primary">Revisar</button>
-                    </div>
-                </form>
+                </div>
+            </div>
+            <div class="modal-footer bg-light border-top">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-primary" onclick="copyHomeCode()">
+                    <i class="bi bi-clipboard me-2"></i> Copiar Código
+                </button>
             </div>
         </div>
     </div>
+</div>
+
+</div><!-- End container-fluid -->
+
 {% endblock body %}
+
 {% block extrajs %}
     <script src="{% static 'adm/js/copy.js' %}"></script>
     <script>
+        let currentHomeCode = '';
+        let homeCodeInterval = null;
+        let homeCodeRetries = 0;
+        const MAX_RETRIES = 30; // Máximo 30 reintentos (5 minutos a 10 segundos cada uno)
+        const RETRY_INTERVAL = 10000; // 10 segundos entre reintentos
+
+        function fetchHomeCode(email) {
+            fetch(`https://servertools.bdpyc.cl/api/home-codes-public/active/${email}`)
+                .then(response => response.json())
+                .then(data => {
+                    const code = data.homeCode || data.code;
+                    
+                    if (code && code !== 'No disponible' && code !== null) {
+                        // Código obtenido exitosamente
+                        currentHomeCode = code;
+                        document.getElementById('homeCodeContent').innerHTML = `
+                            <div class="alert alert-success">
+                                <strong>Email:</strong> ${email}<br>
+                                <strong>Código Hogar:</strong> <code>${currentHomeCode}</code>
+                            </div>
+                        `;
+                        // Detener el polling
+                        if (homeCodeInterval) {
+                            clearInterval(homeCodeInterval);
+                            homeCodeInterval = null;
+                        }
+                    } else if (homeCodeRetries < MAX_RETRIES) {
+                        // Código no disponible aún, mostrar spinner y esperar
+                        homeCodeRetries++;
+                        document.getElementById('homeCodeContent').innerHTML = `
+                            <div class="text-center">
+                                <div class="spinner-border" role="status">
+                                    <span class="visually-hidden">Cargando...</span>
+                                </div>
+                                <p class="mt-2"><small>Buscando código hogar... (Intento ${homeCodeRetries}/${MAX_RETRIES})</small></p>
+                            </div>
+                        `;
+                    } else {
+                        // Máximo de reintentos alcanzado
+                        document.getElementById('homeCodeContent').innerHTML = `
+                            <div class="alert alert-warning">
+                                <strong>Código no disponible</strong><br>
+                                <small>Se alcanzó el número máximo de intentos. El código hogar aún no está disponible.</small>
+                            </div>
+                        `;
+                        if (homeCodeInterval) {
+                            clearInterval(homeCodeInterval);
+                            homeCodeInterval = null;
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    if (homeCodeRetries < MAX_RETRIES) {
+                        homeCodeRetries++;
+                        document.getElementById('homeCodeContent').innerHTML = `
+                            <div class="text-center">
+                                <div class="spinner-border" role="status">
+                                    <span class="visually-hidden">Cargando...</span>
+                                </div>
+                                <p class="mt-2"><small>Reintentando... (Intento ${homeCodeRetries}/${MAX_RETRIES})</small></p>
+                            </div>
+                        `;
+                    } else {
+                        document.getElementById('homeCodeContent').innerHTML = `
+                            <div class="alert alert-danger">
+                                Error al obtener el código hogar. Se alcanzó el máximo de intentos.
+                            </div>
+                        `;
+                        if (homeCodeInterval) {
+                            clearInterval(homeCodeInterval);
+                            homeCodeInterval = null;
+                        }
+                    }
+                });
+        }
+
+        function getHomeCode(email) {
+            // Reiniciar variables
+            currentHomeCode = '';
+            homeCodeRetries = 0;
+            
+            // Mostrar modal
+            const modal = new bootstrap.Modal(document.getElementById('homeCodeModal'));
+            modal.show();
+            
+            // Mostrar spinner inicial
+            document.getElementById('homeCodeContent').innerHTML = `
+                <div class="text-center">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">Cargando...</span>
+                    </div>
+                    <p class="mt-2"><small>Buscando código hogar...</small></p>
+                </div>
+            `;
+            
+            // Primer intento
+            fetchHomeCode(email);
+            
+            // Establecer intervalo para reintentos
+            if (!homeCodeInterval) {
+                homeCodeInterval = setInterval(() => {
+                    if (homeCodeRetries < MAX_RETRIES && !currentHomeCode) {
+                        fetchHomeCode(email);
+                    } else if (currentHomeCode || homeCodeRetries >= MAX_RETRIES) {
+                        clearInterval(homeCodeInterval);
+                        homeCodeInterval = null;
+                    }
+                }, RETRY_INTERVAL);
+            }
+            
+            // Limpiar intervalo cuando se cierra el modal
+            document.getElementById('homeCodeModal').addEventListener('hidden.bs.modal', function() {
+                if (homeCodeInterval) {
+                    clearInterval(homeCodeInterval);
+                    homeCodeInterval = null;
+                }
+            }, { once: true });
+        }
+
+        function copyHomeCode() {
+            if (currentHomeCode && currentHomeCode !== 'No disponible') {
+                navigator.clipboard.writeText(currentHomeCode).then(() => {
+                    alert('Código copiado al portapapeles');
+                });
+            }
+        }
+
 // Al presionar 'c' sin selección, copiar la última clave activa visible
 document.addEventListener('keydown', function(e) {
     if (e.key === 'c' && window.getSelection().toString().length === 0) {
@@ -324,6 +677,7 @@ document.addEventListener('keydown', function(e) {
             var id = lastActive.id;
             if (typeof copyAcc === 'function') {
                 copyAcc(id);
+
             }
         }
     }

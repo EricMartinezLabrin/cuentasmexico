@@ -1,0 +1,182 @@
+{% extends 'adm/base/base.html' %}
+{% block title %}
+    Cambiar Teléfono
+{% endblock title %}
+{% block body %}
+    <div class="container-fluid">
+        <!-- Header -->
+        <div class="mb-4">
+            <div class="d-flex align-items-center gap-3 mb-3">
+                <a href="{% url 'adm:user_mainupdate' user.id %}" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-arrow-left"></i> Volver
+                </a>
+                <h1 class="mb-0">Cambiar Teléfono</h1>
+            </div>
+            <p class="text-muted mb-0">
+                Usuario: <code>{{ user.username }}</code> | 
+                Nombre: <strong>{{ user.first_name }} {{ user.last_name }}</strong>
+            </p>
+        </div>
+
+        <div class="row">
+            <div class="col-lg-8">
+                <!-- Formulario -->
+                <div class="card shadow-sm mb-4">
+                    <div class="card-body">
+                        <!-- Información Actual -->
+                        <div class="alert alert-info" role="alert">
+                            <i class="bi bi-info-circle"></i> <strong>Teléfono Actual:</strong>
+                            <h5 class="mt-2 mb-0">
+                                +{{ user_detail.lada }} {{ user_detail.phone_number }}
+                            </h5>
+                        </div>
+
+                        <!-- Formulario de Cambio -->
+                        <form method="post" novalidate>
+                            {% csrf_token %}
+
+                            <h5 class="mb-4 border-bottom pb-3">
+                                <i class="bi bi-telephone-fill"></i> Nuevo Número de Teléfono
+                            </h5>
+
+                            <div class="row">
+                                <!-- LADA -->
+                                <div class="col-md-4 mb-3">
+                                    <label for="{{ form.new_lada.id_for_label }}" class="form-label fw-bold">
+                                        {{ form.new_lada.label }}
+                                    </label>
+                                    {{ form.new_lada }}
+                                    {% if form.new_lada.errors %}
+                                        <div class="text-danger small mt-1">
+                                            {% for error in form.new_lada.errors %}
+                                                <i class="bi bi-exclamation-circle"></i> {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                    <small class="text-muted d-block mt-1">
+                                        Código del país (sin +)
+                                    </small>
+                                </div>
+
+                                <!-- Número -->
+                                <div class="col-md-8 mb-3">
+                                    <label for="{{ form.new_phone_number.id_for_label }}" class="form-label fw-bold">
+                                        {{ form.new_phone_number.label }}
+                                    </label>
+                                    {{ form.new_phone_number }}
+                                    {% if form.new_phone_number.errors %}
+                                        <div class="text-danger small mt-1">
+                                            {% for error in form.new_phone_number.errors %}
+                                                <i class="bi bi-exclamation-circle"></i> {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                    <small class="text-muted d-block mt-1">
+                                        Solo números, sin espacios ni guiones
+                                    </small>
+                                </div>
+                            </div>
+
+                            <!-- Razón del Cambio -->
+                            <div class="mb-3">
+                                <label for="{{ form.reason.id_for_label }}" class="form-label fw-bold">
+                                    {{ form.reason.label }}
+                                </label>
+                                {{ form.reason }}
+                                {% if form.reason.errors %}
+                                    <div class="text-danger small mt-1">
+                                        {% for error in form.reason.errors %}
+                                            <i class="bi bi-exclamation-circle"></i> {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+
+                            <!-- Confirmación -->
+                            <div class="alert alert-warning" role="alert">
+                                <i class="bi bi-exclamation-triangle"></i> 
+                                <strong>Importante:</strong> Este cambio será registrado con marca de tiempo y 
+                                el usuario que realizó el cambio. No se puede deshacer automáticamente.
+                            </div>
+
+                            <div class="form-check mb-4">
+                                {{ form.confirmation }}
+                                <label class="form-check-label" for="{{ form.confirmation.id_for_label }}">
+                                    {{ form.confirmation.label }}
+                                </label>
+                                {% if form.confirmation.errors %}
+                                    <div class="text-danger small d-block">
+                                        {% for error in form.confirmation.errors %}
+                                            <i class="bi bi-exclamation-circle"></i> {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+
+                            <!-- Botones -->
+                            <div class="d-flex gap-2">
+                                <button type="submit" class="btn btn-warning btn-lg">
+                                    <i class="bi bi-check-circle"></i> Cambiar Teléfono
+                                </button>
+                                <a href="{% url 'adm:user_mainupdate' user.id %}" class="btn btn-secondary btn-lg">
+                                    <i class="bi bi-x-circle"></i> Cancelar
+                                </a>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Panel de Información -->
+            <div class="col-lg-4">
+                <div class="card shadow-sm mb-4 bg-light">
+                    <div class="card-body">
+                        <h6 class="card-title mb-3">
+                            <i class="bi bi-shield-check"></i> Seguridad
+                        </h6>
+                        <ul class="list-unstyled small">
+                            <li class="mb-2">
+                                <i class="bi bi-check-circle text-success"></i> 
+                                Cada cambio queda registrado
+                            </li>
+                            <li class="mb-2">
+                                <i class="bi bi-check-circle text-success"></i> 
+                                Se guarda quién hizo el cambio
+                            </li>
+                            <li class="mb-2">
+                                <i class="bi bi-check-circle text-success"></i> 
+                                Se registra fecha y hora exacta
+                            </li>
+                            <li>
+                                <i class="bi bi-check-circle text-success"></i> 
+                                Se preserva el número anterior
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Información del Usuario -->
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h6 class="card-title mb-3">
+                            <i class="bi bi-person-circle"></i> Detalles del Usuario
+                        </h6>
+                        <dl class="row mb-0 small">
+                            <dt class="col-sm-6">ID:</dt>
+                            <dd class="col-sm-6"><code>{{ user.id }}</code></dd>
+
+                            <dt class="col-sm-6">Usuario:</dt>
+                            <dd class="col-sm-6"><code>{{ user.username }}</code></dd>
+
+                            <dt class="col-sm-6">País:</dt>
+                            <dd class="col-sm-6">{{ user_detail.country }}</dd>
+
+                            <dt class="col-sm-6">Nivel:</dt>
+                            <dd class="col-sm-6">{{ user_detail.level|default:"No asignado" }}</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock body %}
