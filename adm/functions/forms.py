@@ -6,7 +6,7 @@ from django.core.validators import RegexValidator
 from PIL import Image
 
 # local
-from ..models import Bank, Business, Service, UserDetail, Account, PaymentMethod, Status, Supplier, IndexCarouselImage, IndexPromoImage
+from ..models import Bank, Business, Service, UserDetail, Account, PaymentMethod, Status, Supplier, IndexCarouselImage, IndexPromoImage, Promocion
 from CuentasMexico import settings
 
 

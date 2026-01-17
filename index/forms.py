@@ -87,6 +87,15 @@ class WhatsAppLoginForm(forms.Form):
         super().__init__(*args, **kwargs)
         # Cargar países con sus ladas
         countries_dict = Country.get_country_lada()
-        country_choices = [('', 'Selecciona tu país')]
-        country_choices.extend([(country, f"{country} (+{lada})") for country, lada in countries_dict.items()])
+        # Construir lista con México primero
+        mexico_option = None
+        country_choices = []
+        for country, lada in countries_dict.items():
+            if country == 'Mexico':
+                mexico_option = (country, f"{country} (+{lada})")
+            else:
+                country_choices.append((country, f"{country} (+{lada})"))
+        # Insertar México al inicio
+        if mexico_option:
+            country_choices.insert(0, mexico_option)
         self.fields['country'].choices = country_choices
