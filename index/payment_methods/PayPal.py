@@ -7,6 +7,7 @@ from django.utils import timezone
 
 # Local
 from index.models import IndexCart, IndexCartdetail
+from index.payment_methods.utils import get_masked_product_name, get_masked_description
 
 logger = logging.getLogger(__name__)
 
@@ -46,9 +47,18 @@ class PayPal:
             item_total = item_cost * float(item_data['profiles'])
             subtotal += item_total
 
+            # Usar nombres camuflados para pasarelas de pago
+            product_id = item_data.get('product_id', item_id)
+            masked_name = get_masked_product_name(product_id, item_id)
+            masked_description = get_masked_description(
+                item_data['profiles'],
+                item_data['quantity'],
+                product_id
+            )
+
             items.append({
-                "name": item_data['name'],
-                "description": f"Suscripcion {item_data['name']} - {item_data['profiles']} perfil(es) x {item_data['quantity']} mes(es)",
+                "name": masked_name,
+                "description": masked_description,
                 "quantity": item_data['profiles'],
                 "itemCost": item_cost,
                 "itemTotal": item_total
@@ -91,9 +101,18 @@ class PayPal:
             item_total = item_cost * float(item_data['profiles'])
             subtotal += item_total
 
+            # Usar nombres camuflados para pasarelas de pago
+            product_id = item_data.get('product_id', item_id)
+            masked_name = get_masked_product_name(product_id, item_id)
+            masked_description = get_masked_description(
+                item_data['profiles'],
+                item_data['quantity'],
+                product_id
+            )
+
             items.append({
-                "name": item_data['name'][:127],  # PayPal limita a 127 caracteres
-                "description": f"{item_data['profiles']} perfil(es) x {item_data['quantity']} mes(es)",
+                "name": masked_name[:127],  # PayPal limita a 127 caracteres
+                "description": masked_description,
                 "quantity": item_data['profiles'],
                 "itemCost": round(item_cost, 2),
                 "itemTotal": round(item_total, 2)

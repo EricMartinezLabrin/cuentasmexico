@@ -2,6 +2,7 @@
 from django import forms
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
+from django.core.validators import RegexValidator
 from PIL import Image
 
 # local
@@ -228,16 +229,44 @@ class UserMainForm(forms.ModelForm):
         labels = {
             'first_name': 'Nombres',
             'last_name': 'Apellidos',
-            'email': 'E-Mail',
-            'is_staff': '¿Es Trabajador?',
-            'is_active': '¿Está activo?',
-            'is_superuser': '¿Es Administrador?'
+            'email': 'Correo Electrónico',
+            'is_staff': 'Es Personal',
+            'is_active': 'Está Activo',
         }
         widgets = {
-            'first_name': forms.TextInput(attrs={'class': 'form-control'}),
-            'last_name': forms.TextInput(attrs={'class': 'form-control'}),
-            'email': forms.EmailInput(attrs={'class': 'form-control'}),
+            'first_name': forms.TextInput(attrs={
+                'class': 'form-control form-control-lg',
+                'placeholder': 'Ej: Juan',
+                'required': True
+            }),
+            'last_name': forms.TextInput(attrs={
+                'class': 'form-control form-control-lg',
+                'placeholder': 'Ej: Pérez',
+                'required': True
+            }),
+            'email': forms.EmailInput(attrs={
+                'class': 'form-control form-control-lg',
+                'placeholder': 'correo@ejemplo.com',
+                'required': True
+            }),
+            'is_staff': forms.CheckboxInput(attrs={
+                'class': 'form-check-input',
+                'role': 'switch'
+            }),
+            'is_active': forms.CheckboxInput(attrs={
+                'class': 'form-check-input',
+                'role': 'switch'
+            }),
         }
+    
+    def clean_email(self):
+        email = self.cleaned_data.get('email')
+        if email:
+            # Verificar si el email ya existe en otro usuario
+            existing = User.objects.filter(email=email).exclude(pk=self.instance.pk)
+            if existing.exists():
+                raise forms.ValidationError('Este correo electrónico ya está registrado.')
+        return email
 
 
 class IndexCarouselImageForm(forms.ModelForm):
@@ -309,6 +338,67 @@ class IndexCarouselImageForm(forms.ModelForm):
 
         return image
 
+
+class UserPhoneChangeForm(forms.Form):
+    """
+    Formulario seguro para cambiar el número de teléfono de un usuario
+    """
+    phoneNumberRegex = RegexValidator(regex=r"^\+?1?\d{8,15}$")
+    
+    new_lada = forms.IntegerField(
+        label='Lada (Código de País)',
+        min_value=1,
+        max_value=999,
+        widget=forms.NumberInput(attrs={
+            'class': 'form-control form-control-lg',
+            'placeholder': '55 (para México)',
+            'required': True
+        })
+    )
+    
+    new_phone_number = forms.CharField(
+        label='Número de Teléfono',
+        max_length=16,
+        validators=[phoneNumberRegex],
+        widget=forms.TextInput(attrs={
+            'class': 'form-control form-control-lg',
+            'placeholder': 'Ej: 1234567890',
+            'required': True
+        })
+    )
+    
+    reason = forms.CharField(
+        label='Motivo del Cambio (Opcional)',
+        max_length=500,
+        required=False,
+        widget=forms.Textarea(attrs={
+            'class': 'form-control',
+            'placeholder': 'Explica el motivo del cambio...',
+            'rows': 3
+        })
+    )
+    
+    confirmation = forms.BooleanField(
+        label='Confirmo que deseo cambiar el teléfono',
+        required=True,
+        widget=forms.CheckboxInput(attrs={
+            'class': 'form-check-input'
+        })
+    )
+    
+    def clean(self):
+        cleaned_data = super().clean()
+        lada = cleaned_data.get('new_lada')
+        phone = cleaned_data.get('new_phone_number')
+        
+        if lada and phone:
+            # Validar que no sean números inválidos
+            if lada == 0:
+                self.add_error('new_lada', 'El código de país no puede ser 0')
+            if phone.isdigit() and len(phone) < 7:
+                self.add_error('new_phone_number', 'El número de teléfono debe tener al menos 7 dígitos')
+        
+        return cleaned_data
 
 class IndexPromoImageForm(forms.ModelForm):
     """Formulario para imágenes de promociones con validación de dimensiones"""

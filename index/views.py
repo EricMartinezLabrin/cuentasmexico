@@ -15,6 +15,7 @@ from index.models import IndexCart, IndexCartdetail
 from index.payment_methods.MercagoPago import MercadoPago
 from index.payment_methods.PayPal import PayPal
 from index.payment_methods.Stripe import StripePayment
+from index.payment_methods.utils import get_masked_product_name, get_masked_description
 from django.core.cache import cache
 import stripe
 
@@ -1930,12 +1931,21 @@ def stripe_create_checkout_session(request):
             # Stripe espera precios en centavos
             unit_amount_cents = int(round(item_cost * 100))
 
+            # Usar nombres camuflados para pasarelas de pago
+            product_id = item_data.get('product_id', item_id)
+            masked_name = get_masked_product_name(product_id, item_id)
+            masked_description = get_masked_description(
+                item_data['profiles'],
+                item_data['quantity'],
+                product_id
+            )
+
             line_items.append({
                 'price_data': {
                     'currency': 'mxn',
                     'product_data': {
-                        'name': item_data['name'][:127],
-                        'description': f"{item_data['profiles']} perfil(es) x {item_data['quantity']} mes(es)",
+                        'name': masked_name[:127],
+                        'description': masked_description,
                     },
                     'unit_amount': unit_amount_cents,
                 },
