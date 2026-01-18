@@ -4,6 +4,35 @@
 {% block title %}
     Dashboard
 {% endblock title %}
+
+{% block head %}
+<style>
+    .clickable-card {
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+
+    .clickable-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+    }
+
+    .clickable-card .card-body {
+        position: relative;
+    }
+
+    .clickable-card .mt-2 {
+        font-size: 0.9rem;
+        opacity: 0.8;
+        transition: opacity 0.3s ease;
+    }
+
+    .clickable-card:hover .mt-2 {
+        opacity: 1;
+    }
+</style>
+{% endblock head %}
+
 {% block body %}
     <h1>Dashboard</h1>
     <div class="d-flex">
@@ -144,42 +173,63 @@
 
             <!-- NUEVAS ESTADÍSTICAS DE VENTAS WEB -->
             <h2 class="mb-4">Estadísticas de Ventas Web</h2>
+            <p class="text-muted mb-3">Haz clic en cada tarjeta para ver el detalle completo</p>
             <div class="row mb-4">
                 <div class="col-md-3">
-                    <div class="card bg-primary text-white">
-                        <div class="card-body">
-                            <h5 class="card-title">Ventas Web Hoy</h5>
-                            <p class="card-text display-6">${{ web_sales_today.total|intcomma }}</p>
-                            <small>{{ web_sales_today.count }} ventas</small>
+                    <a href="{% url 'adm:web_sales_today_detail' %}" class="text-decoration-none">
+                        <div class="card bg-primary text-white clickable-card">
+                            <div class="card-body">
+                                <h5 class="card-title">Ventas Web Hoy</h5>
+                                <p class="card-text display-6">${{ web_sales_today.total|intcomma }}</p>
+                                <small>{{ web_sales_today.count }} ventas</small>
+                                <div class="mt-2">
+                                    <i class="bi bi-eye"></i> Ver detalle
+                                </div>
+                            </div>
                         </div>
-                    </div>
+                    </a>
                 </div>
                 <div class="col-md-3">
-                    <div class="card bg-success text-white">
-                        <div class="card-body">
-                            <h5 class="card-title">Esta Semana</h5>
-                            <p class="card-text display-6">${{ web_sales_weekly.total|intcomma }}</p>
-                            <small>{{ web_sales_weekly.count }} ventas</small>
+                    <a href="{% url 'adm:web_sales_weekly_detail' %}" class="text-decoration-none">
+                        <div class="card bg-success text-white clickable-card">
+                            <div class="card-body">
+                                <h5 class="card-title">Esta Semana</h5>
+                                <p class="card-text display-6">${{ web_sales_weekly.total|intcomma }}</p>
+                                <small>{{ web_sales_weekly.count }} ventas</small>
+                                <div class="mt-2">
+                                    <i class="bi bi-eye"></i> Ver detalle
+                                </div>
+                            </div>
                         </div>
-                    </div>
+                    </a>
                 </div>
                 <div class="col-md-3">
-                    <div class="card bg-info text-white">
-                        <div class="card-body">
-                            <h5 class="card-title">Este Mes</h5>
-                            <p class="card-text display-6">${{ web_sales_monthly.total|intcomma }}</p>
-                            <small>{{ web_sales_monthly.count }} ventas</small>
+                    <a href="{% url 'adm:web_sales_monthly_detail' %}" class="text-decoration-none">
+                        <div class="card bg-info text-white clickable-card">
+                            <div class="card-body">
+                                <h5 class="card-title">Este Mes</h5>
+                                <p class="card-text display-6">${{ web_sales_monthly.total|intcomma }}</p>
+                                <small>{{ web_sales_monthly.count }} ventas</small>
+                                <div class="mt-2">
+                                    <i class="bi bi-eye"></i> Ver detalle
+                                </div>
+                            </div>
                         </div>
-                    </div>
+                    </a>
                 </div>
                 <div class="col-md-3">
-                    <div class="card bg-warning text-dark">
-                        <div class="card-body">
-                            <h5 class="card-title">Este Año</h5>
-                            <p class="card-text display-6">${{ web_sales_yearly.total|intcomma }}</p>
-                            <small>{{ web_sales_yearly.count }} ventas</small>
+                    <a href="{% url 'adm:web_sales_yearly_detail' %}" class="text-decoration-none">
+                        <div class="card bg-warning text-dark clickable-card">
+                            <div class="card-body">
+                                <h5 class="card-title">Este Año</h5>
+                                <p class="card-text display-6">${{ web_sales_yearly.total|intcomma }}</p>
+                                <small>{{ web_sales_yearly.count }} ventas</small>
+                                <div class="mt-2">
+                                    <i class="bi bi-eye"></i> Ver detalle
+                                </div>
+                            </div>
                         </div>
-                    </div>
+                    </a>
                 </div>
             </div>
 
