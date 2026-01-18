@@ -147,6 +147,86 @@ def index(request):
         'web_sales_chart': web_sales_chart,
     })
 
+# ========== VISTAS DE DETALLE DE ESTADÍSTICAS WEB ==========
+
+@permission_required('is_superuser', 'adm:no-permission')
+def web_sales_today_detail(request):
+    """
+    Vista detallada de las ventas web de HOY
+    """
+    sales = Dashboard.get_web_sales_today_detail()
+    total = sales.aggregate(Sum('payment_amount'))
+
+    context = {
+        'sales': sales,
+        'total': total['payment_amount__sum'] or 0,
+        'count': sales.count(),
+        'period': 'Hoy',
+        'period_date': timezone.now().strftime('%d/%m/%Y'),
+    }
+    return render(request, 'adm/web_sales_detail.html', context)
+
+@permission_required('is_superuser', 'adm:no-permission')
+def web_sales_weekly_detail(request):
+    """
+    Vista detallada de las ventas web de ESTA SEMANA
+    """
+    sales = Dashboard.get_web_sales_weekly_detail()
+    total = sales.aggregate(Sum('payment_amount'))
+
+    today = timezone.now()
+    week_start = today - timedelta(days=today.weekday())
+
+    context = {
+        'sales': sales,
+        'total': total['payment_amount__sum'] or 0,
+        'count': sales.count(),
+        'period': 'Esta Semana',
+        'period_date': f"Desde {week_start.strftime('%d/%m/%Y')}",
+    }
+    return render(request, 'adm/web_sales_detail.html', context)
+
+@permission_required('is_superuser', 'adm:no-permission')
+def web_sales_monthly_detail(request):
+    """
+    Vista detallada de las ventas web de ESTE MES
+    """
+    sales = Dashboard.get_web_sales_monthly_detail()
+    total = sales.aggregate(Sum('payment_amount'))
+
+    month = timezone.now().month
+    year = timezone.now().year
+
+    from calendar import month_name
+
+    context = {
+        'sales': sales,
+        'total': total['payment_amount__sum'] or 0,
+        'count': sales.count(),
+        'period': 'Este Mes',
+        'period_date': f"{month_name[month]} {year}",
+    }
+    return render(request, 'adm/web_sales_detail.html', context)
+
+@permission_required('is_superuser', 'adm:no-permission')
+def web_sales_yearly_detail(request):
+    """
+    Vista detallada de las ventas web de ESTE AÑO
+    """
+    sales = Dashboard.get_web_sales_yearly_detail()
+    total = sales.aggregate(Sum('payment_amount'))
+
+    year = timezone.now().year
+
+    context = {
+        'sales': sales,
+        'total': total['payment_amount__sum'] or 0,
+        'count': sales.count(),
+        'period': 'Este Año',
+        'period_date': str(year),
+    }
+    return render(request, 'adm/web_sales_detail.html', context)
+
 class NoPermissionView(TemplateView):
     """
     Page where are redirected users with out permissions

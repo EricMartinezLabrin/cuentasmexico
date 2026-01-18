@@ -532,6 +532,9 @@ WhatsApp y Telegram al número 833 535 5863.
     </div>
 </div>
 
+<!-- Toast Container -->
+<div id="toast-container" style="position: fixed; bottom: 20px; right: 20px; z-index: 9999;"></div>
+
 </div><!-- End container-fluid -->
 
 {% endblock body %}
@@ -545,19 +548,138 @@ WhatsApp y Telegram al número 833 535 5863.
         const MAX_RETRIES = 30; // Máximo 30 reintentos (5 minutos a 10 segundos cada uno)
         const RETRY_INTERVAL = 10000; // 10 segundos entre reintentos
 
+        // Función para mostrar notificaciones toast
+        function showToast(message, type = 'success') {
+            const toastContainer = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `alert alert-${type} shadow-lg mb-2`;
+            toast.style.cssText = 'min-width: 250px; animation: slideIn 0.3s ease-out;';
+            toast.innerHTML = `
+                <div class="d-flex align-items-center">
+                    <i class="bi bi-check-circle-fill me-2"></i>
+                    <span>${message}</span>
+                </div>
+            `;
+
+            toastContainer.appendChild(toast);
+
+            // Remover el toast después de 3 segundos
+            setTimeout(() => {
+                toast.style.animation = 'slideOut 0.3s ease-out';
+                setTimeout(() => {
+                    toastContainer.removeChild(toast);
+                }, 300);
+            }, 3000);
+        }
+
+        // Agregar estilos de animación
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideIn {
+                from {
+                    transform: translateX(400px);
+                    opacity: 0;
+                }
+                to {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
+            }
+            @keyframes slideOut {
+                from {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
+                to {
+                    transform: translateX(400px);
+                    opacity: 0;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+
         function fetchHomeCode(email) {
-            fetch(`https://servertools.bdpyc.cl/api/home-codes-public/active/${email}`)
-                .then(response => response.json())
+            const url = `https://servertools.bdpyc.cl/api/home-codes-public/active/${encodeURIComponent(email)}`;
+            console.log('Fetching home code from:', url);
+
+            fetch(url)
+                .then(response => {
+                    console.log('Response status:', response.status);
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
                 .then(data => {
-                    const code = data.homeCode || data.code;
-                    
-                    if (code && code !== 'No disponible' && code !== null) {
-                        // Código obtenido exitosamente
-                        currentHomeCode = code;
+                    console.log('Response data:', data);
+                    console.log('Inner data:', data.data);
+
+                    // Función para formatear la fecha
+                    function formatEmailDate(emailDateString) {
+                        if (!emailDateString) return 'Fecha no disponible';
+
+                        // Extraer la fecha del formato "Date: Sun, 18 Jan 2026 19:31:39 +0000"
+                        const dateMatch = emailDateString.match(/Date:\s*(.+)/);
+                        if (!dateMatch) return emailDateString;
+
+                        try {
+                            const date = new Date(dateMatch[1]);
+                            const day = String(date.getDate()).padStart(2, '0');
+                            const month = String(date.getMonth() + 1).padStart(2, '0');
+                            const year = date.getFullYear();
+                            const hours = String(date.getHours()).padStart(2, '0');
+                            const minutes = String(date.getMinutes()).padStart(2, '0');
+                            const seconds = String(date.getSeconds()).padStart(2, '0');
+
+                            return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
+                        } catch (e) {
+                            return emailDateString;
+                        }
+                    }
+
+                    // Extraer y ordenar todos los códigos por fecha
+                    let codesData = [];
+                    if (data.data?.codes && data.data.codes.length > 0) {
+                        codesData = data.data.codes
+                            .map(c => ({
+                                codigo: c.codigo || c.homeCode || c.code,
+                                email_date: c.email_date,
+                                subject: c.subject,
+                                rawDate: c.email_date ? new Date(c.email_date.replace('Date: ', '')) : new Date(0)
+                            }))
+                            .filter(c => c.codigo)
+                            .sort((a, b) => b.rawDate - a.rawDate); // Ordenar de más reciente a más antiguo
+                    }
+
+                    console.log('Extracted and sorted codes:', codesData);
+
+                    if (codesData.length > 0 && codesData[0].codigo !== 'No disponible') {
+                        // Códigos obtenidos exitosamente
+                        currentHomeCode = codesData[0].codigo;
+
+                        // Generar HTML para todos los códigos
+                        const codesHTML = codesData.map((codeData, index) =>
+                            `<div class="mb-3 p-3 border rounded bg-light">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <strong>Código ${index + 1}:</strong>
+                                        <code class="bg-white p-2 rounded d-inline-block">${codeData.codigo}</code>
+                                    </div>
+                                    <div class="col-md-6 text-md-end">
+                                        <small class="text-muted">
+                                            <strong>Fecha:</strong> ${formatEmailDate(codeData.email_date)}
+                                        </small>
+                                    </div>
+                                </div>
+                                ${codeData.subject ? `<div class="mt-2"><small><strong>Asunto:</strong> ${codeData.subject}</small></div>` : ''}
+                            </div>`
+                        ).join('');
+
                         document.getElementById('homeCodeContent').innerHTML = `
                             <div class="alert alert-success">
                                 <strong>Email:</strong> ${email}<br>
-                                <strong>Código Hogar:</strong> <code>${currentHomeCode}</code>
+                                <strong>Total de códigos:</strong> ${codesData.length}<br><br>
+                                ${codesHTML}
                             </div>
                         `;
                         // Detener el polling
@@ -591,21 +713,22 @@ WhatsApp y Telegram al número 833 535 5863.
                     }
                 })
                 .catch(error => {
-                    console.error('Error:', error);
+                    console.error('Error fetching home code:', error);
                     if (homeCodeRetries < MAX_RETRIES) {
                         homeCodeRetries++;
                         document.getElementById('homeCodeContent').innerHTML = `
                             <div class="text-center">
-                                <div class="spinner-border" role="status">
+                                <div class="spinner-border text-warning" role="status">
                                     <span class="visually-hidden">Cargando...</span>
                                 </div>
-                                <p class="mt-2"><small>Reintentando... (Intento ${homeCodeRetries}/${MAX_RETRIES})</small></p>
+                                <p class="mt-2"><small class="text-danger">Error de conexión. Reintentando... (Intento ${homeCodeRetries}/${MAX_RETRIES})</small></p>
                             </div>
                         `;
                     } else {
                         document.getElementById('homeCodeContent').innerHTML = `
                             <div class="alert alert-danger">
-                                Error al obtener el código hogar. Se alcanzó el máximo de intentos.
+                                <strong>Error al obtener el código hogar</strong><br>
+                                <small>${error.message}</small>
                             </div>
                         `;
                         if (homeCodeInterval) {
@@ -662,7 +785,7 @@ WhatsApp y Telegram al número 833 535 5863.
         function copyHomeCode() {
             if (currentHomeCode && currentHomeCode !== 'No disponible') {
                 navigator.clipboard.writeText(currentHomeCode).then(() => {
-                    alert('Código copiado al portapapeles');
+                    showToast('Código copiado al portapapeles');
                 });
             }
         }

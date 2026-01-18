@@ -18,6 +18,16 @@ urlpatterns = [
     path('', login_required(views.index), name='index'),
     path('no-permission', login_required(views.NoPermissionView.as_view()),
          name='no-permission'),
+
+    # Estadísticas Web - Detalles de Ventas
+    path('stats/web-sales/today/', login_required(views.web_sales_today_detail),
+         name='web_sales_today_detail'),
+    path('stats/web-sales/weekly/', login_required(views.web_sales_weekly_detail),
+         name='web_sales_weekly_detail'),
+    path('stats/web-sales/monthly/', login_required(views.web_sales_monthly_detail),
+         name='web_sales_monthly_detail'),
+    path('stats/web-sales/yearly/', login_required(views.web_sales_yearly_detail),
+         name='web_sales_yearly_detail'),
     path('settings', login_required(views.SettingsDetailView), name='settings'),
     path('settings/create', login_required(views.SettingsCreateView.as_view()),
          name='settings_create'),

@@ -223,6 +223,8 @@ class Dashboard():
         Ventas realizadas SOLO por la web HOY (MercadoPago, Stripe, PayPal)
         Excluye ventas manuales del admin
         """
+        from django.db.models import Q
+
         today = timezone.now().date()
         start = timezone.make_aware(datetime.combine(today, datetime.min.time()))
         end = timezone.make_aware(datetime.combine(today, datetime.max.time()))
@@ -231,15 +233,10 @@ class Dashboard():
         web_sales = Sale.objects.filter(
             created_at__range=(start, end)
         ).filter(
-            payment_method__description__icontains='MercadoPago'
-        ) | Sale.objects.filter(
-            created_at__range=(start, end)
-        ).filter(
-            payment_method__description__icontains='Stripe'
-        ) | Sale.objects.filter(
-            created_at__range=(start, end)
-        ).filter(
-            payment_method__description__icontains='PayPal'
+            Q(payment_method__description__icontains='MercadoPago') |
+            Q(payment_method__description__icontains='Mercado Pago') |
+            Q(payment_method__description__icontains='Stripe') |
+            Q(payment_method__description__icontains='PayPal')
         )
 
         total = web_sales.aggregate(Sum('payment_amount'))
@@ -408,4 +405,111 @@ class Dashboard():
             })
 
         return list(reversed(result))
+
+    # ========== FUNCIONES DE DETALLE PARA ESTADÍSTICAS WEB ==========
+
+    def get_web_sales_today_detail():
+        """
+        Detalle completo de las ventas web de HOY
+        Retorna lista de ventas individuales con todos sus datos
+        """
+        from django.db.models import Q
+
+        today = timezone.now().date()
+        start = timezone.make_aware(datetime.combine(today, datetime.min.time()))
+        end = timezone.make_aware(datetime.combine(today, datetime.max.time()))
+
+        # Usar el mismo filtro que las funciones de resumen para consistencia
+        web_sales = Sale.objects.filter(
+            created_at__range=(start, end)
+        ).filter(
+            Q(payment_method__description__icontains='MercadoPago') |
+            Q(payment_method__description__icontains='Mercado Pago') |
+            Q(payment_method__description__icontains='Stripe') |
+            Q(payment_method__description__icontains='PayPal')
+        ).select_related(
+            'customer', 'customer__userdetail', 'account',
+            'account__account_name', 'payment_method'
+        ).order_by('-created_at')
+
+        return web_sales
+
+    def get_web_sales_weekly_detail():
+        """
+        Detalle completo de las ventas web de ESTA SEMANA
+        """
+        from django.db.models import Q
+
+        today = timezone.now()
+        week_start = today - timedelta(days=today.weekday())
+        week_start = timezone.make_aware(datetime.combine(week_start.date(), datetime.min.time()))
+
+        # Usar el mismo filtro que las funciones de resumen para consistencia
+        web_sales = Sale.objects.filter(
+            created_at__gte=week_start
+        ).filter(
+            Q(payment_method__description__icontains='MercadoPago') |
+            Q(payment_method__description__icontains='Mercado Pago') |
+            Q(payment_method__description__icontains='Stripe') |
+            Q(payment_method__description__icontains='PayPal')
+        ).select_related(
+            'customer', 'customer__userdetail', 'account',
+            'account__account_name', 'payment_method'
+        ).order_by('-created_at')
+
+        return web_sales
+
+    def get_web_sales_monthly_detail():
+        """
+        Detalle completo de las ventas web de ESTE MES
+        """
+        from django.db.models import Q
+
+        month = timezone.now().month
+        year = timezone.now().year
+        last_day = monthrange(year, month)[1]
+
+        start = timezone.make_aware(datetime(year, month, 1, 0, 0, 0))
+        end = timezone.make_aware(datetime(year, month, last_day, 23, 59, 59))
+
+        # Usar el mismo filtro que las funciones de resumen para consistencia
+        web_sales = Sale.objects.filter(
+            created_at__range=(start, end)
+        ).filter(
+            Q(payment_method__description__icontains='MercadoPago') |
+            Q(payment_method__description__icontains='Mercado Pago') |
+            Q(payment_method__description__icontains='Stripe') |
+            Q(payment_method__description__icontains='PayPal')
+        ).select_related(
+            'customer', 'customer__userdetail', 'account',
+            'account__account_name', 'payment_method'
+        ).order_by('-created_at')
+
+        return web_sales
+
+    def get_web_sales_yearly_detail():
+        """
+        Detalle completo de las ventas web de ESTE AÑO
+        """
+        from django.db.models import Q
+
+        year = timezone.now().year
+
+        start = timezone.make_aware(datetime(year, 1, 1, 0, 0, 0))
+        end = timezone.make_aware(datetime(year, 12, 31, 23, 59, 59))
+
+        # Usar el mismo filtro que las funciones de resumen para consistencia
+        web_sales = Sale.objects.filter(
+            created_at__range=(start, end)
+        ).filter(
+            Q(payment_method__description__icontains='MercadoPago') |
+            Q(payment_method__description__icontains='Mercado Pago') |
+            Q(payment_method__description__icontains='Stripe') |
+            Q(payment_method__description__icontains='PayPal')
+        ).select_related(
+            'customer', 'customer__userdetail', 'account',
+            'account__account_name', 'payment_method'
+        ).order_by('-created_at')
+
+        return web_sales
 
