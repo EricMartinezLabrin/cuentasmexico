@@ -1,78 +1,321 @@
 :root {
-    --grey-spaces: #e6e6e6;
-    --grey-logo: #8c8c8c;
-    --green-btn: #0AAD0A;
+  --grey-spaces: #e6e6e6;
+  --grey-logo: #8c8c8c;
+  --green-btn: #0aad0a;
 }
 
 html {
-    margin: 0;
-    padding: 0;
-    font-size: 75.5%;
-    box-sizing: border-box;
-    }
-
-.prehead{
-    background-color: var(--grey-spaces)!important;
-}
-.menu{
-    /* background-color: var(--grey-logo); */
-    padding: 0rem 3rem;
-}
-.logo img{
-    height: 5rem;
-    margin: 0;
-}
-.w-10{
-    width: 10vw;
-}
-.t-right{
-    text-align: right;
-}
-.search{
-    width: 40vw;
-}
-.search-inline-button{
-    background-color: white;
-}
-.brand{
-    height: 72px;
-}
-.menu-actions{
-    height: 60px;
-}
-.btn-cm{
-    background-color: var(--green-btn)!important;
-    color:white!important;
-}
-.big-btn{
-    padding: 0.7rem!important;
-    border-radius: 8px!important;
-}
-.i-50{
-    width: 50%;
+  margin: 0;
+  padding: 0;
+  font-size: 75.5%;
+  box-sizing: border-box;
 }
 
-.cm{
-    color:var(--green-btn)!important;
+.prehead {
+  background-color: var(--grey-spaces) !important;
 }
-.no-arrow::-webkit-inner-spin-button, 
-.no-arrow::-webkit-outer-spin-button { 
-  --webkit-appearance: none; 
-  margin: 0; 
+.menu {
+  /* background-color: var(--grey-logo); */
+  padding: 0rem 3rem;
 }
-.no-decoration{
-    text-decoration: none;
-    color: black;
+.logo img {
+  height: 5rem;
+  margin: 0;
 }
-.t-img{
-    vertical-align: middle!important;
+.w-10 {
+  width: 10vw;
 }
-.btn-cm-cancel{
-    background-color: var(--red)!important;
-    color:white!important;
+.t-right {
+  text-align: right;
+}
+.search {
+  width: 40vw;
+}
+.search-inline-button {
+  background-color: white;
+}
+.brand {
+  height: 72px;
+}
+.menu-actions {
+  height: 60px;
+}
+.btn-cm {
+  background-color: var(--green-btn) !important;
+  color: white !important;
+}
+.big-btn {
+  padding: 0.7rem !important;
+  border-radius: 8px !important;
+}
+.i-50 {
+  width: 50%;
 }
 
-.disabled { 
-    pointer-events: none; 
-    cursor: default; 
+.cm {
+  color: var(--green-btn) !important;
+}
+.no-arrow::-webkit-inner-spin-button,
+.no-arrow::-webkit-outer-spin-button {
+  --webkit-appearance: none;
+  margin: 0;
+}
+.no-decoration {
+  text-decoration: none;
+  color: black;
+}
+.t-img {
+  vertical-align: middle !important;
+}
+.btn-cm-cancel {
+  background-color: var(--red) !important;
+  color: white !important;
+}
+
+.disabled {
+  pointer-events: none;
+  cursor: default;
+}
+
+/* Cards responsivas */
+.product-card {
+  width: 100%;
+  max-width: 110px;
+}
+
+/* Forzar 5 columnas en desktop */
+.row-cols-lg-4 > .col {
+  flex: 0 0 auto;
+  width: 20% !important;
+}
+
+/* Asegurar que las tarjetas tengan altura consistente */
+.card {
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+}
+
+.card-body {
+  flex: 1;
+  padding: 1rem;
+}
+
+/* Card images with fixed height for alignment */
+.card-img-top {
+  width: 100% !important;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  object-position: center;
+  padding: 0.5rem !important;
+  display: block !important;
+  background-color: #f8f9fa;
+}
+
+/* Card product styles */
+.card-product {
+  display: flex;
+  flex-direction: column;
+}
+
+.card-product > div:first-child {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+  background-color: #f8f9fa;
+}
+
+.card-product img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 1rem;
+}
+
+/* Icon shape - circular images with fixed dimensions */
+.icon-shape {
+  width: 150px !important;
+  height: 150px !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Mejoras para mobile */
+@media (max-width: 767px) {
+  /* Cards en index - 2 columnas en mobile */
+  .row-cols-1 > .col {
+    padding: 0.5rem;
+  }
+
+  .card {
+    border-radius: 8px;
+  }
+
+  .card-body {
+    padding: 0.75rem;
+  }
+
+  .card-title {
+    font-size: 0.9rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .card-text {
+    font-size: 0.85rem;
+  }
+
+  /* Botones más compactos en mobile */
+  .btn-sm {
+    padding: 0.35rem 0.5rem;
+    font-size: 0.8rem;
+  }
+
+  /* Ajustar spacing de precios */
+  .card-body .d-flex {
+    font-size: 0.85rem;
+  }
+
+  /* Icon shapes más pequeños en mobile */
+  .icon-shape {
+    width: 100px !important;
+    height: 100px !important;
+  }
+
+  /* Card products en shop - layout vertical */
+  .card-product {
+    max-width: 100%;
+  }
+
+  .card-product > div:first-child {
+    aspect-ratio: 1 / 1;
+  }
+
+  /* Badges más compactos */
+  .badge {
+    font-size: 0.7rem;
+    padding: 0.25rem 0.5rem;
+    margin-bottom: 0.25rem;
+    display: inline-block;
+    width: 100%;
+  }
+
+  /* Features section */
+  .features-section .col-12 {
+    padding: 0.5rem;
+  }
+
+  .features-section i {
+    font-size: 2rem !important;
+  }
+
+  .features-section h5 {
+    font-size: 1rem;
+  }
+
+  .features-section small {
+    font-size: 0.8rem;
+  }
+}
+
+/* Tablet */
+@media (min-width: 768px) and (max-width: 991px) {
+  .card-body {
+    padding: 1rem;
+  }
+
+  .icon-shape {
+    width: 120px !important;
+    height: 120px !important;
+  }
+}
+
+/* Promo section responsive */
+@media (max-width: 767px) {
+  .promo-section {
+    margin: 0 0.5rem;
+  }
+
+  .promo-section .col-12 {
+    padding: 0.5rem;
+  }
+
+  /* Cart page mobile optimizations */
+  .stripe-payment-card {
+    margin-bottom: 1rem;
+  }
+
+  .stripe-payment-card .row.g-2 {
+    gap: 0.5rem !important;
+  }
+
+  .stripe-payment-card .col-4 > div {
+    padding: 0.5rem !important;
+  }
+
+  .stripe-payment-card i {
+    font-size: 16px !important;
+  }
+
+  .stripe-payment-card .text-center div {
+    font-size: 10px !important;
+  }
+
+  /* List group items más compactos en mobile */
+  .list-group-item {
+    padding: 0.75rem 0.5rem;
+  }
+
+  /* Carrito - input quantity más pequeño */
+  .input-group.mb-3 {
+    flex-wrap: nowrap;
+  }
+
+  .input-group input[type="number"] {
+    font-size: 0.85rem;
+    padding: 0.35rem 0.5rem;
+  }
+
+  /* Summary card */
+  .card-body.p-6 {
+    padding: 1rem !important;
+  }
+
+  .card-body h2.h5 {
+    font-size: 1.1rem;
+  }
+
+  /* Price section en cards */
+  .price-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+
+  /* Carousel más pequeño en mobile */
+  #carouselExampleControls {
+    margin: 0.5rem !important;
+  }
+
+  /* Headings más compactos */
+  h2.m-2 {
+    margin: 1rem 0.5rem !important;
+    font-size: 1.3rem;
+  }
+
+  /* Gap reducido en grid de cards */
+  .row.g-3 {
+    gap: 0.75rem !important;
+  }
 }

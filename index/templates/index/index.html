@@ -56,32 +56,32 @@
                 <div class="card h-100">
                     {% if s.logo %}<img src="{{ s.logo.url }}" class="card-img-top p-2" alt="{{s.description}}">{% endif %}
                     <div class="card-body d-flex flex-column">
-                        <small>Streams</small>
-                        <h5 class="card-title">{{s.description}}</h5>
-                        <p class="card-text" style="color:orange">
+                        <small class="text-muted">Streams</small>
+                        <h5 class="card-title mb-2">{{s.description}}</h5>
+                        <p class="card-text mb-2" style="color:orange; font-size: 0.85rem;">
                             <i class="bi bi-star-fill"></i>
                             <i class="bi bi-star-fill"></i>
                             <i class="bi bi-star-fill"></i>
                             <i class="bi bi-star-fill"></i>
                             <i class="bi bi-star-fill"></i>
-                            (5)
+                            <span class="ms-1">(5)</span>
                         </p>
                         <div class="mt-auto">
-                            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-                                <div>
-                                    <span id="price" class="text-dark fw-bold">$
+                            <div class="d-flex justify-content-between align-items-center flex-wrap gap-1">
+                                <div class="price-section">
+                                    <span id="price" class="text-dark fw-bold d-block">$
                                         {% if user.userdetail.level.discount %}
                                             {{s.price|new_price:user.userdetail.level.discount|new_currency:1|intcomma}}
                                         {% else %}
                                             {{s.price}}
                                         {% endif %}
                                     </span>
-                                    <span class="text-decoration-line-through text-muted ms-2">${{s.regular_price}}</span>
+                                    <span class="text-decoration-line-through text-muted" style="font-size: 0.8rem;">${{s.regular_price}}</span>
                                 </div>
-                                <div>
+                                <div class="d-grid">
                                     <button type="button" class="btn btn-cm btn-sm" onclick="event.stopPropagation(); abrir_modal_edicion('{% url 'service_detail' s.id %}')">
                                         <i class="bi bi-plus-lg"></i>
-                                        <span class="d-none d-md-inline">Agregar</span>
+                                        <span class="d-none d-sm-inline ms-1">Agregar</span>
                                     </button>
                                 </div>
                             </div>
