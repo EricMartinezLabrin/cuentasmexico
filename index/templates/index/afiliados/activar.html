@@ -1,0 +1,121 @@
+{% extends 'index/base/base.html' %}
+{% load static %}
+
+{% block title %}Activar Cuenta de Afiliado{% endblock %}
+
+{% block body %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white text-center py-4">
+                    <i class="bi bi-people-fill fs-1"></i>
+                    <h3 class="mb-0 mt-2">Programa de Afiliados</h3>
+                </div>
+                <div class="card-body p-4">
+                    {% if ya_es_afiliado %}
+                        <div class="text-center py-4">
+                            <i class="bi bi-exclamation-circle text-warning fs-1"></i>
+                            <h4 class="mt-3">Tu cuenta de afiliado esta {{ affiliate.get_status_display|lower }}</h4>
+                            <p class="text-muted">
+                                Si crees que esto es un error, contacta a soporte.
+                            </p>
+                            <a href="{% url 'index' %}" class="btn btn-primary">
+                                <i class="bi bi-house me-2"></i>Volver al Inicio
+                            </a>
+                        </div>
+                    {% else %}
+                        <!-- Beneficios -->
+                        <div class="mb-4">
+                            <h5 class="text-primary"><i class="bi bi-star-fill me-2"></i>Beneficios de ser Afiliado</h5>
+                            <ul class="list-unstyled">
+                                <li class="mb-2">
+                                    <i class="bi bi-check-circle-fill text-success me-2"></i>
+                                    Gana <strong>${{ settings.comision_monto|floatformat:0 }} MXN</strong> por cada venta generada
+                                </li>
+                                <li class="mb-2">
+                                    <i class="bi bi-check-circle-fill text-success me-2"></i>
+                                    Codigo de descuento exclusivo para tus seguidores
+                                </li>
+                                <li class="mb-2">
+                                    <i class="bi bi-check-circle-fill text-success me-2"></i>
+                                    Retira tus ganancias por transferencia, PayPal o credito en tienda
+                                </li>
+                                <li class="mb-2">
+                                    <i class="bi bi-check-circle-fill text-success me-2"></i>
+                                    Materiales promocionales: links personalizados y codigos QR
+                                </li>
+                                <li class="mb-2">
+                                    <i class="bi bi-check-circle-fill text-success me-2"></i>
+                                    Estadisticas en tiempo real de tus ventas
+                                </li>
+                            </ul>
+                        </div>
+
+                        <hr>
+
+                        <!-- Formulario -->
+                        <form method="post" class="mt-4">
+                            {% csrf_token %}
+
+                            <div class="mb-3">
+                                <label for="id_codigo_referido" class="form-label">
+                                    <i class="bi bi-person-plus me-1"></i>
+                                    Codigo de quien te invito (opcional)
+                                </label>
+                                {{ form.codigo_referido }}
+                                <div class="form-text">{{ form.codigo_referido.help_text }}</div>
+                                {% if form.codigo_referido.errors %}
+                                <div class="text-danger small">
+                                    {% for error in form.codigo_referido.errors %}{{ error }}{% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+
+                            <div class="mb-4">
+                                <div class="form-check">
+                                    {{ form.acepto_terminos }}
+                                    <label class="form-check-label" for="id_acepto_terminos">
+                                        {{ form.acepto_terminos.label }}
+                                        {% if settings.url_terminos %}
+                                        <a href="{{ settings.url_terminos }}" target="_blank">(Ver terminos)</a>
+                                        {% endif %}
+                                    </label>
+                                    {% if form.acepto_terminos.errors %}
+                                    <div class="text-danger small">
+                                        {% for error in form.acepto_terminos.errors %}{{ error }}{% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            {% if form.non_field_errors %}
+                            <div class="alert alert-danger">
+                                {% for error in form.non_field_errors %}{{ error }}{% endfor %}
+                            </div>
+                            {% endif %}
+
+                            <div class="d-grid gap-2">
+                                <button type="submit" class="btn btn-primary btn-lg">
+                                    <i class="bi bi-rocket-takeoff me-2"></i>Activar mi Cuenta de Afiliado
+                                </button>
+                                <a href="{% url 'index' %}" class="btn btn-outline-secondary">
+                                    Cancelar
+                                </a>
+                            </div>
+                        </form>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Info adicional -->
+            <div class="text-center mt-4 text-muted">
+                <small>
+                    <i class="bi bi-info-circle me-1"></i>
+                    Al activar tu cuenta de afiliado, se generara automaticamente tu codigo unico y podras empezar a promocionar.
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock body %}

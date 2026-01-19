@@ -113,6 +113,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'index.context_processors.affiliate_context',
             ],
         },
     },
@@ -288,6 +289,13 @@ LOGGING = {
             'backupCount': 5,
             'formatter': 'verbose',
         },
+        'sync_sheets_file': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs', 'sync_sheets.log'),
+            'maxBytes': 1024 * 1024 * 10,  # 10 MB
+            'backupCount': 5,
+            'formatter': 'verbose',
+        },
     },
     'loggers': {
         'django': {
@@ -297,6 +305,11 @@ LOGGING = {
         },
         'index.views': {
             'handlers': ['console', 'webhook_file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'adm.functions.sync_google_sheets': {
+            'handlers': ['console', 'sync_sheets_file'],
             'level': 'INFO',
             'propagate': False,
         },

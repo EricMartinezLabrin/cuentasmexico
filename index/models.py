@@ -38,6 +38,8 @@ class IndexCart(models.Model):
     payment_method_type = models.CharField(max_length=50, blank=True, null=True)  # card, oxxo, customer_balance
     hosted_voucher_url = models.URLField(max_length=500, blank=True, null=True)  # URL del voucher OXXO
     payment_expires_at = models.DateTimeField(blank=True, null=True)  # Fecha límite de pago
+    # Campo para afiliados
+    affiliate_code = models.CharField(max_length=20, blank=True, null=True)  # Código de afiliado para tracking
 
     class Meta:
         managed = True

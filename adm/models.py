@@ -610,3 +610,400 @@ class Promocion(models.Model):
             'puede_empezar_ahora': False,
             'ultima_promocion_termina': ultima_fecha_fin
         }
+
+
+# ============================================
+# SISTEMA DE AFILIADOS
+# ============================================
+
+class AffiliateSettings(models.Model):
+    """Configuración global del sistema de afiliados - Singleton"""
+    comision_monto = models.DecimalField(
+        max_digits=10, decimal_places=2, default=50.00,
+        help_text="Monto fijo de comisión por venta (MXN)"
+    )
+    porcentaje_descuento_default = models.DecimalField(
+        max_digits=5, decimal_places=2, default=5.00,
+        help_text="Porcentaje de descuento por defecto para nuevos afiliados"
+    )
+    minimo_retiro = models.DecimalField(
+        max_digits=10, decimal_places=2, default=500.00,
+        help_text="Monto mínimo para retiro en efectivo (MXN)"
+    )
+    email_soporte = models.EmailField(
+        default='soporte@cuentasmexico.com',
+        help_text="Email para afiliados con ventas < umbral"
+    )
+    whatsapp_soporte = models.CharField(
+        max_length=20, default='+521 833 535 5863',
+        help_text="WhatsApp para afiliados con ventas > umbral"
+    )
+    umbral_soporte_premium = models.DecimalField(
+        max_digits=10, decimal_places=2, default=5000.00,
+        help_text="Umbral de ventas mensuales para soporte WhatsApp"
+    )
+    porcentaje_comision_referido = models.DecimalField(
+        max_digits=5, decimal_places=2, default=10.00,
+        help_text="Porcentaje de comisión de ventas de referido (primer mes)"
+    )
+    banner_activo = models.BooleanField(default=True)
+    texto_banner = models.CharField(
+        max_length=255,
+        default="¡Gana dinero recomendándonos! Únete al programa de afiliados"
+    )
+    url_terminos = models.URLField(
+        blank=True, null=True,
+        help_text="URL a los términos y condiciones del programa de afiliados"
+    )
+
+    class Meta:
+        verbose_name = "Configuración de Afiliados"
+        verbose_name_plural = "Configuración de Afiliados"
+
+    def save(self, *args, **kwargs):
+        # Singleton pattern - solo una configuración
+        self.pk = 1
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        pass  # No permitir eliminar
+
+    @classmethod
+    def get_settings(cls):
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+    def __str__(self):
+        return "Configuración del Sistema de Afiliados"
+
+
+class Affiliate(models.Model):
+    """Perfil de afiliado vinculado a un usuario existente"""
+    METODO_RETIRO_CHOICES = [
+        ('transferencia', 'Transferencia Bancaria'),
+        ('paypal', 'PayPal'),
+        ('credito', 'Crédito en Tienda'),
+    ]
+
+    STATUS_CHOICES = [
+        ('activo', 'Activo'),
+        ('inactivo', 'Inactivo'),
+        ('suspendido', 'Suspendido'),
+    ]
+
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='affiliate')
+    codigo_afiliado = models.CharField(max_length=20, unique=True, db_index=True)
+    codigo_descuento = models.CharField(max_length=30, unique=True, db_index=True)
+    porcentaje_descuento = models.DecimalField(
+        max_digits=5, decimal_places=2, default=5.00,
+        help_text="Descuento que ofrece el código del afiliado a clientes"
+    )
+    metodo_retiro = models.CharField(
+        max_length=20, choices=METODO_RETIRO_CHOICES, default='credito'
+    )
+    comision_automatica = models.BooleanField(
+        default=False,
+        help_text="Si está activo, las comisiones se aprueban automáticamente"
+    )
+    # Datos bancarios (opcional)
+    banco_nombre = models.CharField(max_length=100, blank=True, null=True)
+    banco_titular = models.CharField(max_length=100, blank=True, null=True)
+    banco_cuenta = models.CharField(max_length=20, blank=True, null=True)
+    banco_clabe = models.CharField(max_length=18, blank=True, null=True)
+    # Datos PayPal (opcional)
+    paypal_email = models.EmailField(blank=True, null=True)
+    # Afiliado que lo refirió (un solo nivel)
+    referido_por = models.ForeignKey(
+        'self', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='referidos'
+    )
+    fecha_referido = models.DateTimeField(null=True, blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='activo')
+    fecha_registro = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Afiliado"
+        verbose_name_plural = "Afiliados"
+        ordering = ['-fecha_registro']
+
+    def __str__(self):
+        return f"{self.user.username} - {self.codigo_afiliado}"
+
+    def save(self, *args, **kwargs):
+        if not self.codigo_afiliado:
+            self.codigo_afiliado = self._generate_unique_code('AF')
+        if not self.codigo_descuento:
+            self.codigo_descuento = self._generate_unique_code('CM')
+        if not self.porcentaje_descuento:
+            settings = AffiliateSettings.get_settings()
+            self.porcentaje_descuento = settings.porcentaje_descuento_default
+        super().save(*args, **kwargs)
+
+    def _generate_unique_code(self, prefix):
+        import random
+        import string
+        while True:
+            code = f"{prefix}{''.join(random.choices(string.ascii_uppercase + string.digits, k=6))}"
+            if prefix == 'AF':
+                if not Affiliate.objects.filter(codigo_afiliado=code).exists():
+                    return code
+            else:
+                if not Affiliate.objects.filter(codigo_descuento=code).exists():
+                    return code
+
+    @property
+    def balance_disponible(self):
+        """Calcula el balance disponible para retiro"""
+        from django.db.models import Sum
+        comisiones = self.comisiones.filter(
+            status='aprobada'
+        ).aggregate(total=Sum('monto'))['total'] or 0
+        retiros = self.retiros.filter(
+            status__in=['aprobado', 'procesando']
+        ).aggregate(total=Sum('monto'))['total'] or 0
+        return comisiones - retiros
+
+    @property
+    def balance_pendiente(self):
+        """Calcula el balance pendiente de aprobación"""
+        from django.db.models import Sum
+        return self.comisiones.filter(
+            status='pendiente'
+        ).aggregate(total=Sum('monto'))['total'] or 0
+
+    @property
+    def ventas_mes_actual(self):
+        """Total de ventas del mes actual"""
+        from django.db.models import Sum
+        from calendar import monthrange
+        now = timezone.now()
+        start = timezone.make_aware(
+            timezone.datetime(now.year, now.month, 1, 0, 0, 0),
+            timezone.get_current_timezone()
+        ) if timezone.is_naive(timezone.datetime(now.year, now.month, 1, 0, 0, 0)) else timezone.datetime(now.year, now.month, 1, 0, 0, 0, tzinfo=timezone.get_current_timezone())
+        last_day = monthrange(now.year, now.month)[1]
+        end = timezone.make_aware(
+            timezone.datetime(now.year, now.month, last_day, 23, 59, 59),
+            timezone.get_current_timezone()
+        ) if timezone.is_naive(timezone.datetime(now.year, now.month, last_day, 23, 59, 59)) else timezone.datetime(now.year, now.month, last_day, 23, 59, 59, tzinfo=timezone.get_current_timezone())
+
+        return self.ventas.filter(
+            created_at__range=(start, end)
+        ).aggregate(total=Sum('sale__payment_amount'))['total'] or 0
+
+    @property
+    def total_ventas(self):
+        """Total de ventas generadas"""
+        return self.ventas.count()
+
+    @property
+    def total_clics(self):
+        """Total de clics en links de afiliado"""
+        return self.clicks.count()
+
+    @property
+    def tasa_conversion(self):
+        """Tasa de conversión (ventas / clics)"""
+        clics = self.total_clics
+        if clics == 0:
+            return 0
+        return round((self.total_ventas / clics) * 100, 2)
+
+    def get_tipo_soporte(self):
+        """Determina el tipo de soporte según ventas mensuales"""
+        settings = AffiliateSettings.get_settings()
+        if self.ventas_mes_actual >= settings.umbral_soporte_premium:
+            return 'whatsapp', settings.whatsapp_soporte
+        return 'email', settings.email_soporte
+
+
+class AffiliateSale(models.Model):
+    """Registro de ventas generadas por afiliados"""
+    affiliate = models.ForeignKey(Affiliate, on_delete=models.CASCADE, related_name='ventas')
+    sale = models.ForeignKey(Sale, on_delete=models.CASCADE, related_name='affiliate_sale')
+    codigo_usado = models.CharField(max_length=30)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Venta de Afiliado"
+        verbose_name_plural = "Ventas de Afiliados"
+        unique_together = ['affiliate', 'sale']
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Venta {self.sale.id} por {self.affiliate.codigo_afiliado}"
+
+
+class AffiliateCommission(models.Model):
+    """Comisiones generadas por ventas"""
+    STATUS_CHOICES = [
+        ('pendiente', 'Pendiente'),
+        ('aprobada', 'Aprobada'),
+        ('rechazada', 'Rechazada'),
+    ]
+
+    TIPO_CHOICES = [
+        ('venta_directa', 'Venta Directa'),
+        ('referido', 'Comisión de Referido'),
+    ]
+
+    affiliate = models.ForeignKey(Affiliate, on_delete=models.CASCADE, related_name='comisiones')
+    affiliate_sale = models.ForeignKey(
+        AffiliateSale, on_delete=models.CASCADE, related_name='comisiones',
+        null=True, blank=True
+    )
+    monto = models.DecimalField(max_digits=10, decimal_places=2)
+    tipo = models.CharField(max_length=20, choices=TIPO_CHOICES, default='venta_directa')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pendiente')
+    descripcion = models.TextField(blank=True, null=True)
+    aprobado_por = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='comisiones_aprobadas'
+    )
+    fecha_aprobacion = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Comisión"
+        verbose_name_plural = "Comisiones"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"${self.monto} - {self.affiliate.codigo_afiliado} - {self.get_status_display()}"
+
+    def aprobar(self, usuario=None):
+        """Aprueba la comisión"""
+        self.status = 'aprobada'
+        self.aprobado_por = usuario
+        self.fecha_aprobacion = timezone.now()
+        self.save()
+
+    def rechazar(self, usuario=None, motivo=None):
+        """Rechaza la comisión"""
+        self.status = 'rechazada'
+        self.aprobado_por = usuario
+        self.fecha_aprobacion = timezone.now()
+        if motivo:
+            self.descripcion = f"{self.descripcion or ''}\nRechazada: {motivo}"
+        self.save()
+
+
+class AffiliateWithdrawal(models.Model):
+    """Solicitudes de retiro de afiliados"""
+    STATUS_CHOICES = [
+        ('pendiente', 'Pendiente'),
+        ('procesando', 'Procesando'),
+        ('aprobado', 'Aprobado'),
+        ('rechazado', 'Rechazado'),
+    ]
+
+    METODO_CHOICES = [
+        ('transferencia', 'Transferencia Bancaria'),
+        ('paypal', 'PayPal'),
+        ('credito', 'Crédito en Tienda'),
+    ]
+
+    affiliate = models.ForeignKey(Affiliate, on_delete=models.CASCADE, related_name='retiros')
+    monto = models.DecimalField(max_digits=10, decimal_places=2)
+    metodo = models.CharField(max_length=20, choices=METODO_CHOICES)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pendiente')
+    # Datos de pago al momento del retiro (snapshot)
+    datos_pago = models.JSONField(blank=True, null=True)
+    notas = models.TextField(blank=True, null=True)
+    procesado_por = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='retiros_procesados'
+    )
+    fecha_procesado = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Solicitud de Retiro"
+        verbose_name_plural = "Solicitudes de Retiro"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"${self.monto} - {self.affiliate.codigo_afiliado} - {self.get_status_display()}"
+
+    def aprobar(self, usuario=None):
+        """Aprueba el retiro"""
+        self.status = 'aprobado'
+        self.procesado_por = usuario
+        self.fecha_procesado = timezone.now()
+        self.save()
+
+        # Si es crédito en tienda, crear el crédito automáticamente
+        if self.metodo == 'credito':
+            Credits.objects.create(
+                customer=self.affiliate.user,
+                credits=int(self.monto),
+                detail=f'Retiro de comisiones de afiliado #{self.id}'
+            )
+
+    def rechazar(self, usuario=None, motivo=None):
+        """Rechaza el retiro"""
+        self.status = 'rechazado'
+        self.procesado_por = usuario
+        self.fecha_procesado = timezone.now()
+        if motivo:
+            self.notas = f"{self.notas or ''}\nRechazado: {motivo}"
+        self.save()
+
+
+class AffiliateClick(models.Model):
+    """Tracking de clics en links de afiliados"""
+    affiliate = models.ForeignKey(Affiliate, on_delete=models.CASCADE, related_name='clicks')
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(blank=True, null=True)
+    referrer = models.CharField(max_length=500, blank=True, null=True)
+    session_key = models.CharField(max_length=100, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    converted = models.BooleanField(default=False)
+
+    class Meta:
+        verbose_name = "Clic de Afiliado"
+        verbose_name_plural = "Clics de Afiliados"
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['affiliate', 'created_at']),
+            models.Index(fields=['session_key']),
+        ]
+
+    def __str__(self):
+        return f"Clic {self.affiliate.codigo_afiliado} - {self.created_at.strftime('%Y-%m-%d %H:%M')}"
+
+
+class AffiliateNotification(models.Model):
+    """Notificaciones internas para afiliados (campanita)"""
+    TIPO_CHOICES = [
+        ('venta', 'Nueva Venta'),
+        ('comision', 'Comisión Aprobada'),
+        ('comision_rechazada', 'Comisión Rechazada'),
+        ('retiro', 'Retiro Procesado'),
+        ('retiro_rechazado', 'Retiro Rechazado'),
+        ('referido', 'Nuevo Referido'),
+        ('sistema', 'Notificación del Sistema'),
+    ]
+
+    affiliate = models.ForeignKey(Affiliate, on_delete=models.CASCADE, related_name='notificaciones')
+    tipo = models.CharField(max_length=20, choices=TIPO_CHOICES)
+    titulo = models.CharField(max_length=100)
+    mensaje = models.TextField()
+    leida = models.BooleanField(default=False)
+    url = models.CharField(max_length=255, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Notificación de Afiliado"
+        verbose_name_plural = "Notificaciones de Afiliados"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.titulo} - {self.affiliate.codigo_afiliado}"
+
+    def marcar_leida(self):
+        self.leida = True
+        self.save()

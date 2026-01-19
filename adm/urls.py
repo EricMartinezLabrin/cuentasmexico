@@ -4,6 +4,7 @@ from django.contrib.auth.decorators import login_required
 
 
 from . import views
+from . import api_sync
 
 app_name = "adm"
 
@@ -170,4 +171,34 @@ urlpatterns = [
     path('promociones/delete/<int:pk>', login_required(views.PromocionDeleteView), name='promocion_delete'),
     path('promociones/toggle/<int:pk>', login_required(views.PromocionToggleStatusView), name='promocion_toggle'),
     path('promociones/fechas-disponibles/', login_required(views.PromocionFechasDisponiblesView), name='promocion_fechas_disponibles'),
+
+    # ============================================
+    # SISTEMA DE AFILIADOS - ADMIN
+    # ============================================
+    path('afiliados/', login_required(views.AfiliadosListView), name='afiliados_list'),
+    path('afiliados/<int:pk>/', login_required(views.AfiliadosDetailView), name='afiliados_detail'),
+    path('afiliados/<int:pk>/toggle-status/', login_required(views.AfiliadosToggleStatus), name='afiliados_toggle_status'),
+    path('afiliados/<int:pk>/toggle-auto-comision/', login_required(views.AfiliadosToggleAutoComision), name='afiliados_toggle_auto_comision'),
+    path('afiliados/configuracion/', login_required(views.AfiliadosConfigView), name='afiliados_config'),
+    path('afiliados/<int:pk>/update-descuento/', login_required(views.AfiliadosUpdateDescuento), name='afiliados_update_descuento'),
+    path('afiliados/descuento-masivo/', login_required(views.AfiliadosDescuentoMasivo), name='afiliados_descuento_masivo'),
+    path('afiliados/comisiones/', login_required(views.AfiliadosComisionesListView), name='afiliados_comisiones_admin'),
+    path('afiliados/comisiones/<int:pk>/aprobar/', login_required(views.AfiliadosComisionAprobar), name='afiliados_comision_aprobar'),
+    path('afiliados/comisiones/<int:pk>/rechazar/', login_required(views.AfiliadosComisionRechazar), name='afiliados_comision_rechazar'),
+    path('afiliados/retiros/', login_required(views.AfiliadosRetirosListView), name='afiliados_retiros_admin'),
+    path('afiliados/retiros/<int:pk>/aprobar/', login_required(views.AfiliadosRetiroAprobar), name='afiliados_retiro_aprobar'),
+    path('afiliados/retiros/<int:pk>/rechazar/', login_required(views.AfiliadosRetiroRechazar), name='afiliados_retiro_rechazar'),
+    path('afiliados/estadisticas/', login_required(views.AfiliadosStatsView), name='afiliados_stats_admin'),
+
+    # API - Sincronización Google Sheets
+    path('api/sync-sheets/', api_sync.sync_sheets_endpoint, name='api_sync_sheets'),
+    path('api/sync-sheets/debug/', api_sync.sync_sheets_debug, name='api_sync_sheets_debug'),
+    path('api/verify-accounts/', api_sync.verify_accounts_endpoint, name='api_verify_accounts'),
+    path('api/verify-accounts/debug/', api_sync.verify_accounts_debug, name='api_verify_accounts_debug'),
+    
+    # Logs de Sincronización
+    path('sync-logs/', views.sync_logs_view, name='sync_logs'),
+    path('sync-logs/download/', views.sync_logs_download, name='sync_logs_download'),
+    path('sync-logs/clear/', views.sync_logs_clear, name='sync_logs_clear'),
+    path('sync-logs/execute/', views.sync_google_sheets_execute, name='sync_execute'),
 ]

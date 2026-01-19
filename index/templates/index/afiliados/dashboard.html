@@ -1,0 +1,243 @@
+{% extends 'index/afiliados/base.html' %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item active">Dashboard</li>
+{% endblock %}
+
+{% block affiliate_content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Dashboard</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{% url 'afiliados_solicitar_retiro' %}" class="btn btn-success">
+            <i class="bi bi-cash me-1"></i> Solicitar Retiro
+        </a>
+    </div>
+</div>
+
+<!-- Tarjetas de resumen -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-lg-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-shrink-0 bg-primary bg-opacity-10 p-3 rounded">
+                        <i class="bi bi-currency-dollar text-primary fs-4"></i>
+                    </div>
+                    <div class="flex-grow-1 ms-3">
+                        <p class="text-muted mb-0 small">Balance Disponible</p>
+                        <h4 class="mb-0">${{ affiliate.balance_disponible|floatformat:2 }}</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-shrink-0 bg-success bg-opacity-10 p-3 rounded">
+                        <i class="bi bi-cart-check text-success fs-4"></i>
+                    </div>
+                    <div class="flex-grow-1 ms-3">
+                        <p class="text-muted mb-0 small">Ventas del Mes</p>
+                        <h4 class="mb-0">{{ stats.total_ventas }}</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-shrink-0 bg-info bg-opacity-10 p-3 rounded">
+                        <i class="bi bi-cursor text-info fs-4"></i>
+                    </div>
+                    <div class="flex-grow-1 ms-3">
+                        <p class="text-muted mb-0 small">Clics del Mes</p>
+                        <h4 class="mb-0">{{ stats.total_clics }}</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-shrink-0 bg-warning bg-opacity-10 p-3 rounded">
+                        <i class="bi bi-graph-up text-warning fs-4"></i>
+                    </div>
+                    <div class="flex-grow-1 ms-3">
+                        <p class="text-muted mb-0 small">Tasa Conversion</p>
+                        <h4 class="mb-0">{{ stats.tasa_conversion }}%</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Codigos y Links -->
+    <div class="col-lg-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-white">
+                <h5 class="mb-0"><i class="bi bi-link-45deg me-2"></i>Tus Codigos</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label text-muted small">Codigo de Afiliado</label>
+                    <div class="input-group">
+                        <input type="text" class="form-control" value="{{ affiliate.codigo_afiliado }}" id="codigoAfiliado" readonly>
+                        <button class="btn btn-outline-secondary" type="button" onclick="copiar('codigoAfiliado')">
+                            <i class="bi bi-clipboard"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label text-muted small">Codigo de Descuento ({{ affiliate.porcentaje_descuento }}% OFF)</label>
+                    <div class="input-group">
+                        <input type="text" class="form-control" value="{{ affiliate.codigo_descuento }}" id="codigoDescuento" readonly>
+                        <button class="btn btn-outline-secondary" type="button" onclick="copiar('codigoDescuento')">
+                            <i class="bi bi-clipboard"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="d-grid">
+                    <a href="{% url 'afiliados_materiales' %}" class="btn btn-outline-primary">
+                        <i class="bi bi-qr-code me-2"></i>Ver Materiales Promocionales
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Soporte -->
+    <div class="col-lg-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-white">
+                <h5 class="mb-0"><i class="bi bi-headset me-2"></i>Soporte</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted mb-3">
+                    {% if tipo_soporte == 'whatsapp' %}
+                    <span class="badge bg-success"><i class="bi bi-star-fill"></i> Afiliado Premium</span>
+                    <br><small>Tus ventas mensuales superan el umbral para soporte prioritario.</small>
+                    {% else %}
+                    <small>Aumenta tus ventas para acceder a soporte prioritario por WhatsApp.</small>
+                    {% endif %}
+                </p>
+
+                {% if tipo_soporte == 'whatsapp' %}
+                <a href="https://wa.me/{{ contacto_soporte|cut:'+' |cut:' ' }}" target="_blank" class="btn btn-success btn-lg w-100">
+                    <i class="bi bi-whatsapp me-2"></i>Contactar por WhatsApp
+                </a>
+                {% else %}
+                <a href="mailto:{{ contacto_soporte }}" class="btn btn-primary btn-lg w-100">
+                    <i class="bi bi-envelope me-2"></i>{{ contacto_soporte }}
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Ultimas ventas -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-cart-check me-2"></i>Ultimas Ventas</h5>
+                <a href="{% url 'afiliados_ventas' %}" class="btn btn-sm btn-outline-primary">Ver todas</a>
+            </div>
+            <div class="card-body p-0">
+                {% if ultimas_ventas %}
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Servicio</th>
+                                <th>Monto</th>
+                                <th>Comision</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for venta in ultimas_ventas %}
+                            <tr>
+                                <td>{{ venta.created_at|date:"d/m/Y H:i" }}</td>
+                                <td>{{ venta.sale.account.account_name.description }}</td>
+                                <td>${{ venta.sale.payment_amount }}</td>
+                                <td>${{ affiliate_settings.comision_monto|floatformat:2 }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-5 text-muted">
+                    <i class="bi bi-inbox fs-1"></i>
+                    <p class="mt-2">Aun no tienes ventas registradas</p>
+                    <a href="{% url 'afiliados_materiales' %}" class="btn btn-primary">
+                        <i class="bi bi-share me-2"></i>Compartir tu link
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Notificaciones recientes -->
+{% if ultimas_notificaciones %}
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-bell me-2"></i>Notificaciones Recientes</h5>
+                <a href="{% url 'afiliados_notificaciones' %}" class="btn btn-sm btn-outline-primary">Ver todas</a>
+            </div>
+            <ul class="list-group list-group-flush">
+                {% for notif in ultimas_notificaciones %}
+                <li class="list-group-item {% if not notif.leida %}bg-light{% endif %}">
+                    <div class="d-flex w-100 justify-content-between">
+                        <h6 class="mb-1">
+                            {% if not notif.leida %}<span class="badge bg-primary me-1">Nueva</span>{% endif %}
+                            {{ notif.titulo }}
+                        </h6>
+                        <small class="text-muted">{{ notif.created_at|timesince }} atras</small>
+                    </div>
+                    <p class="mb-0 small text-muted">{{ notif.mensaje|truncatewords:20 }}</p>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock affiliate_content %}
+
+{% block affiliate_js %}
+<script>
+function copiar(elementId) {
+    var copyText = document.getElementById(elementId);
+    copyText.select();
+    copyText.setSelectionRange(0, 99999);
+    navigator.clipboard.writeText(copyText.value);
+
+    // Mostrar feedback
+    var btn = copyText.nextElementSibling;
+    var originalHtml = btn.innerHTML;
+    btn.innerHTML = '<i class="bi bi-check"></i>';
+    btn.classList.remove('btn-outline-secondary');
+    btn.classList.add('btn-success');
+
+    setTimeout(function() {
+        btn.innerHTML = originalHtml;
+        btn.classList.remove('btn-success');
+        btn.classList.add('btn-outline-secondary');
+    }, 2000);
+}
+</script>
+{% endblock affiliate_js %}

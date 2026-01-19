@@ -1,0 +1,189 @@
+{% extends 'adm/base/base.html' %}
+
+{% block title %}Configuracion de Afiliados{% endblock %}
+
+{% block body %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'adm:afiliados_list' %}">Afiliados</a></li>
+                    <li class="breadcrumb-item active">Configuracion</li>
+                </ol>
+            </nav>
+            <h2><i class="bi bi-gear me-2"></i>Configuracion del Sistema de Afiliados</h2>
+        </div>
+    </div>
+
+    {% if messages %}
+    {% for message in messages %}
+    <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    <form method="post">
+        {% csrf_token %}
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <strong><i class="bi bi-cash-coin me-2"></i>Comisiones</strong>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">Monto de Comision por Venta (MXN)</label>
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+                                <input type="number" step="0.01" name="comision_monto" class="form-control" value="{{ settings.comision_monto }}">
+                                <span class="input-group-text">MXN</span>
+                            </div>
+                            <div class="form-text">Monto fijo que recibe el afiliado por cada venta generada.</div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Porcentaje de Comision por Referido (%)</label>
+                            <div class="input-group">
+                                <input type="number" step="0.1" name="porcentaje_comision_referido" class="form-control" value="{{ settings.porcentaje_comision_referido }}">
+                                <span class="input-group-text">%</span>
+                            </div>
+                            <div class="form-text">Porcentaje de la comision del afiliado que recibe quien lo refirio (solo primer mes).</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <strong><i class="bi bi-percent me-2"></i>Descuentos</strong>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">Porcentaje de Descuento por Defecto (%)</label>
+                            <div class="input-group">
+                                <input type="number" step="0.1" name="porcentaje_descuento_default" class="form-control" value="{{ settings.porcentaje_descuento_default }}">
+                                <span class="input-group-text">%</span>
+                            </div>
+                            <div class="form-text">Descuento que obtienen los clientes al usar el codigo de un afiliado nuevo.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <!-- Acciones Masivas -->
+                <div class="card mb-4 border-warning">
+                    <div class="card-header bg-warning text-dark">
+                        <strong><i class="bi bi-megaphone me-2"></i>Acciones Masivas</strong>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted small">Actualiza el porcentaje de descuento para todos los afiliados de una sola vez.</p>
+                        <form method="post" action="{% url 'adm:afiliados_descuento_masivo' %}" id="formDescuentoMasivo">
+                            {% csrf_token %}
+                            <div class="mb-3">
+                                <label class="form-label">Nuevo Porcentaje de Descuento para Todos</label>
+                                <div class="input-group">
+                                    <input type="number" step="0.1" min="0" max="100" name="nuevo_descuento" class="form-control" placeholder="Ej: 5" required>
+                                    <span class="input-group-text">%</span>
+                                    <button type="button" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#modalConfirmarMasivo">
+                                        <i class="bi bi-arrow-repeat me-1"></i>Aplicar a Todos
+                                    </button>
+                                </div>
+                                <div class="form-text">Esto cambiara el descuento de <strong>{{ total_afiliados }}</strong> afiliados activos.</div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <strong><i class="bi bi-wallet2 me-2"></i>Retiros</strong>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">Monto Minimo de Retiro (MXN)</label>
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+                                <input type="number" step="0.01" name="minimo_retiro" class="form-control" value="{{ settings.minimo_retiro }}">
+                                <span class="input-group-text">MXN</span>
+                            </div>
+                            <div class="form-text">Monto minimo para solicitar retiro (no aplica para credito en tienda).</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <strong><i class="bi bi-headset me-2"></i>Soporte</strong>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">Email de Soporte</label>
+                            <input type="email" name="email_soporte" class="form-control" value="{{ settings.email_soporte }}" placeholder="soporte@example.com">
+                            <div class="form-text">Para afiliados con ventas mensuales menores al umbral.</div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">WhatsApp de Soporte</label>
+                            <input type="text" name="whatsapp_soporte" class="form-control" value="{{ settings.whatsapp_soporte }}" placeholder="+521234567890">
+                            <div class="form-text">Para afiliados con ventas mensuales mayores al umbral.</div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Umbral para Soporte Premium (MXN)</label>
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+                                <input type="number" step="0.01" name="umbral_soporte_premium" class="form-control" value="{{ settings.umbral_soporte_premium }}">
+                                <span class="input-group-text">MXN/mes</span>
+                            </div>
+                            <div class="form-text">Ventas mensuales necesarias para acceder a soporte por WhatsApp.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <strong><i class="bi bi-file-text me-2"></i>Legal</strong>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">URL de Terminos y Condiciones</label>
+                            <input type="url" name="url_terminos" class="form-control" value="{{ settings.url_terminos }}" placeholder="https://...">
+                            <div class="form-text">Enlace a los terminos del programa de afiliados (opcional).</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary btn-lg">
+                <i class="bi bi-check-lg me-2"></i>Guardar Configuracion
+            </button>
+            <a href="{% url 'adm:afiliados_list' %}" class="btn btn-outline-secondary btn-lg">Cancelar</a>
+        </div>
+    </form>
+</div>
+
+<!-- Modal Confirmar Descuento Masivo -->
+<div class="modal fade" id="modalConfirmarMasivo" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title"><i class="bi bi-exclamation-triangle me-2"></i>Confirmar Cambio Masivo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Estas a punto de cambiar el porcentaje de descuento de <strong>todos los afiliados</strong>.</p>
+                <p class="text-muted">Esta accion afectara a {{ total_afiliados }} afiliados y no se puede deshacer facilmente.</p>
+                <p>¿Estas seguro de continuar?</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-warning" onclick="document.getElementById('formDescuentoMasivo').submit();">
+                    <i class="bi bi-check-lg me-1"></i>Si, Aplicar a Todos
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock body %}

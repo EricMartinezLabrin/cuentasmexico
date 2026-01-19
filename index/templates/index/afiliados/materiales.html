@@ -1,0 +1,182 @@
+{% extends 'index/afiliados/base.html' %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item active">Materiales Promocionales</li>
+{% endblock %}
+
+{% block affiliate_content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Materiales Promocionales</h1>
+</div>
+
+<div class="row g-4">
+    <!-- Link de afiliado -->
+    <div class="col-lg-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="bi bi-link-45deg me-2"></i>Tu Link de Afiliado</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">Comparte este link para que los clics queden registrados a tu cuenta.</p>
+
+                <div class="input-group mb-3">
+                    <input type="text" class="form-control" value="{{ link_afiliado }}" id="linkAfiliado" readonly>
+                    <button class="btn btn-primary" type="button" onclick="copiar('linkAfiliado')">
+                        <i class="bi bi-clipboard"></i>
+                    </button>
+                </div>
+
+                <div class="d-flex gap-2 flex-wrap">
+                    <a href="https://wa.me/?text=Mira%20estas%20ofertas%20increibles%20{{ link_afiliado|urlencode }}" target="_blank" class="btn btn-success btn-sm">
+                        <i class="bi bi-whatsapp me-1"></i> WhatsApp
+                    </a>
+                    <a href="https://www.facebook.com/sharer/sharer.php?u={{ link_afiliado|urlencode }}" target="_blank" class="btn btn-primary btn-sm">
+                        <i class="bi bi-facebook me-1"></i> Facebook
+                    </a>
+                    <a href="https://twitter.com/intent/tweet?url={{ link_afiliado|urlencode }}&text=Mira%20estas%20ofertas" target="_blank" class="btn btn-info btn-sm">
+                        <i class="bi bi-twitter me-1"></i> Twitter
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Codigo de descuento -->
+    <div class="col-lg-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="bi bi-percent me-2"></i>Tu Codigo de Descuento</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">Comparte este codigo para que tus seguidores obtengan <strong>{{ affiliate.porcentaje_descuento }}% de descuento</strong>.</p>
+
+                <div class="input-group mb-3">
+                    <span class="input-group-text"><i class="bi bi-tag"></i></span>
+                    <input type="text" class="form-control form-control-lg text-center fw-bold" value="{{ affiliate.codigo_descuento }}" id="codigoDescuento" readonly>
+                    <button class="btn btn-success" type="button" onclick="copiar('codigoDescuento')">
+                        <i class="bi bi-clipboard"></i>
+                    </button>
+                </div>
+
+                <div class="alert alert-light border">
+                    <small>
+                        <strong>Mensaje sugerido:</strong><br>
+                        "Usa mi codigo <strong>{{ affiliate.codigo_descuento }}</strong> para obtener {{ affiliate.porcentaje_descuento }}% de descuento en tu compra!"
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Codigo QR -->
+    <div class="col-lg-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-dark text-white">
+                <h5 class="mb-0"><i class="bi bi-qr-code me-2"></i>Codigo QR</h5>
+            </div>
+            <div class="card-body text-center">
+                <p class="text-muted">Descarga tu codigo QR personalizado para compartirlo en redes sociales o imprimirlo.</p>
+
+                <div class="bg-light p-4 rounded mb-3 d-inline-block">
+                    <img src="{% url 'afiliados_generar_qr' affiliate.codigo_afiliado %}?size=200" alt="QR Code" class="img-fluid" style="max-width: 200px;">
+                </div>
+
+                <div class="d-grid gap-2">
+                    <a href="{% url 'afiliados_generar_qr' affiliate.codigo_afiliado %}?size=500" download="qr_{{ affiliate.codigo_afiliado }}.png" class="btn btn-dark">
+                        <i class="bi bi-download me-2"></i>Descargar QR (500px)
+                    </a>
+                    <a href="{% url 'afiliados_generar_qr' affiliate.codigo_afiliado %}?size=1000" download="qr_{{ affiliate.codigo_afiliado }}_hd.png" class="btn btn-outline-dark">
+                        <i class="bi bi-download me-2"></i>Descargar QR HD (1000px)
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Link de referido -->
+    <div class="col-lg-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="bi bi-people me-2"></i>Link para Invitar Afiliados</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">Invita a otros a unirse al programa de afiliados y gana comisiones por sus ventas.</p>
+
+                <div class="input-group mb-3">
+                    <input type="text" class="form-control" value="{{ link_referido }}" id="linkReferido" readonly>
+                    <button class="btn btn-info" type="button" onclick="copiar('linkReferido')">
+                        <i class="bi bi-clipboard"></i>
+                    </button>
+                </div>
+
+                <div class="alert alert-info">
+                    <small>
+                        <i class="bi bi-info-circle me-1"></i>
+                        Ganaras el <strong>{{ affiliate_settings.porcentaje_comision_referido }}%</strong> de las comisiones de tus referidos durante su primer mes.
+                    </small>
+                </div>
+
+                <a href="{% url 'afiliados_referidos' %}" class="btn btn-outline-info">
+                    <i class="bi bi-people me-1"></i> Ver mis referidos
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tips -->
+<div class="card shadow-sm mt-4">
+    <div class="card-header bg-white">
+        <h5 class="mb-0"><i class="bi bi-lightbulb me-2"></i>Tips para Promocionar</h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <h6><i class="bi bi-check-circle text-success me-2"></i>Que hacer</h6>
+                <ul class="small">
+                    <li>Comparte tu experiencia genuina con los productos</li>
+                    <li>Usa tu codigo de descuento en stories y publicaciones</li>
+                    <li>Imprime tu QR para eventos presenciales</li>
+                    <li>Comparte en grupos relevantes (respetando las reglas)</li>
+                    <li>Crea contenido de valor alrededor de los productos</li>
+                </ul>
+            </div>
+            <div class="col-md-6">
+                <h6><i class="bi bi-x-circle text-danger me-2"></i>Que evitar</h6>
+                <ul class="small">
+                    <li>Spam o mensajes masivos no solicitados</li>
+                    <li>Hacer afirmaciones falsas sobre los productos</li>
+                    <li>Usar el link en sitios de dudosa reputacion</li>
+                    <li>Clickbait o contenido enganoso</li>
+                    <li>Comprar con tu propio codigo (no genera comision)</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock affiliate_content %}
+
+{% block affiliate_js %}
+<script>
+function copiar(elementId) {
+    var copyText = document.getElementById(elementId);
+    copyText.select();
+    copyText.setSelectionRange(0, 99999);
+    navigator.clipboard.writeText(copyText.value);
+
+    // Feedback visual
+    var btn = copyText.nextElementSibling;
+    var originalHtml = btn.innerHTML;
+    btn.innerHTML = '<i class="bi bi-check"></i>';
+
+    // Cambiar color temporalmente
+    var originalClasses = btn.className;
+    btn.className = btn.className.replace(/btn-[a-z]+/, 'btn-success');
+
+    setTimeout(function() {
+        btn.innerHTML = originalHtml;
+        btn.className = originalClasses;
+    }, 2000);
+}
+</script>
+{% endblock affiliate_js %}

@@ -1,0 +1,156 @@
+{% extends 'index/afiliados/base.html' %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{% url 'afiliados_perfil' %}">Mi Perfil</a></li>
+<li class="breadcrumb-item active">Editar</li>
+{% endblock %}
+
+{% block affiliate_content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Editar Perfil</h1>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+
+                    <!-- Metodo de retiro -->
+                    <div class="mb-4">
+                        <label for="id_metodo_retiro" class="form-label fw-bold">{{ form.metodo_retiro.label }}</label>
+                        {{ form.metodo_retiro }}
+                        {% if form.metodo_retiro.errors %}
+                        <div class="text-danger small mt-1">
+                            {% for error in form.metodo_retiro.errors %}{{ error }}{% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <hr>
+
+                    <!-- Datos bancarios -->
+                    <div id="datosBancarios" class="{% if affiliate.metodo_retiro != 'transferencia' %}d-none{% endif %}">
+                        <h6 class="text-muted mb-3"><i class="bi bi-bank me-2"></i>Datos Bancarios</h6>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="id_banco_nombre" class="form-label">{{ form.banco_nombre.label }}</label>
+                                {{ form.banco_nombre }}
+                                {% if form.banco_nombre.errors %}
+                                <div class="text-danger small">{% for error in form.banco_nombre.errors %}{{ error }}{% endfor %}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="id_banco_titular" class="form-label">{{ form.banco_titular.label }}</label>
+                                {{ form.banco_titular }}
+                                {% if form.banco_titular.errors %}
+                                <div class="text-danger small">{% for error in form.banco_titular.errors %}{{ error }}{% endfor %}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="id_banco_cuenta" class="form-label">{{ form.banco_cuenta.label }}</label>
+                                {{ form.banco_cuenta }}
+                                {% if form.banco_cuenta.errors %}
+                                <div class="text-danger small">{% for error in form.banco_cuenta.errors %}{{ error }}{% endfor %}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="id_banco_clabe" class="form-label">{{ form.banco_clabe.label }}</label>
+                                {{ form.banco_clabe }}
+                                {% if form.banco_clabe.errors %}
+                                <div class="text-danger small">{% for error in form.banco_clabe.errors %}{{ error }}{% endfor %}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Datos PayPal -->
+                    <div id="datosPaypal" class="{% if affiliate.metodo_retiro != 'paypal' %}d-none{% endif %}">
+                        <h6 class="text-muted mb-3"><i class="bi bi-paypal me-2"></i>Datos de PayPal</h6>
+
+                        <div class="mb-3">
+                            <label for="id_paypal_email" class="form-label">{{ form.paypal_email.label }}</label>
+                            {{ form.paypal_email }}
+                            {% if form.paypal_email.errors %}
+                            <div class="text-danger small">{% for error in form.paypal_email.errors %}{{ error }}{% endfor %}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Credito en tienda -->
+                    <div id="datosCredito" class="{% if affiliate.metodo_retiro != 'credito' %}d-none{% endif %}">
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle me-2"></i>
+                            Al elegir <strong>Credito en Tienda</strong>, tus retiros se agregaran automaticamente como credito en tu cuenta.
+                            Podras usar ese credito para compras en la tienda.
+                            <br><br>
+                            <strong>Ventaja:</strong> No hay monto minimo de retiro.
+                        </div>
+                    </div>
+
+                    {% if form.non_field_errors %}
+                    <div class="alert alert-danger">
+                        {% for error in form.non_field_errors %}{{ error }}{% endfor %}
+                    </div>
+                    {% endif %}
+
+                    <hr>
+
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="bi bi-check-circle me-2"></i>Guardar Cambios
+                        </button>
+                        <a href="{% url 'afiliados_perfil' %}" class="btn btn-outline-secondary">
+                            Cancelar
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Info lateral -->
+    <div class="col-lg-4">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white">
+                <h6 class="mb-0"><i class="bi bi-info-circle me-2"></i>Ayuda</h6>
+            </div>
+            <div class="card-body small">
+                <p><strong>Transferencia Bancaria</strong></p>
+                <p class="text-muted">Necesitas proporcionar tu CLABE interbancaria (18 digitos) para recibir transferencias.</p>
+
+                <p><strong>PayPal</strong></p>
+                <p class="text-muted">Usa el email asociado a tu cuenta de PayPal.</p>
+
+                <p><strong>Credito en Tienda</strong></p>
+                <p class="text-muted">El credito se agrega inmediatamente a tu cuenta y puedes usarlo para compras sin monto minimo.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock affiliate_content %}
+
+{% block affiliate_js %}
+<script>
+document.getElementById('id_metodo_retiro').addEventListener('change', function() {
+    var metodo = this.value;
+
+    document.getElementById('datosBancarios').classList.add('d-none');
+    document.getElementById('datosPaypal').classList.add('d-none');
+    document.getElementById('datosCredito').classList.add('d-none');
+
+    if (metodo === 'transferencia') {
+        document.getElementById('datosBancarios').classList.remove('d-none');
+    } else if (metodo === 'paypal') {
+        document.getElementById('datosPaypal').classList.remove('d-none');
+    } else if (metodo === 'credito') {
+        document.getElementById('datosCredito').classList.remove('d-none');
+    }
+});
+</script>
+{% endblock affiliate_js %}

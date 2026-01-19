@@ -40,6 +40,9 @@ from .models import IndexCart, IndexCartdetail
 from datetime import timedelta
 import json
 
+# Afiliados
+from .utils_affiliates import procesar_venta_afiliado_desde_carrito
+
 # Index
 
 
@@ -129,6 +132,8 @@ class CartView(TemplateView):
 
     def get_context_data(self, **kwargs):
         import os
+        from index.utils_affiliates import calcular_descuento_carrito
+
         context = super().get_context_data(**kwargs)
         context["business"] = BusinessInfo.data()
         context["credits"] = BusinessInfo.credits(self.request)
@@ -149,6 +154,22 @@ class CartView(TemplateView):
         context["init_point"] = None  # MercadoPago
         context["paypal_data"] = None  # PayPal
         context["stripe_data"] = None  # Stripe
+
+        # Calcular descuento efectivo (mayor entre promocion y afiliado)
+        descuento_info = calcular_descuento_carrito(self.request)
+        context['descuento_info'] = descuento_info
+
+        # Guardar total con descuento en sesion para usarlo en pagos
+        if descuento_info['tiene_descuento']:
+            self.request.session['cart_total_con_descuento'] = descuento_info['total_final']
+            self.request.session['descuento_aplicado'] = descuento_info['descuento_total']
+            self.request.session['descuento_tipo'] = descuento_info['tipo_descuento']
+            self.request.session['descuento_nombre'] = descuento_info['nombre_descuento']
+        else:
+            self.request.session['cart_total_con_descuento'] = self.request.session.get('cart_total', 0)
+            self.request.session['descuento_aplicado'] = 0
+            self.request.session['descuento_tipo'] = None
+            self.request.session['descuento_nombre'] = None
 
         # Solo procesar si hay carrito y usuario autenticado
         if not self.request.session.get('cart_number'):
@@ -205,11 +226,19 @@ class ServiceDetailView(DetailView):
     template_name = 'index/service_detail.html'
 
     def get_context_data(self, **kwargs):
+        from index.utils_affiliates import calcular_descuento_efectivo
+        
         context = super().get_context_data(**kwargs)
         context["count"] = BusinessInfo.count_sales(self.kwargs['pk'])
         context["business"] = BusinessInfo.data()
         context["credits"] = BusinessInfo.credits(self.request)
         context['services'] = Service.objects.filter(status=True)
+        
+        # Calcular descuento efectivo (promocion vs afiliado)
+        servicio = self.get_object()
+        descuento_info = calcular_descuento_efectivo(self.request, servicio)
+        context['descuento_efectivo'] = descuento_info
+        
         return context
 
 
@@ -1813,6 +1842,13 @@ def paypal_capture_order(request):
                         if sale_result and sale_result[0]:
                             sales_created.append(sale_result[1])
                             logger.info(f"PayPal: Venta creada: ID {sale_result[1].id}")
+                            # Procesar comision de afiliado
+                            try:
+                                aff_result = procesar_venta_afiliado_desde_carrito(sale_result[1], cart)
+                                if aff_result.get('commission'):
+                                    logger.info(f"PayPal: Comision de afiliado creada para venta {sale_result[1].id}")
+                            except Exception as aff_e:
+                                logger.error(f"PayPal: Error procesando afiliado: {str(aff_e)}")
                         else:
                             profiles_without_stock += 1
                     else:
@@ -1829,6 +1865,10 @@ def paypal_capture_order(request):
                     'profiles': profiles_without_stock,
                     'price': unit_price * profiles_without_stock
                 })
+
+        # Limpiar codigo de afiliado de la sesion despues de procesar
+        if 'affiliate_code' in request.session:
+            del request.session['affiliate_code']
 
         # Notificar si hay items sin stock
         if items_without_stock:
@@ -2431,6 +2471,13 @@ def process_stripe_payment(request, cart_id, session_id, session_data):
                     if sale_result and sale_result[0]:
                         sales_created.append(sale_result[1])
                         logger.info(f"Stripe: Venta creada: ID {sale_result[1].id}")
+                        # Procesar comision de afiliado
+                        try:
+                            aff_result = procesar_venta_afiliado_desde_carrito(sale_result[1], cart)
+                            if aff_result.get('commission'):
+                                logger.info(f"Stripe: Comision de afiliado creada para venta {sale_result[1].id}")
+                        except Exception as aff_e:
+                            logger.error(f"Stripe: Error procesando afiliado: {str(aff_e)}")
                     else:
                         profiles_without_stock += 1
                 else:

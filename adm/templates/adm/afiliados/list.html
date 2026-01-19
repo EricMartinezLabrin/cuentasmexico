@@ -1,0 +1,184 @@
+{% extends 'adm/base/base.html' %}
+
+{% block title %}Afiliados{% endblock %}
+
+{% block body %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h2><i class="bi bi-people me-2"></i>Sistema de Afiliados</h2>
+        </div>
+        <div class="col-auto">
+            <a href="{% url 'adm:afiliados_config' %}" class="btn btn-outline-secondary me-2">
+                <i class="bi bi-gear"></i> Configuracion
+            </a>
+            <a href="{% url 'adm:afiliados_stats_admin' %}" class="btn btn-outline-primary">
+                <i class="bi bi-graph-up"></i> Estadisticas
+            </a>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h6 class="card-title">Total Afiliados</h6>
+                    <h3 class="mb-0">{{ stats.total }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h6 class="card-title">Activos</h6>
+                    <h3 class="mb-0">{{ stats.activos }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-dark">
+                <div class="card-body">
+                    <a href="{% url 'adm:afiliados_comisiones_admin' %}" class="text-dark text-decoration-none">
+                        <h6 class="card-title">Comisiones Pendientes</h6>
+                        <h3 class="mb-0">{{ stats.pendientes_comision }}</h3>
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <a href="{% url 'adm:afiliados_retiros_admin' %}" class="text-white text-decoration-none">
+                        <h6 class="card-title">Retiros Pendientes</h6>
+                        <h3 class="mb-0">{{ stats.pendientes_retiro }}</h3>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-4">
+                    <input type="text" name="search" class="form-control" placeholder="Buscar por usuario, email o codigo..." value="{{ search }}">
+                </div>
+                <div class="col-md-3">
+                    <select name="status" class="form-select">
+                        <option value="">Todos los estados</option>
+                        <option value="activo" {% if status_filter == 'activo' %}selected{% endif %}>Activo</option>
+                        <option value="suspendido" {% if status_filter == 'suspendido' %}selected{% endif %}>Suspendido</option>
+                        <option value="inactivo" {% if status_filter == 'inactivo' %}selected{% endif %}>Inactivo</option>
+                    </select>
+                </div>
+                <div class="col-auto">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-search"></i> Filtrar
+                    </button>
+                    <a href="{% url 'adm:afiliados_list' %}" class="btn btn-outline-secondary">Limpiar</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Table -->
+    <div class="card">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Usuario</th>
+                        <th>Codigo Afiliado</th>
+                        <th>Codigo Descuento</th>
+                        <th>Status</th>
+                        <th>Auto-Comision</th>
+                        <th>Balance</th>
+                        <th>Ventas</th>
+                        <th>Registro</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for aff in afiliados %}
+                    <tr>
+                        <td>
+                            <strong>{{ aff.user.username }}</strong>
+                            <br><small class="text-muted">{{ aff.user.email }}</small>
+                        </td>
+                        <td><code>{{ aff.codigo_afiliado }}</code></td>
+                        <td><code>{{ aff.codigo_descuento }}</code></td>
+                        <td>
+                            {% if aff.status == 'activo' %}
+                            <span class="badge bg-success">Activo</span>
+                            {% elif aff.status == 'suspendido' %}
+                            <span class="badge bg-danger">Suspendido</span>
+                            {% else %}
+                            <span class="badge bg-secondary">Inactivo</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if aff.comision_automatica %}
+                            <span class="badge bg-success"><i class="bi bi-check"></i></span>
+                            {% else %}
+                            <span class="badge bg-secondary"><i class="bi bi-x"></i></span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <strong>${{ aff.balance_disponible|floatformat:2 }}</strong>
+                            {% if aff.balance_pendiente > 0 %}
+                            <br><small class="text-warning">${{ aff.balance_pendiente|floatformat:2 }} pend.</small>
+                            {% endif %}
+                        </td>
+                        <td>{{ aff.ventas.count }}</td>
+                        <td>{{ aff.created_at|date:"d/m/Y" }}</td>
+                        <td>
+                            <a href="{% url 'adm:afiliados_detail' aff.pk %}" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-eye"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="9" class="text-center py-4 text-muted">
+                            <i class="bi bi-inbox fs-1"></i>
+                            <p class="mt-2">No hay afiliados registrados</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        {% if afiliados.has_other_pages %}
+        <div class="card-footer">
+            <nav>
+                <ul class="pagination justify-content-center mb-0">
+                    {% if afiliados.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ afiliados.previous_page_number }}&status={{ status_filter }}&search={{ search }}">&laquo;</a>
+                    </li>
+                    {% endif %}
+
+                    {% for num in afiliados.paginator.page_range %}
+                        {% if afiliados.number == num %}
+                        <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                        {% elif num > afiliados.number|add:'-3' and num < afiliados.number|add:'3' %}
+                        <li class="page-item"><a class="page-link" href="?page={{ num }}&status={{ status_filter }}&search={{ search }}">{{ num }}</a></li>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if afiliados.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ afiliados.next_page_number }}&status={{ status_filter }}&search={{ search }}">&raquo;</a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock body %}

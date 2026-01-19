@@ -82,6 +82,7 @@ class PayPal:
     def get_cart_items_for_paypal(request):
         """
         Prepara los items del carrito para crear una orden de PayPal.
+        Aplica el descuento efectivo (mayor entre promocion y afiliado).
 
         Returns:
             list: Lista de items en formato PayPal
@@ -91,6 +92,14 @@ class PayPal:
         if not cart:
             return None, 0
 
+        # Obtener porcentaje de descuento de la sesion
+        descuento_porcentaje = 0
+        if request.session.get('descuento_aplicado', 0) > 0:
+            # Calcular porcentaje desde los valores guardados
+            subtotal_original = request.session.get('cart_total', 0)
+            if subtotal_original > 0:
+                descuento_porcentaje = (request.session.get('descuento_aplicado', 0) / subtotal_original) * 100
+
         items = []
         subtotal = 0
 
@@ -99,6 +108,12 @@ class PayPal:
             item_cost = float(item_data['unitPrice']) * float(item_data['quantity'])
             # Total de este item (precio por perfil * cantidad de perfiles)
             item_total = item_cost * float(item_data['profiles'])
+
+            # Aplicar descuento si existe
+            if descuento_porcentaje > 0:
+                item_cost = item_cost * (1 - descuento_porcentaje / 100)
+                item_total = item_total * (1 - descuento_porcentaje / 100)
+
             subtotal += item_total
 
             # Usar nombres camuflados para pasarelas de pago

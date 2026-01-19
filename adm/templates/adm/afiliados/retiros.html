@@ -1,0 +1,209 @@
+{% extends 'adm/base/base.html' %}
+
+{% block title %}Retiros de Afiliados{% endblock %}
+
+{% block body %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'adm:afiliados_list' %}">Afiliados</a></li>
+                    <li class="breadcrumb-item active">Retiros</li>
+                </ol>
+            </nav>
+            <h2><i class="bi bi-wallet2 me-2"></i>Gestion de Retiros</h2>
+        </div>
+    </div>
+
+    {% if messages %}
+    {% for message in messages %}
+    <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    <!-- Stats -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card bg-warning text-dark">
+                <div class="card-body">
+                    <h6>Retiros Pendientes</h6>
+                    <h3>{{ stats.pendientes }}</h3>
+                    <small>Total: ${{ stats.monto_pendiente|floatformat:2 }} MXN</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-3">
+                    <select name="status" class="form-select">
+                        <option value="pendiente" {% if status_filter == 'pendiente' %}selected{% endif %}>Pendientes</option>
+                        <option value="completado" {% if status_filter == 'completado' %}selected{% endif %}>Completados</option>
+                        <option value="rechazado" {% if status_filter == 'rechazado' %}selected{% endif %}>Rechazados</option>
+                        <option value="" {% if not status_filter %}selected{% endif %}>Todos</option>
+                    </select>
+                </div>
+                <div class="col-auto">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-filter"></i> Filtrar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Table -->
+    <div class="card">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th>ID</th>
+                        <th>Afiliado</th>
+                        <th>Monto</th>
+                        <th>Metodo</th>
+                        <th>Datos de Pago</th>
+                        <th>Status</th>
+                        <th>Fecha</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ret in retiros %}
+                    <tr>
+                        <td>#{{ ret.id }}</td>
+                        <td>
+                            <a href="{% url 'adm:afiliados_detail' ret.affiliate.pk %}">
+                                {{ ret.affiliate.user.username }}
+                                <br><small class="text-muted">{{ ret.affiliate.codigo_afiliado }}</small>
+                            </a>
+                        </td>
+                        <td><strong>${{ ret.monto|floatformat:2 }}</strong></td>
+                        <td>
+                            {% if ret.metodo == 'transferencia' %}
+                            <span class="badge bg-primary">Transferencia</span>
+                            {% elif ret.metodo == 'paypal' %}
+                            <span class="badge bg-info">PayPal</span>
+                            {% else %}
+                            <span class="badge bg-success">Credito</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if ret.metodo == 'transferencia' and ret.datos_pago %}
+                                <small>
+                                    {% if ret.datos_pago.banco_nombre %}{{ ret.datos_pago.banco_nombre }}<br>{% endif %}
+                                    {% if ret.datos_pago.banco_titular %}{{ ret.datos_pago.banco_titular }}<br>{% endif %}
+                                    {% if ret.datos_pago.banco_clabe %}CLABE: {{ ret.datos_pago.banco_clabe }}{% endif %}
+                                </small>
+                            {% elif ret.metodo == 'paypal' and ret.datos_pago %}
+                                <small>{{ ret.datos_pago.paypal_email }}</small>
+                            {% elif ret.metodo == 'credito' %}
+                                <small class="text-muted">Credito en tienda</small>
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if ret.status == 'completado' %}
+                            <span class="badge bg-success">Completado</span>
+                            {% elif ret.status == 'pendiente' %}
+                            <span class="badge bg-warning text-dark">Pendiente</span>
+                            {% else %}
+                            <span class="badge bg-danger">Rechazado</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ ret.created_at|date:"d/m/Y H:i" }}</td>
+                        <td>
+                            {% if ret.status == 'pendiente' %}
+                            <form method="post" action="{% url 'adm:afiliados_retiro_aprobar' ret.pk %}" class="d-inline">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-success" title="Aprobar y Marcar Completado">
+                                    <i class="bi bi-check-lg"></i>
+                                </button>
+                            </form>
+                            <button type="button" class="btn btn-sm btn-danger" title="Rechazar" data-bs-toggle="modal" data-bs-target="#rechazarModal{{ ret.pk }}">
+                                <i class="bi bi-x-lg"></i>
+                            </button>
+
+                            <!-- Modal Rechazar -->
+                            <div class="modal fade" id="rechazarModal{{ ret.pk }}" tabindex="-1">
+                                <div class="modal-dialog">
+                                    <div class="modal-content">
+                                        <form method="post" action="{% url 'adm:afiliados_retiro_rechazar' ret.pk %}">
+                                            {% csrf_token %}
+                                            <div class="modal-header">
+                                                <h5 class="modal-title">Rechazar Retiro #{{ ret.pk }}</h5>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                            </div>
+                                            <div class="modal-body">
+                                                <div class="alert alert-info">
+                                                    <strong>Nota:</strong> El monto de ${{ ret.monto|floatformat:2 }} MXN sera devuelto al balance del afiliado.
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label class="form-label">Motivo del rechazo</label>
+                                                    <textarea name="motivo" class="form-control" rows="3" required></textarea>
+                                                </div>
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                                <button type="submit" class="btn btn-danger">Rechazar</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="text-center py-4 text-muted">
+                            <i class="bi bi-inbox fs-1"></i>
+                            <p class="mt-2">No hay retiros</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        {% if retiros.has_other_pages %}
+        <div class="card-footer">
+            <nav>
+                <ul class="pagination justify-content-center mb-0">
+                    {% if retiros.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ retiros.previous_page_number }}&status={{ status_filter }}">&laquo;</a>
+                    </li>
+                    {% endif %}
+
+                    {% for num in retiros.paginator.page_range %}
+                        {% if retiros.number == num %}
+                        <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                        {% elif num > retiros.number|add:'-3' and num < retiros.number|add:'3' %}
+                        <li class="page-item"><a class="page-link" href="?page={{ num }}&status={{ status_filter }}">{{ num }}</a></li>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if retiros.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ retiros.next_page_number }}&status={{ status_filter }}">&raquo;</a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock body %}
