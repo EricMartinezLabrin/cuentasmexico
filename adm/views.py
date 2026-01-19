@@ -29,7 +29,7 @@ from api.functions.notifications import send_push_notification
 from django.db.models import DurationField
 # import pandas as pd
 # Local
-from .models import Business, PaymentMethod, Sale, UserDetail, Service, Account, Bank, Status, Supplier, Credits
+from .models import Business, PaymentMethod, Sale, UserDetail, Service, Account, Bank, Status, Supplier, Credits, Promocion
 from cupon.models import Cupon
 from .functions.alerts import Alerts
 from .functions.forms import AccountsForm, BankForm, PaymentMethodForm, ServicesForm, SettingsForm, UserDetailForm, UserForm, FilterAccountForm, StatusForm, SupplierForm, CustomerUpdateForm, UserMainForm
@@ -146,6 +146,86 @@ def index(request):
         'web_sales_yearly': web_sales_yearly,
         'web_sales_chart': web_sales_chart,
     })
+
+# ========== VISTAS DE DETALLE DE ESTADÍSTICAS WEB ==========
+
+@permission_required('is_superuser', 'adm:no-permission')
+def web_sales_today_detail(request):
+    """
+    Vista detallada de las ventas web de HOY
+    """
+    sales = Dashboard.get_web_sales_today_detail()
+    total = sales.aggregate(Sum('payment_amount'))
+
+    context = {
+        'sales': sales,
+        'total': total['payment_amount__sum'] or 0,
+        'count': sales.count(),
+        'period': 'Hoy',
+        'period_date': timezone.now().strftime('%d/%m/%Y'),
+    }
+    return render(request, 'adm/web_sales_detail.html', context)
+
+@permission_required('is_superuser', 'adm:no-permission')
+def web_sales_weekly_detail(request):
+    """
+    Vista detallada de las ventas web de ESTA SEMANA
+    """
+    sales = Dashboard.get_web_sales_weekly_detail()
+    total = sales.aggregate(Sum('payment_amount'))
+
+    today = timezone.now()
+    week_start = today - timedelta(days=today.weekday())
+
+    context = {
+        'sales': sales,
+        'total': total['payment_amount__sum'] or 0,
+        'count': sales.count(),
+        'period': 'Esta Semana',
+        'period_date': f"Desde {week_start.strftime('%d/%m/%Y')}",
+    }
+    return render(request, 'adm/web_sales_detail.html', context)
+
+@permission_required('is_superuser', 'adm:no-permission')
+def web_sales_monthly_detail(request):
+    """
+    Vista detallada de las ventas web de ESTE MES
+    """
+    sales = Dashboard.get_web_sales_monthly_detail()
+    total = sales.aggregate(Sum('payment_amount'))
+
+    month = timezone.now().month
+    year = timezone.now().year
+
+    from calendar import month_name
+
+    context = {
+        'sales': sales,
+        'total': total['payment_amount__sum'] or 0,
+        'count': sales.count(),
+        'period': 'Este Mes',
+        'period_date': f"{month_name[month]} {year}",
+    }
+    return render(request, 'adm/web_sales_detail.html', context)
+
+@permission_required('is_superuser', 'adm:no-permission')
+def web_sales_yearly_detail(request):
+    """
+    Vista detallada de las ventas web de ESTE AÑO
+    """
+    sales = Dashboard.get_web_sales_yearly_detail()
+    total = sales.aggregate(Sum('payment_amount'))
+
+    year = timezone.now().year
+
+    context = {
+        'sales': sales,
+        'total': total['payment_amount__sum'] or 0,
+        'count': sales.count(),
+        'period': 'Este Año',
+        'period_date': str(year),
+    }
+    return render(request, 'adm/web_sales_detail.html', context)
 
 class NoPermissionView(TemplateView):
     """
@@ -2023,27 +2103,205 @@ def update_service_price(request):
             service_id = data.get('service_id')
             field = data.get('field')  # 'price' o 'regular_price'
             value = data.get('value')
-            
+
             if not all([service_id, field, value is not None]):
                 return JsonResponse({'success': False, 'message': 'Datos incompletos'})
-            
+
             if field not in ['price', 'regular_price']:
                 return JsonResponse({'success': False, 'message': 'Campo inválido'})
-            
+
             service = Service.objects.get(id=service_id)
-            
+
             if field == 'price':
                 service.price = int(value)
             elif field == 'regular_price':
                 service.regular_price = int(value)
-            
+
             service.save()
-            
+
             return JsonResponse({'success': True, 'message': 'Actualizado correctamente'})
-        
+
         except Service.DoesNotExist:
             return JsonResponse({'success': False, 'message': 'Servicio no encontrado'})
         except Exception as e:
             return JsonResponse({'success': False, 'message': str(e)})
-    
+
     return JsonResponse({'success': False, 'message': 'Método no permitido'})
+
+
+# ============================
+# GESTIÓN DE PROMOCIONES
+# ============================
+
+@permission_required('is_staff', 'adm:no-permission')
+def PromocionesView(request):
+    """Vista principal para listar todas las promociones"""
+    template_name = 'adm/promociones.html'
+    promociones = Promocion.objects.all().order_by('-created_at')
+
+    # Filtros
+    search = request.GET.get('search', '')
+    status_filter = request.GET.get('status_filter', '')
+    tipo_filter = request.GET.get('tipo_filter', '')
+
+    if search:
+        promociones = promociones.filter(
+            Q(nombre__icontains=search) | Q(descripcion__icontains=search)
+        )
+
+    if status_filter:
+        promociones = promociones.filter(status=status_filter)
+
+    if tipo_filter:
+        promociones = promociones.filter(tipo_descuento=tipo_filter)
+
+    return render(request, template_name, {
+        'promociones': promociones,
+        'search': search,
+        'status_filter': status_filter,
+        'tipo_filter': tipo_filter,
+    })
+
+
+@permission_required('is_staff', 'adm:no-permission')
+def PromocionCreateView(request):
+    """Crear nueva promoción"""
+    from .functions.forms_promocion import PromocionForm
+    template_name = 'adm/promocion_form.html'
+
+    if request.method == 'POST':
+        form = PromocionForm(request.POST, request.FILES)
+        if form.is_valid():
+            promocion = form.save(commit=False)
+            promocion.created_by = request.user
+            promocion.save()
+            form.save_m2m()  # Guardar relaciones ManyToMany
+            return redirect(reverse('adm:promociones'))
+    else:
+        form = PromocionForm()
+
+    return render(request, template_name, {
+        'form': form,
+        'title': 'Crear Promoción'
+    })
+
+
+@permission_required('is_staff', 'adm:no-permission')
+def PromocionUpdateView(request, pk):
+    """Actualizar promoción existente"""
+    from .functions.forms_promocion import PromocionForm
+    template_name = 'adm/promocion_form.html'
+    promocion = Promocion.objects.get(pk=pk)
+
+    if request.method == 'POST':
+        form = PromocionForm(request.POST, request.FILES, instance=promocion)
+        if form.is_valid():
+            form.save()
+            return redirect(reverse('adm:promociones'))
+    else:
+        form = PromocionForm(instance=promocion)
+
+    return render(request, template_name, {
+        'form': form,
+        'promocion': promocion,
+        'title': 'Editar Promoción'
+    })
+
+
+@permission_required('is_staff', 'adm:no-permission')
+def PromocionDeleteView(request, pk):
+    """Eliminar promoción"""
+    template_name = 'adm/delete.html'
+    promocion = Promocion.objects.get(pk=pk)
+
+    if request.method == 'POST':
+        promocion.delete()
+        return redirect(reverse('adm:promociones'))
+
+    return render(request, template_name, {
+        'object': promocion
+    })
+
+
+@permission_required('is_staff', 'adm:no-permission')
+def PromocionToggleStatusView(request, pk):
+    """Activar/Desactivar promoción"""
+    promocion = Promocion.objects.get(pk=pk)
+
+    # Antes de activar, verificar que no haya solapamiento
+    if promocion.status != 'activa':
+        tiene_solapamiento, promocion_conflictiva = Promocion.verificar_solapamiento(
+            promocion.fecha_inicio,
+            promocion.fecha_fin,
+            excluir_id=pk
+        )
+
+        if tiene_solapamiento:
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': False,
+                    'error': f'No se puede activar. Ya existe una promoción activa: "{promocion_conflictiva.nombre}"'
+                })
+            else:
+                # Redirigir con mensaje de error
+                return redirect(reverse('adm:promociones'))
+
+    if promocion.status == 'activa':
+        promocion.status = 'inactiva'
+    else:
+        promocion.status = 'activa'
+
+    promocion.save()
+
+    # Si es AJAX, devolver JSON
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        return JsonResponse({
+            'success': True,
+            'new_status': promocion.status,
+            'status_display': promocion.get_status_display()
+        })
+
+    return redirect(reverse('adm:promociones'))
+
+
+@permission_required('is_staff', 'adm:no-permission')
+def PromocionFechasDisponiblesView(request):
+    """
+    API endpoint para obtener recomendación de fechas disponibles
+    """
+    duracion_dias = request.GET.get('duracion_dias', None)
+    excluir_id = request.GET.get('excluir_id', None)
+
+    if duracion_dias:
+        try:
+            duracion_dias = int(duracion_dias)
+        except ValueError:
+            duracion_dias = None
+
+    if excluir_id:
+        try:
+            excluir_id = int(excluir_id)
+        except ValueError:
+            excluir_id = None
+
+    recomendacion = Promocion.recomendar_proxima_fecha(duracion_dias, excluir_id)
+
+    # Formatear fechas para JSON
+    response_data = {
+        'puede_empezar_ahora': recomendacion.get('puede_empezar_ahora', False),
+        'mensaje': recomendacion.get('mensaje', '')
+    }
+
+    if recomendacion.get('fecha_inicio'):
+        # Formato para datetime-local input: YYYY-MM-DDTHH:MM
+        response_data['fecha_inicio'] = recomendacion['fecha_inicio'].strftime('%Y-%m-%dT%H:%M')
+        response_data['fecha_inicio_display'] = recomendacion['fecha_inicio'].strftime('%d/%m/%Y %H:%M')
+
+    if recomendacion.get('fecha_fin'):
+        response_data['fecha_fin'] = recomendacion['fecha_fin'].strftime('%Y-%m-%dT%H:%M')
+        response_data['fecha_fin_display'] = recomendacion['fecha_fin'].strftime('%d/%m/%Y %H:%M')
+
+    if recomendacion.get('ultima_promocion_termina'):
+        response_data['ultima_promocion_termina'] = recomendacion['ultima_promocion_termina'].strftime('%d/%m/%Y %H:%M')
+
+    return JsonResponse(response_data)

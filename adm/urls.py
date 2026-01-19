@@ -18,6 +18,16 @@ urlpatterns = [
     path('', login_required(views.index), name='index'),
     path('no-permission', login_required(views.NoPermissionView.as_view()),
          name='no-permission'),
+
+    # Estadísticas Web - Detalles de Ventas
+    path('stats/web-sales/today/', login_required(views.web_sales_today_detail),
+         name='web_sales_today_detail'),
+    path('stats/web-sales/weekly/', login_required(views.web_sales_weekly_detail),
+         name='web_sales_weekly_detail'),
+    path('stats/web-sales/monthly/', login_required(views.web_sales_monthly_detail),
+         name='web_sales_monthly_detail'),
+    path('stats/web-sales/yearly/', login_required(views.web_sales_yearly_detail),
+         name='web_sales_yearly_detail'),
     path('settings', login_required(views.SettingsDetailView), name='settings'),
     path('settings/create', login_required(views.SettingsCreateView.as_view()),
          name='settings_create'),
@@ -152,4 +162,12 @@ urlpatterns = [
          login_required(views.PromoImageDeleteView.as_view()), name='promo_image_delete'),
     path('promo-image/toggle/<int:pk>',
          login_required(views.TogglePromoImageStatus), name='promo_image_toggle'),
+
+    # Gestión de Promociones
+    path('promociones/', login_required(views.PromocionesView), name='promociones'),
+    path('promociones/create/', login_required(views.PromocionCreateView), name='promocion_create'),
+    path('promociones/update/<int:pk>', login_required(views.PromocionUpdateView), name='promocion_update'),
+    path('promociones/delete/<int:pk>', login_required(views.PromocionDeleteView), name='promocion_delete'),
+    path('promociones/toggle/<int:pk>', login_required(views.PromocionToggleStatusView), name='promocion_toggle'),
+    path('promociones/fechas-disponibles/', login_required(views.PromocionFechasDisponiblesView), name='promocion_fechas_disponibles'),
 ]

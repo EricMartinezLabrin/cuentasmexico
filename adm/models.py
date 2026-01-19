@@ -1,7 +1,9 @@
 # python
+from datetime import timedelta
 
 # django
 from django.db import models
+from django.db.models import Q
 from django.contrib.auth.models import User
 from django.core.validators import RegexValidator
 from django.utils import timezone
@@ -283,3 +285,328 @@ class PageVisit(models.Model):
         if self.page == 'service' and self.service:
             return f"Clic en {self.service.description} - {self.visited_at.strftime('%Y-%m-%d %H:%M')}"
         return f"{self.get_page_display()} - {self.visited_at.strftime('%Y-%m-%d %H:%M')}"
+
+
+class Promocion(models.Model):
+    """Modelo para gestionar promociones de la tienda"""
+    TIPO_DESCUENTO_CHOICES = [
+        ('porcentaje', 'Porcentaje'),
+        ('monto_fijo', 'Monto Fijo'),
+        ('nxm', 'NxM (ej. 2x1, 3x2)'),
+    ]
+
+    APLICACION_CHOICES = [
+        ('todos', 'Todos los servicios'),
+        ('especificos', 'Servicios específicos'),
+        ('excepto', 'Todos excepto algunos'),
+    ]
+
+    STATUS_CHOICES = [
+        ('activa', 'Activa'),
+        ('inactiva', 'Inactiva'),
+        ('programada', 'Programada'),
+        ('expirada', 'Expirada'),
+    ]
+
+    TIPO_NXM_CHOICES = [
+        ('meses', 'Meses de suscripción (ej. 3 meses por el precio de 2)'),
+        ('servicios', 'Servicios diferentes (ej. 3 servicios por el precio de 2)'),
+        ('perfiles', 'Perfiles/Pantallas (ej. 3 perfiles por el precio de 2)'),
+    ]
+
+    # Información básica
+    nombre = models.CharField(max_length=200, help_text="Nombre de la promoción")
+    descripcion = models.TextField(blank=True, null=True, help_text="Descripción detallada")
+
+    # Tipo de descuento
+    tipo_descuento = models.CharField(max_length=20, choices=TIPO_DESCUENTO_CHOICES, default='porcentaje')
+    porcentaje_descuento = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True, help_text="Porcentaje de descuento (ej. 50 para 50%)")
+    monto_descuento = models.IntegerField(blank=True, null=True, help_text="Monto fijo de descuento en pesos")
+
+    # Para promociones tipo NxM (2x1, 3x2, etc)
+    tipo_nxm = models.CharField(
+        max_length=20,
+        choices=TIPO_NXM_CHOICES,
+        default='meses',
+        blank=True,
+        null=True,
+        help_text="A qué se aplica la promoción NxM"
+    )
+    cantidad_llevar = models.IntegerField(blank=True, null=True, help_text="Cantidad que lleva el cliente (ej. 3 en 3x2)")
+    cantidad_pagar = models.IntegerField(blank=True, null=True, help_text="Cantidad que paga el cliente (ej. 2 en 3x2)")
+
+    # Aplicación de la promoción
+    aplicacion = models.CharField(max_length=20, choices=APLICACION_CHOICES, default='todos')
+    servicios = models.ManyToManyField(Service, blank=True, related_name='promociones', help_text="Servicios a los que aplica o excluye")
+
+    # Fechas
+    fecha_inicio = models.DateTimeField(blank=True, null=True, help_text="Fecha y hora de inicio (dejar vacío para iniciar inmediatamente)")
+    fecha_fin = models.DateTimeField(blank=True, null=True, help_text="Fecha y hora de finalización (dejar vacío para sin límite)")
+
+    # Estado
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='inactiva')
+
+    # Imagen para banner
+    imagen = models.ImageField(upload_to='promociones/', blank=True, null=True, help_text="Imagen para banner promocional")
+    mostrar_en_banner = models.BooleanField(default=False, help_text="Mostrar en banners de la página principal")
+    orden_banner = models.IntegerField(default=0, help_text="Orden de aparición en banners (menor número = primero)")
+
+    # Metadatos
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='promociones_creadas')
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = "Promoción"
+        verbose_name_plural = "Promociones"
+
+    def __str__(self):
+        return f"{self.nombre} - {self.get_status_display()}"
+
+    def save(self, *args, **kwargs):
+        """Actualizar estado automáticamente según las fechas"""
+        now = timezone.now()
+
+        # Si está inactiva manualmente, no cambiar el estado
+        if self.status == 'inactiva':
+            super().save(*args, **kwargs)
+            return
+
+        # Actualizar estado según fechas
+        if self.fecha_fin and now > self.fecha_fin:
+            self.status = 'expirada'
+        elif self.fecha_inicio and now < self.fecha_inicio:
+            self.status = 'programada'
+        elif (not self.fecha_inicio or now >= self.fecha_inicio) and (not self.fecha_fin or now <= self.fecha_fin):
+            if self.status != 'inactiva':
+                self.status = 'activa'
+
+        super().save(*args, **kwargs)
+
+    def is_active(self):
+        """Verifica si la promoción está activa en este momento"""
+        if self.status == 'inactiva':
+            return False
+
+        now = timezone.now()
+
+        # Verificar fecha de inicio
+        if self.fecha_inicio and now < self.fecha_inicio:
+            return False
+
+        # Verificar fecha de fin
+        if self.fecha_fin and now > self.fecha_fin:
+            return False
+
+        return self.status == 'activa'
+
+    def aplica_a_servicio(self, servicio):
+        """Verifica si esta promoción aplica a un servicio específico"""
+        if not self.is_active():
+            return False
+
+        if self.aplicacion == 'todos':
+            return True
+        elif self.aplicacion == 'especificos':
+            return self.servicios.filter(id=servicio.id).exists()
+        elif self.aplicacion == 'excepto':
+            return not self.servicios.filter(id=servicio.id).exists()
+
+        return False
+
+    def calcular_precio_con_descuento(self, precio_original, cantidad=1):
+        """
+        Calcula el precio final con descuento aplicado
+
+        Args:
+            precio_original: Precio base del servicio (por unidad/mes)
+            cantidad: Cantidad de unidades (meses, servicios, perfiles según tipo_nxm)
+
+        Returns:
+            Precio final con descuento aplicado
+        """
+        if not self.is_active():
+            return precio_original
+
+        if self.tipo_descuento == 'porcentaje' and self.porcentaje_descuento:
+            descuento = precio_original * (self.porcentaje_descuento / 100)
+            return int(precio_original - descuento)
+
+        elif self.tipo_descuento == 'monto_fijo' and self.monto_descuento:
+            precio_con_descuento = precio_original - self.monto_descuento
+            return max(0, precio_con_descuento)
+
+        elif self.tipo_descuento == 'nxm' and self.cantidad_pagar and self.cantidad_llevar:
+            # Verificar que la cantidad sea suficiente para aplicar la promoción
+            if cantidad >= self.cantidad_llevar:
+                # Cuántos sets completos aplican a la promoción
+                sets_completos = cantidad // self.cantidad_llevar
+                items_restantes = cantidad % self.cantidad_llevar
+
+                # LÓGICA CORREGIDA:
+                # Ejemplo 3x2: llevas 3, pagas 2
+                # - sets_completos = cuántas veces se completa el set de "llevar"
+                # - precio_por_set = precio_original * cantidad_pagar (lo que pagas por cada set)
+                # - items_restantes = los que no completan un set (se cobran precio normal)
+
+                precio_por_set = precio_original * self.cantidad_pagar
+                precio_total = (sets_completos * precio_por_set) + (items_restantes * precio_original)
+                return int(precio_total)
+            else:
+                # Si no alcanza la cantidad mínima, no aplica descuento
+                return precio_original * cantidad
+
+        return precio_original
+
+    @classmethod
+    def verificar_solapamiento(cls, fecha_inicio, fecha_fin, excluir_id=None):
+        """
+        Verifica si hay solapamiento con otras promociones activas
+
+        Args:
+            fecha_inicio: Fecha de inicio de la nueva promoción
+            fecha_fin: Fecha de fin de la nueva promoción
+            excluir_id: ID de promoción a excluir (para edición)
+
+        Returns:
+            tuple: (tiene_solapamiento, promocion_conflictiva)
+        """
+        # Buscar promociones que no estén inactivas
+        promociones_query = cls.objects.exclude(status='inactiva')
+
+        if excluir_id:
+            promociones_query = promociones_query.exclude(id=excluir_id)
+
+        # Si no hay fechas, significa que es permanente, siempre hay conflicto
+        if not fecha_inicio and not fecha_fin:
+            # Buscar si hay alguna promoción activa o programada
+            promocion_conflictiva = promociones_query.filter(
+                Q(status='activa') | Q(status='programada')
+            ).first()
+
+            if promocion_conflictiva:
+                return True, promocion_conflictiva
+            return False, None
+
+        # Si solo hay fecha_inicio (sin fin)
+        if fecha_inicio and not fecha_fin:
+            # Verificar si alguna promoción activa termina después de nuestra fecha_inicio
+            # o si alguna no tiene fecha_fin
+            promociones_conflictivas = promociones_query.filter(
+                Q(status='activa') | Q(status='programada')
+            ).filter(
+                Q(fecha_fin__gte=fecha_inicio) | Q(fecha_fin__isnull=True)
+            )
+
+            promocion_conflictiva = promociones_conflictivas.first()
+            if promocion_conflictiva:
+                return True, promocion_conflictiva
+            return False, None
+
+        # Si solo hay fecha_fin (sin inicio) - comienza ahora
+        if not fecha_inicio and fecha_fin:
+            now = timezone.now()
+            fecha_inicio = now
+
+        # Si hay ambas fechas, verificar solapamiento de rangos
+        promociones_conflictivas = promociones_query.filter(
+            Q(status='activa') | Q(status='programada')
+        )
+
+        for promo in promociones_conflictivas:
+            # Caso 1: La promoción existente no tiene fechas (es permanente)
+            if not promo.fecha_inicio and not promo.fecha_fin:
+                return True, promo
+
+            # Caso 2: La promoción existente no tiene fecha de fin
+            if not promo.fecha_fin:
+                inicio_promo = promo.fecha_inicio or timezone.now()
+                if fecha_fin >= inicio_promo:
+                    return True, promo
+
+            # Caso 3: La promoción existente no tiene fecha de inicio (comienza ahora)
+            if not promo.fecha_inicio:
+                if fecha_inicio <= promo.fecha_fin:
+                    return True, promo
+
+            # Caso 4: Ambas tienen fechas completas - verificar solapamiento
+            if promo.fecha_inicio and promo.fecha_fin:
+                # Hay solapamiento si:
+                # - Nueva empieza antes que termine la existente Y
+                # - Nueva termina después que empiece la existente
+                if fecha_inicio <= promo.fecha_fin and fecha_fin >= promo.fecha_inicio:
+                    return True, promo
+
+        return False, None
+
+    @classmethod
+    def recomendar_proxima_fecha(cls, duracion_dias=None, excluir_id=None):
+        """
+        Recomienda la próxima fecha disponible para una promoción
+
+        Args:
+            duracion_dias: Duración en días de la promoción
+            excluir_id: ID de promoción a excluir (para edición)
+
+        Returns:
+            dict con fecha_inicio y fecha_fin recomendadas
+        """
+        now = timezone.now()
+
+        # Buscar todas las promociones activas o programadas
+        promociones = cls.objects.filter(
+            Q(status='activa') | Q(status='programada')
+        ).exclude(status='inactiva')
+
+        if excluir_id:
+            promociones = promociones.exclude(id=excluir_id)
+
+        # Ordenar por fecha de fin
+        promociones = promociones.order_by('fecha_fin')
+
+        # Si no hay promociones, puede empezar ahora
+        if not promociones.exists():
+            fecha_inicio_rec = now
+            if duracion_dias:
+                fecha_fin_rec = now + timedelta(days=duracion_dias)
+            else:
+                fecha_fin_rec = None
+
+            return {
+                'fecha_inicio': fecha_inicio_rec,
+                'fecha_fin': fecha_fin_rec,
+                'puede_empezar_ahora': True
+            }
+
+        # Buscar la última fecha de finalización
+        ultima_fecha_fin = None
+        for promo in promociones:
+            if promo.fecha_fin:
+                if not ultima_fecha_fin or promo.fecha_fin > ultima_fecha_fin:
+                    ultima_fecha_fin = promo.fecha_fin
+
+        # Si alguna promoción no tiene fecha de fin, no podemos recomendar
+        if not ultima_fecha_fin:
+            # Hay una promoción permanente, recomendar que la desactiven
+            return {
+                'fecha_inicio': None,
+                'fecha_fin': None,
+                'puede_empezar_ahora': False,
+                'mensaje': 'Existe una promoción sin fecha de finalización. Debes finalizarla o establecer una fecha de fin antes de crear una nueva.'
+            }
+
+        # Recomendar empezar 1 minuto después de la última finalización
+        fecha_inicio_rec = ultima_fecha_fin + timedelta(minutes=1)
+
+        if duracion_dias:
+            fecha_fin_rec = fecha_inicio_rec + timedelta(days=duracion_dias)
+        else:
+            fecha_fin_rec = None
+
+        return {
+            'fecha_inicio': fecha_inicio_rec,
+            'fecha_fin': fecha_fin_rec,
+            'puede_empezar_ahora': False,
+            'ultima_promocion_termina': ultima_fecha_fin
+        }

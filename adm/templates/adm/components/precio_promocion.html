@@ -1,0 +1,22 @@
+{% if tiene_descuento %}
+    <div class="precio-con-descuento">
+        {% if mostrar_original %}
+            <span class="precio-original text-muted text-decoration-line-through">
+                ${{ precio_original }}
+            </span>
+        {% endif %}
+        <span class="precio-final text-danger fw-bold">
+            ${{ precio_final }}
+        </span>
+        <span class="badge bg-danger ms-1">
+            -{{ porcentaje_descuento }}%
+        </span>
+        {% if promocion %}
+            <small class="d-block text-muted">{{ promocion.nombre }}</small>
+        {% endif %}
+    </div>
+{% else %}
+    <span class="precio-normal">
+        ${{ precio_final }}
+    </span>
+{% endif %}

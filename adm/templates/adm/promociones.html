@@ -1,0 +1,187 @@
+{% extends 'adm/base/base.html' %}
+{% load static %}
+{% block title %}
+    Promociones
+{% endblock title %}
+{% block body %}
+    <h1>Gestión de Promociones</h1>
+
+    <!-- Filtro y Búsqueda -->
+    <div class="mb-4 p-3 bg-light rounded">
+        <form method="GET" class="row g-3">
+            <div class="col-md-4">
+                <input type="text" name="search" class="form-control"
+                       placeholder="Buscar por nombre o descripción..."
+                       value="{{ search }}">
+            </div>
+            <div class="col-md-2">
+                <select name="status_filter" class="form-select">
+                    <option value="">Todos los estados</option>
+                    <option value="activa" {% if status_filter == 'activa' %}selected{% endif %}>Activas</option>
+                    <option value="inactiva" {% if status_filter == 'inactiva' %}selected{% endif %}>Inactivas</option>
+                    <option value="programada" {% if status_filter == 'programada' %}selected{% endif %}>Programadas</option>
+                    <option value="expirada" {% if status_filter == 'expirada' %}selected{% endif %}>Expiradas</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <select name="tipo_filter" class="form-select">
+                    <option value="">Todos los tipos</option>
+                    <option value="porcentaje" {% if tipo_filter == 'porcentaje' %}selected{% endif %}>Porcentaje</option>
+                    <option value="monto_fijo" {% if tipo_filter == 'monto_fijo' %}selected{% endif %}>Monto Fijo</option>
+                    <option value="nxm" {% if tipo_filter == 'nxm' %}selected{% endif %}>NxM</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary w-100">Filtrar</button>
+            </div>
+            <div class="col-md-2">
+                <a href="{% url 'adm:promociones' %}" class="btn btn-secondary w-100">Limpiar</a>
+            </div>
+        </form>
+    </div>
+
+    <a href="{% url 'adm:promocion_create' %}" class="btn btn-cm mb-3">
+        <i class="bi bi-plus-circle"></i> Crear Nueva Promoción
+    </a>
+
+    {% if promociones %}
+    <div class="table-responsive">
+        <table class="table table-hover mt-4">
+            <thead class="table-light">
+                <tr>
+                    <th style="width: 80px;">Imagen</th>
+                    <th>Nombre</th>
+                    <th>Tipo</th>
+                    <th>Descuento</th>
+                    <th>Aplicación</th>
+                    <th>Vigencia</th>
+                    <th>Estado</th>
+                    <th>Banner</th>
+                    <th style="width: 200px;">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for promocion in promociones %}
+                <tr>
+                    <td>
+                        {% if promocion.imagen %}
+                            <img src="{{ promocion.imagen.url }}" alt="{{ promocion.nombre }}"
+                                 style="width: 60px; height: 40px; object-fit: cover; border-radius: 4px;">
+                        {% else %}
+                            <span class="text-muted">Sin imagen</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <strong>{{ promocion.nombre }}</strong>
+                        {% if promocion.descripcion %}
+                            <br><small class="text-muted">{{ promocion.descripcion|truncatewords:10 }}</small>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if promocion.tipo_descuento == 'porcentaje' %}
+                            <span class="badge bg-info">Porcentaje</span>
+                        {% elif promocion.tipo_descuento == 'monto_fijo' %}
+                            <span class="badge bg-warning">Monto Fijo</span>
+                        {% else %}
+                            <span class="badge bg-primary">NxM</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if promocion.tipo_descuento == 'porcentaje' %}
+                            {{ promocion.porcentaje_descuento }}%
+                        {% elif promocion.tipo_descuento == 'monto_fijo' %}
+                            ${{ promocion.monto_descuento }}
+                        {% else %}
+                            {{ promocion.cantidad_llevar }}x{{ promocion.cantidad_pagar }}
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if promocion.aplicacion == 'todos' %}
+                            <span class="badge bg-success">Todos</span>
+                        {% elif promocion.aplicacion == 'especificos' %}
+                            <span class="badge bg-info">Específicos ({{ promocion.servicios.count }})</span>
+                        {% else %}
+                            <span class="badge bg-warning">Excepto ({{ promocion.servicios.count }})</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if promocion.fecha_inicio %}
+                            <small>Desde: {{ promocion.fecha_inicio|date:"d/m/Y H:i" }}</small><br>
+                        {% endif %}
+                        {% if promocion.fecha_fin %}
+                            <small>Hasta: {{ promocion.fecha_fin|date:"d/m/Y H:i" }}</small>
+                        {% else %}
+                            <small class="text-muted">Sin límite</small>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if promocion.status == 'activa' %}
+                            <span class="badge bg-success">Activa</span>
+                        {% elif promocion.status == 'inactiva' %}
+                            <span class="badge bg-secondary">Inactiva</span>
+                        {% elif promocion.status == 'programada' %}
+                            <span class="badge bg-primary">Programada</span>
+                        {% else %}
+                            <span class="badge bg-danger">Expirada</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if promocion.mostrar_en_banner %}
+                            <i class="bi bi-check-circle text-success"></i> Orden: {{ promocion.orden_banner }}
+                        {% else %}
+                            <i class="bi bi-x-circle text-muted"></i>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="btn-group btn-group-sm" role="group">
+                            <a href="{% url 'adm:promocion_update' promocion.id %}"
+                               class="btn btn-outline-primary" title="Editar">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            <button type="button" class="btn btn-outline-warning toggle-status"
+                                    data-id="{{ promocion.id }}" title="Activar/Desactivar">
+                                <i class="bi bi-toggle-on"></i>
+                            </button>
+                            <a href="{% url 'adm:promocion_delete' promocion.id %}"
+                               class="btn btn-outline-danger" title="Eliminar">
+                                <i class="bi bi-trash"></i>
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+        <div class="alert alert-info mt-4">
+            <i class="bi bi-info-circle"></i> No hay promociones creadas.
+            <a href="{% url 'adm:promocion_create' %}">Crear la primera promoción</a>
+        </div>
+    {% endif %}
+
+    <script>
+    document.querySelectorAll('.toggle-status').forEach(button => {
+        button.addEventListener('click', async function() {
+            const promocionId = this.dataset.id;
+            try {
+                const response = await fetch(`/adm/promociones/toggle/${promocionId}`, {
+                    method: 'GET',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+
+                if (response.ok) {
+                    location.reload();
+                } else {
+                    alert('Error al cambiar el estado de la promoción');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error al cambiar el estado de la promoción');
+            }
+        });
+    });
+    </script>
+{% endblock body %}

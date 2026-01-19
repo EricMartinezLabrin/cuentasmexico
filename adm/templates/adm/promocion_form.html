@@ -1,0 +1,303 @@
+{% extends 'adm/base/base.html' %}
+{% load static %}
+{% block title %}
+    {{ title }}
+{% endblock title %}
+{% block body %}
+    <h1>{{ title }}</h1>
+
+    <div class="card">
+        <div class="card-body">
+            <form method="POST" enctype="multipart/form-data" id="promocion-form">
+                {% csrf_token %}
+
+                <!-- Errores generales del formulario -->
+                {% if form.non_field_errors %}
+                    <div class="alert alert-danger">
+                        {{ form.non_field_errors }}
+                    </div>
+                {% endif %}
+
+                <!-- Información Básica -->
+                <div class="mb-4">
+                    <h5 class="border-bottom pb-2">Información Básica</h5>
+                    <div class="row">
+                        <div class="col-md-12 mb-3">
+                            <label for="{{ form.nombre.id_for_label }}" class="form-label">
+                                {{ form.nombre.label }} <span class="text-danger">*</span>
+                            </label>
+                            {{ form.nombre }}
+                            {% if form.nombre.errors %}
+                                <div class="text-danger small">{{ form.nombre.errors }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-12 mb-3">
+                            <label for="{{ form.descripcion.id_for_label }}" class="form-label">
+                                {{ form.descripcion.label }}
+                            </label>
+                            {{ form.descripcion }}
+                            {% if form.descripcion.errors %}
+                                <div class="text-danger small">{{ form.descripcion.errors }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tipo de Descuento -->
+                <div class="mb-4">
+                    <h5 class="border-bottom pb-2">Configuración del Descuento</h5>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label for="{{ form.tipo_descuento.id_for_label }}" class="form-label">
+                                {{ form.tipo_descuento.label }} <span class="text-danger">*</span>
+                            </label>
+                            {{ form.tipo_descuento }}
+                            {% if form.tipo_descuento.errors %}
+                                <div class="text-danger small">{{ form.tipo_descuento.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Campo Porcentaje -->
+                        <div class="col-md-4 mb-3 campo-descuento" id="campo-porcentaje" style="display:none;">
+                            <label for="{{ form.porcentaje_descuento.id_for_label }}" class="form-label">
+                                {{ form.porcentaje_descuento.label }}
+                            </label>
+                            {{ form.porcentaje_descuento }}
+                            <small class="text-muted d-block">{{ form.porcentaje_descuento.help_text }}</small>
+                            {% if form.porcentaje_descuento.errors %}
+                                <div class="text-danger small">{{ form.porcentaje_descuento.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Campo Monto Fijo -->
+                        <div class="col-md-4 mb-3 campo-descuento" id="campo-monto" style="display:none;">
+                            <label for="{{ form.monto_descuento.id_for_label }}" class="form-label">
+                                {{ form.monto_descuento.label }}
+                            </label>
+                            {{ form.monto_descuento }}
+                            <small class="text-muted d-block">{{ form.monto_descuento.help_text }}</small>
+                            {% if form.monto_descuento.errors %}
+                                <div class="text-danger small">{{ form.monto_descuento.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Campos NxM -->
+                        <div class="col-md-12 mb-3 campo-descuento" id="campo-tipo-nxm" style="display:none;">
+                            <label for="{{ form.tipo_nxm.id_for_label }}" class="form-label">
+                                {{ form.tipo_nxm.label }} <span class="text-danger">*</span>
+                            </label>
+                            {{ form.tipo_nxm }}
+                            <small class="text-muted d-block">{{ form.tipo_nxm.help_text }}</small>
+                            {% if form.tipo_nxm.errors %}
+                                <div class="text-danger small">{{ form.tipo_nxm.errors }}</div>
+                            {% endif %}
+                            <div class="alert alert-info mt-2" role="alert">
+                                <i class="bi bi-info-circle"></i>
+                                <strong>¿Qué significa cada opción?</strong>
+                                <ul class="mb-0 mt-2">
+                                    <li><strong>Meses:</strong> Ejemplo 3x2 - Cliente compra 3 meses, paga solo 2 meses</li>
+                                    <li><strong>Servicios:</strong> Ejemplo 3x2 - Cliente compra 3 servicios diferentes, paga solo 2</li>
+                                    <li><strong>Perfiles:</strong> Ejemplo 3x2 - Cliente compra 3 perfiles del mismo servicio, paga solo 2</li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <div class="col-md-4 mb-3 campo-descuento" id="campo-nxm-llevar" style="display:none;">
+                            <label for="{{ form.cantidad_llevar.id_for_label }}" class="form-label">
+                                {{ form.cantidad_llevar.label }} <span class="text-danger">*</span>
+                            </label>
+                            {{ form.cantidad_llevar }}
+                            <small class="text-muted d-block">{{ form.cantidad_llevar.help_text }}</small>
+                            {% if form.cantidad_llevar.errors %}
+                                <div class="text-danger small">{{ form.cantidad_llevar.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-4 mb-3 campo-descuento" id="campo-nxm-pagar" style="display:none;">
+                            <label for="{{ form.cantidad_pagar.id_for_label }}" class="form-label">
+                                {{ form.cantidad_pagar.label }} <span class="text-danger">*</span>
+                            </label>
+                            {{ form.cantidad_pagar }}
+                            <small class="text-muted d-block">{{ form.cantidad_pagar.help_text }}</small>
+                            {% if form.cantidad_pagar.errors %}
+                                <div class="text-danger small">{{ form.cantidad_pagar.errors }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Aplicación -->
+                <div class="mb-4">
+                    <h5 class="border-bottom pb-2">Aplicación de la Promoción</h5>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label for="{{ form.aplicacion.id_for_label }}" class="form-label">
+                                {{ form.aplicacion.label }} <span class="text-danger">*</span>
+                            </label>
+                            {{ form.aplicacion }}
+                            {% if form.aplicacion.errors %}
+                                <div class="text-danger small">{{ form.aplicacion.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-8 mb-3" id="campo-servicios" style="display:none;">
+                            <label for="{{ form.servicios.id_for_label }}" class="form-label">
+                                {{ form.servicios.label }}
+                            </label>
+                            {{ form.servicios }}
+                            <small class="text-muted d-block">{{ form.servicios.help_text }}</small>
+                            {% if form.servicios.errors %}
+                                <div class="text-danger small">{{ form.servicios.errors }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Fechas y Estado -->
+                <div class="mb-4">
+                    <h5 class="border-bottom pb-2">Vigencia y Estado</h5>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label for="{{ form.fecha_inicio.id_for_label }}" class="form-label">
+                                {{ form.fecha_inicio.label }}
+                            </label>
+                            {{ form.fecha_inicio }}
+                            <small class="text-muted d-block">{{ form.fecha_inicio.help_text }}</small>
+                            {% if form.fecha_inicio.errors %}
+                                <div class="text-danger small">{{ form.fecha_inicio.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <label for="{{ form.fecha_fin.id_for_label }}" class="form-label">
+                                {{ form.fecha_fin.label }}
+                            </label>
+                            {{ form.fecha_fin }}
+                            <small class="text-muted d-block">{{ form.fecha_fin.help_text }}</small>
+                            {% if form.fecha_fin.errors %}
+                                <div class="text-danger small">{{ form.fecha_fin.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <label for="{{ form.status.id_for_label }}" class="form-label">
+                                {{ form.status.label }} <span class="text-danger">*</span>
+                            </label>
+                            {{ form.status }}
+                            {% if form.status.errors %}
+                                <div class="text-danger small">{{ form.status.errors }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Banner -->
+                <div class="mb-4">
+                    <h5 class="border-bottom pb-2">Configuración de Banner</h5>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.imagen.id_for_label }}" class="form-label">
+                                {{ form.imagen.label }}
+                            </label>
+                            {{ form.imagen }}
+                            {% if promocion.imagen %}
+                                <div class="mt-2">
+                                    <img src="{{ promocion.imagen.url }}" alt="Imagen actual"
+                                         style="max-width: 300px; height: auto; border: 1px solid #ddd; border-radius: 4px;">
+                                    <p class="small text-muted mt-1">Imagen actual</p>
+                                </div>
+                            {% endif %}
+                            {% if form.imagen.errors %}
+                                <div class="text-danger small">{{ form.imagen.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-3 mb-3">
+                            <label for="{{ form.mostrar_en_banner.id_for_label }}" class="form-label">
+                                {{ form.mostrar_en_banner.label }}
+                            </label>
+                            <div class="form-check">
+                                {{ form.mostrar_en_banner }}
+                                <label class="form-check-label" for="{{ form.mostrar_en_banner.id_for_label }}">
+                                    Mostrar en banners
+                                </label>
+                            </div>
+                            {% if form.mostrar_en_banner.errors %}
+                                <div class="text-danger small">{{ form.mostrar_en_banner.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-3 mb-3">
+                            <label for="{{ form.orden_banner.id_for_label }}" class="form-label">
+                                {{ form.orden_banner.label }}
+                            </label>
+                            {{ form.orden_banner }}
+                            {% if form.orden_banner.errors %}
+                                <div class="text-danger small">{{ form.orden_banner.errors }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Botones -->
+                <div class="mt-4">
+                    <button type="submit" class="btn btn-cm">
+                        <i class="bi bi-save"></i> Guardar Promoción
+                    </button>
+                    <a href="{% url 'adm:promociones' %}" class="btn btn-secondary">
+                        <i class="bi bi-x-circle"></i> Cancelar
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const tipoDescuento = document.getElementById('id_tipo_descuento');
+        const aplicacion = document.getElementById('id_aplicacion');
+
+        // Función para mostrar/ocultar campos de descuento
+        function toggleCamposDescuento() {
+            const tipo = tipoDescuento.value;
+
+            // Ocultar todos
+            document.querySelectorAll('.campo-descuento').forEach(el => {
+                el.style.display = 'none';
+            });
+
+            // Mostrar según el tipo
+            if (tipo === 'porcentaje') {
+                document.getElementById('campo-porcentaje').style.display = 'block';
+            } else if (tipo === 'monto_fijo') {
+                document.getElementById('campo-monto').style.display = 'block';
+            } else if (tipo === 'nxm') {
+                // Mostrar los 3 campos de NxM
+                document.getElementById('campo-tipo-nxm').style.display = 'block';
+                document.getElementById('campo-nxm-llevar').style.display = 'block';
+                document.getElementById('campo-nxm-pagar').style.display = 'block';
+            }
+        }
+
+        // Función para mostrar/ocultar campo de servicios
+        function toggleCampoServicios() {
+            const app = aplicacion.value;
+            const campoServicios = document.getElementById('campo-servicios');
+
+            if (app === 'especificos' || app === 'excepto') {
+                campoServicios.style.display = 'block';
+            } else {
+                campoServicios.style.display = 'none';
+            }
+        }
+
+        // Eventos
+        tipoDescuento.addEventListener('change', toggleCamposDescuento);
+        aplicacion.addEventListener('change', toggleCampoServicios);
+
+        // Inicializar
+        toggleCamposDescuento();
+        toggleCampoServicios();
+    });
+    </script>
+{% endblock body %}

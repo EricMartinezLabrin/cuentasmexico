@@ -259,6 +259,9 @@
                 {% endif %}
             {% endif %}
         </div>
+
+        <!-- Toast Container -->
+        <div id="toast-container" style="position: fixed; bottom: 20px; right: 20px; z-index: 9999;"></div>
     {% endblock body %}
     {% block extrajs %}
         <script>
@@ -369,24 +372,63 @@
         });
     });
     
-    // Función para mostrar notificaciones
+    // Función para mostrar notificaciones toast
     function showNotification(message, type) {
-        const alertDiv = document.createElement('div');
-        alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
-        alertDiv.role = 'alert';
-        alertDiv.innerHTML = `
-            ${message}
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        const toastContainer = document.getElementById('toast-container');
+        const toast = document.createElement('div');
+
+        // Mapear tipos de Bootstrap a iconos
+        const iconMap = {
+            'success': 'bi-check-circle-fill',
+            'danger': 'bi-exclamation-triangle-fill',
+            'warning': 'bi-exclamation-circle-fill',
+            'info': 'bi-info-circle-fill'
+        };
+
+        toast.className = `alert alert-${type} shadow-lg mb-2`;
+        toast.style.cssText = 'min-width: 300px; animation: slideIn 0.3s ease-out;';
+        toast.innerHTML = `
+            <div class="d-flex align-items-center">
+                <i class="bi ${iconMap[type] || 'bi-info-circle-fill'} me-2"></i>
+                <span>${message}</span>
+            </div>
         `;
-        
-        // Insertar al inicio del contenedor principal
-        const mainContent = document.querySelector('.container-fluid') || document.querySelector('main') || document.body;
-        mainContent.insertBefore(alertDiv, mainContent.firstChild);
-        
-        // Auto-cerrar después de 5 segundos
+
+        toastContainer.appendChild(toast);
+
+        // Remover el toast después de 3 segundos
         setTimeout(() => {
-            alertDiv.remove();
-        }, 5000);
+            toast.style.animation = 'slideOut 0.3s ease-out';
+            setTimeout(() => {
+                toastContainer.removeChild(toast);
+            }, 300);
+        }, 3000);
     }
+
+    // Agregar estilos de animación
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        @keyframes slideOut {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+        }
+    `;
+    document.head.appendChild(style);
         </script>
     {% endblock extrajs %}
