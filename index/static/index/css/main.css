@@ -154,13 +154,23 @@ html {
 
 /* Mejoras para mobile */
 @media (max-width: 767px) {
-  /* Cards en index - 2 columnas en mobile */
-  .row-cols-1 > .col {
+  /* Cards en index - solo 1 columna en mobile */
+  .row-cols-1 {
+    --bs-gutter-x: 1rem;
+    --bs-gutter-y: 1rem;
+  }
+
+  .row-cols-1 > .col,
+  .row-cols-sm-2 > .col {
+    width: 100% !important;
+    max-width: 100%;
+    flex: 0 0 100%;
     padding: 0.5rem;
   }
 
   .card {
     border-radius: 8px;
+    margin-bottom: 0.5rem;
   }
 
   .card-body {
@@ -170,10 +180,21 @@ html {
   .card-title {
     font-size: 0.9rem;
     margin-bottom: 0.5rem;
+    line-height: 1.2;
   }
 
   .card-text {
     font-size: 0.85rem;
+  }
+
+  /* Badge de descuento en mobile */
+  .position-absolute.top-0.end-0 {
+    margin: 0.5rem !important;
+  }
+
+  .position-absolute .badge {
+    font-size: 0.75rem;
+    padding: 0.3rem 0.5rem;
   }
 
   /* Botones más compactos en mobile */
@@ -317,5 +338,24 @@ html {
   /* Gap reducido en grid de cards */
   .row.g-3 {
     gap: 0.75rem !important;
+  }
+
+  /* Contenedor principal con padding */
+  .border-top > div {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+
+  /* Ajustar el grid principal de productos */
+  .row.row-cols-1.row-cols-sm-2.row-cols-md-3.row-cols-lg-4 {
+    margin-left: -0.5rem;
+    margin-right: -0.5rem;
+  }
+
+  /* Mejorar el aspecto del contenedor de las cards */
+  .row.row-cols-1.row-cols-sm-2.row-cols-md-3.row-cols-lg-4 > .col {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+    margin-bottom: 1rem;
   }
 }
