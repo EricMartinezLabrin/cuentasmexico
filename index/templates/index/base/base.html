@@ -109,6 +109,13 @@
                         <li class="nav-item">
                             <a href="{% url 'redeem' %}" class="nav-link fs-5">Canjear Cupon</a>
                         </li>
+                        <li class="nav-item">
+                            {% if user_is_affiliate %}
+                            <a href="{% url 'afiliados_dashboard' %}" class="nav-link fs-5"><i class="bi bi-people-fill me-1"></i>Mi Panel Afiliado</a>
+                            {% else %}
+                            <a href="{% url 'afiliados_activar' %}" class="nav-link fs-5"><i class="bi bi-people me-1"></i>Afiliados</a>
+                            {% endif %}
+                        </li>
                         <li class="nav-item dropdown">
                             <a class="nav-link dropdown-toggle fs-5" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Account</a>
                             <ul class="dropdown-menu">
@@ -129,6 +136,9 @@
             </div>
         </div>
     </header>
+
+    <!-- Banner de Afiliados -->
+    {% include 'index/components/affiliate_banner.html' %}
 
     <!-- Mobile Offcanvas Menu -->
     <div class="offcanvas offcanvas-start" tabindex="-1" id="mobileMenu" aria-labelledby="mobileMenuLabel">
@@ -158,6 +168,13 @@
                 </li>
                 <li class="nav-item">
                     <a class="nav-link fs-5" href="{% url 'redeem' %}"><i class="bi bi-gift me-2"></i>Canjear Cupon</a>
+                </li>
+                <li class="nav-item">
+                    {% if user_is_affiliate %}
+                    <a class="nav-link fs-5" href="{% url 'afiliados_dashboard' %}"><i class="bi bi-people-fill me-2"></i>Mi Panel Afiliado</a>
+                    {% else %}
+                    <a class="nav-link fs-5" href="{% url 'afiliados_activar' %}"><i class="bi bi-people me-2"></i>Afiliados</a>
+                    {% endif %}
                 </li>
                 <li><hr class="dropdown-divider"></li>
                 {% if request.user.is_authenticated == False %}

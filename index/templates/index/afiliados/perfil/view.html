@@ -1,0 +1,176 @@
+{% extends 'index/afiliados/base.html' %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item active">Mi Perfil</li>
+{% endblock %}
+
+{% block affiliate_content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Mi Perfil de Afiliado</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{% url 'afiliados_editar_perfil' %}" class="btn btn-primary">
+            <i class="bi bi-pencil me-1"></i> Editar Perfil
+        </a>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Informacion general -->
+    <div class="col-lg-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-white">
+                <h5 class="mb-0"><i class="bi bi-person me-2"></i>Informacion General</h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-borderless mb-0">
+                    <tr>
+                        <td class="text-muted" width="40%">Usuario</td>
+                        <td><strong>{{ request.user.username }}</strong></td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">Email</td>
+                        <td>{{ request.user.email|default:"No configurado" }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">Codigo de Afiliado</td>
+                        <td><code class="fs-5">{{ affiliate.codigo_afiliado }}</code></td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">Codigo de Descuento</td>
+                        <td><code class="fs-5">{{ affiliate.codigo_descuento }}</code></td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">Descuento Ofrecido</td>
+                        <td><strong>{{ affiliate.porcentaje_descuento }}%</strong></td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">Estado</td>
+                        <td>
+                            {% if affiliate.status == 'activo' %}
+                            <span class="badge bg-success">Activo</span>
+                            {% elif affiliate.status == 'inactivo' %}
+                            <span class="badge bg-warning text-dark">Inactivo</span>
+                            {% else %}
+                            <span class="badge bg-danger">Suspendido</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">Miembro desde</td>
+                        <td>{{ affiliate.fecha_registro|date:"d/m/Y" }}</td>
+                    </tr>
+                    {% if affiliate.comision_automatica %}
+                    <tr>
+                        <td class="text-muted">Comisiones</td>
+                        <td><span class="badge bg-success"><i class="bi bi-lightning me-1"></i>Auto-aprobadas</span></td>
+                    </tr>
+                    {% endif %}
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Metodo de retiro -->
+    <div class="col-lg-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-white">
+                <h5 class="mb-0"><i class="bi bi-credit-card me-2"></i>Metodo de Retiro</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <span class="badge bg-primary fs-6">{{ affiliate.get_metodo_retiro_display }}</span>
+                </div>
+
+                {% if affiliate.metodo_retiro == 'transferencia' %}
+                <table class="table table-borderless mb-0">
+                    <tr>
+                        <td class="text-muted" width="40%">Banco</td>
+                        <td>{{ affiliate.banco_nombre|default:"No configurado" }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">Titular</td>
+                        <td>{{ affiliate.banco_titular|default:"No configurado" }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">Cuenta</td>
+                        <td>{{ affiliate.banco_cuenta|default:"No configurado" }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">CLABE</td>
+                        <td>
+                            {% if affiliate.banco_clabe %}
+                            <code>{{ affiliate.banco_clabe }}</code>
+                            {% else %}
+                            No configurado
+                            {% endif %}
+                        </td>
+                    </tr>
+                </table>
+                {% elif affiliate.metodo_retiro == 'paypal' %}
+                <table class="table table-borderless mb-0">
+                    <tr>
+                        <td class="text-muted" width="40%">Email PayPal</td>
+                        <td>{{ affiliate.paypal_email|default:"No configurado" }}</td>
+                    </tr>
+                </table>
+                {% else %}
+                <p class="text-muted">
+                    <i class="bi bi-info-circle me-2"></i>
+                    Los retiros se agregaran como credito en tu cuenta de la tienda.
+                </p>
+                {% endif %}
+
+                <hr>
+                <a href="{% url 'afiliados_editar_perfil' %}" class="btn btn-outline-primary btn-sm">
+                    <i class="bi bi-pencil me-1"></i>Cambiar metodo de retiro
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Referido por -->
+    {% if affiliate.referido_por %}
+    <div class="col-lg-6">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white">
+                <h5 class="mb-0"><i class="bi bi-people me-2"></i>Referido Por</h5>
+            </div>
+            <div class="card-body">
+                <p class="mb-1">
+                    <strong>{{ affiliate.referido_por.user.username }}</strong>
+                    <span class="text-muted">({{ affiliate.referido_por.codigo_afiliado }})</span>
+                </p>
+                <small class="text-muted">
+                    Registrado como referido el {{ affiliate.fecha_referido|date:"d/m/Y" }}
+                </small>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Estadisticas rapidas -->
+    <div class="col-lg-6">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white">
+                <h5 class="mb-0"><i class="bi bi-graph-up me-2"></i>Resumen</h5>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-4">
+                        <h4 class="text-primary mb-0">{{ affiliate.total_ventas }}</h4>
+                        <small class="text-muted">Ventas</small>
+                    </div>
+                    <div class="col-4">
+                        <h4 class="text-info mb-0">{{ affiliate.total_clics }}</h4>
+                        <small class="text-muted">Clics</small>
+                    </div>
+                    <div class="col-4">
+                        <h4 class="text-success mb-0">{{ affiliate.referidos.count }}</h4>
+                        <small class="text-muted">Referidos</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock affiliate_content %}

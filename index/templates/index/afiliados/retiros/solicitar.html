@@ -1,0 +1,153 @@
+{% extends 'index/afiliados/base.html' %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{% url 'afiliados_retiros' %}">Retiros</a></li>
+<li class="breadcrumb-item active">Solicitar Retiro</li>
+{% endblock %}
+
+{% block affiliate_content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Solicitar Retiro</h1>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <!-- Resumen de balance -->
+                <div class="alert alert-success d-flex align-items-center mb-4">
+                    <i class="bi bi-wallet2 fs-3 me-3"></i>
+                    <div>
+                        <strong>Balance Disponible:</strong>
+                        <span class="fs-4 ms-2">${{ affiliate.balance_disponible|floatformat:2 }} MXN</span>
+                    </div>
+                </div>
+
+                <!-- Info de metodo de retiro -->
+                <div class="alert alert-info mb-4">
+                    <h6 class="alert-heading">
+                        <i class="bi bi-credit-card me-2"></i>
+                        Metodo de retiro: {{ affiliate.get_metodo_retiro_display }}
+                    </h6>
+                    {% if affiliate.metodo_retiro == 'transferencia' %}
+                    <p class="mb-0">
+                        <strong>Banco:</strong> {{ affiliate.banco_nombre|default:"No configurado" }}<br>
+                        <strong>Titular:</strong> {{ affiliate.banco_titular|default:"No configurado" }}<br>
+                        <strong>CLABE:</strong> {{ affiliate.banco_clabe|default:"No configurado" }}
+                    </p>
+                    {% elif affiliate.metodo_retiro == 'paypal' %}
+                    <p class="mb-0">
+                        <strong>Email PayPal:</strong> {{ affiliate.paypal_email|default:"No configurado" }}
+                    </p>
+                    {% else %}
+                    <p class="mb-0">
+                        El monto se agregara como credito en tu cuenta de la tienda.
+                    </p>
+                    {% endif %}
+                    <hr>
+                    <a href="{% url 'afiliados_editar_perfil' %}" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-pencil me-1"></i>Cambiar metodo de retiro
+                    </a>
+                </div>
+
+                <form method="post">
+                    {% csrf_token %}
+
+                    <div class="mb-4">
+                        <label for="id_monto" class="form-label">{{ form.monto.label }}</label>
+                        {{ form.monto }}
+                        <div class="form-text">{{ form.monto.help_text }}</div>
+                        {% if form.monto.errors %}
+                        <div class="text-danger small mt-1">
+                            {% for error in form.monto.errors %}{{ error }}{% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    {% if form.non_field_errors %}
+                    <div class="alert alert-danger">
+                        {% for error in form.non_field_errors %}{{ error }}{% endfor %}
+                    </div>
+                    {% endif %}
+
+                    <!-- Botones de monto rapido -->
+                    {% if affiliate.balance_disponible > 0 %}
+                    <div class="mb-4">
+                        <small class="text-muted">Montos rapidos:</small>
+                        <div class="btn-group ms-2">
+                            {% if affiliate.balance_disponible >= 100 %}
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="setMonto(100)">$100</button>
+                            {% endif %}
+                            {% if affiliate.balance_disponible >= 500 %}
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="setMonto(500)">$500</button>
+                            {% endif %}
+                            {% if affiliate.balance_disponible >= 1000 %}
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="setMonto(1000)">$1,000</button>
+                            {% endif %}
+                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="setMonto({{ affiliate.balance_disponible }})">Todo</button>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-success btn-lg" {% if affiliate.balance_disponible <= 0 %}disabled{% endif %}>
+                            <i class="bi bi-check-circle me-2"></i>Confirmar Solicitud de Retiro
+                        </button>
+                        <a href="{% url 'afiliados_retiros' %}" class="btn btn-outline-secondary">
+                            Cancelar
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar con info -->
+    <div class="col-lg-4">
+        <div class="card shadow-sm mb-3">
+            <div class="card-header bg-white">
+                <h6 class="mb-0"><i class="bi bi-info-circle me-2"></i>Informacion</h6>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled mb-0 small">
+                    <li class="mb-2">
+                        <i class="bi bi-check text-success me-1"></i>
+                        Minimo para retiro: <strong>${{ affiliate_settings.minimo_retiro|floatformat:0 }} MXN</strong>
+                        <br><small class="text-muted">(No aplica para credito en tienda)</small>
+                    </li>
+                    <li class="mb-2">
+                        <i class="bi bi-clock text-primary me-1"></i>
+                        Tiempo de procesamiento:
+                        <ul class="mt-1">
+                            <li>Credito: <strong>Inmediato</strong></li>
+                            <li>Transferencia: <strong>1-3 dias</strong></li>
+                            <li>PayPal: <strong>1-3 dias</strong></li>
+                        </ul>
+                    </li>
+                    <li>
+                        <i class="bi bi-shield-check text-success me-1"></i>
+                        Tus datos bancarios estan protegidos
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        {% if affiliate.metodo_retiro != 'credito' and affiliate.balance_disponible < affiliate_settings.minimo_retiro %}
+        <div class="alert alert-warning">
+            <i class="bi bi-exclamation-triangle me-2"></i>
+            <strong>Nota:</strong> Tu balance actual (${​{ affiliate.balance_disponible|floatformat:2 }}) es menor al minimo de retiro.
+            <br><br>
+            Cambia tu metodo a <strong>"Credito en Tienda"</strong> para poder retirar cualquier monto.
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock affiliate_content %}
+
+{% block affiliate_js %}
+<script>
+function setMonto(valor) {
+    document.getElementById('id_monto').value = valor.toFixed(2);
+}
+</script>
+{% endblock affiliate_js %}

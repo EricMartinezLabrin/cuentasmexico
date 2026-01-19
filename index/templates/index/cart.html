@@ -68,33 +68,58 @@
                 <div class="card mb-2">
                 <!-- list group -->
                 <ul class="list-group list-group-flush">
-                    <!-- list group item -->
+                    <!-- Subtotal -->
                     <li class="list-group-item d-flex justify-content-between align-items-start">
                     <div class="me-auto">
                         <div>Subtotal</div>
-
                     </div>
-                    <span>{{request.session.cart_total}}</span>
+                    <span>${{descuento_info.subtotal|default:request.session.cart_total}}</span>
                     </li>
 
-                    <!-- list group item -->
-                    <li class="list-group-item d-flex justify-content-between align-items-start">
+                    {% if descuento_info.tiene_descuento %}
+                    <!-- Descuento aplicado -->
+                    <li class="list-group-item d-flex justify-content-between align-items-start text-success">
                     <div class="me-auto">
-                        <div>Comision</div>
-
+                        <div>
+                            <i class="bi bi-tag-fill me-1"></i>
+                            Descuento ({{ descuento_info.porcentaje_descuento }}%)
+                        </div>
+                        <small class="text-muted">{{ descuento_info.nombre_descuento }}</small>
                     </div>
-                    <span>$0</span>
+                    <span>-${{ descuento_info.descuento_total }}</span>
                     </li>
-                    <!-- list group item -->
+                    {% endif %}
+
+                    <!-- Total -->
                     <li class="list-group-item d-flex justify-content-between align-items-start">
                     <div class="me-auto">
                         <div class="fw-bold">Total</div>
                     </div>
+                    {% if descuento_info.tiene_descuento %}
+                    <div class="text-end">
+                        <span class="text-decoration-line-through text-muted small">${{descuento_info.subtotal}}</span>
+                        <span class="fw-bold text-success">${{descuento_info.total_final}}</span>
+                    </div>
+                    {% else %}
                     <span class="fw-bold">${{request.session.cart_total}}</span>
+                    {% endif %}
                     </li>
                 </ul>
 
                 </div>
+
+                {% if descuento_info.tiene_descuento %}
+                <div class="alert alert-success py-2 mb-3">
+                    <small>
+                        <i class="bi bi-check-circle me-1"></i>
+                        {% if descuento_info.tipo_descuento == 'afiliado' %}
+                        Codigo de afiliado aplicado: <strong>{{ descuento_info.porcentaje_descuento }}% de descuento</strong>
+                        {% else %}
+                        Promocion activa: <strong>{{ descuento_info.porcentaje_descuento }}% de descuento</strong>
+                        {% endif %}
+                    </small>
+                </div>
+                {% endif %}
                 <div class="d-grid mb-1 mt-4">
                 <!-- btn -->
                 {% if request.user.is_authenticated %}

@@ -1,0 +1,351 @@
+{% extends 'adm/base/base.html' %}
+
+{% block title %}Afiliado: {{ affiliate.codigo_afiliado }}{% endblock %}
+
+{% block body %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'adm:afiliados_list' %}">Afiliados</a></li>
+                    <li class="breadcrumb-item active">{{ affiliate.codigo_afiliado }}</li>
+                </ol>
+            </nav>
+            <h2>
+                <i class="bi bi-person-badge me-2"></i>
+                {{ affiliate.user.username }}
+                {% if affiliate.status == 'activo' %}
+                <span class="badge bg-success">Activo</span>
+                {% elif affiliate.status == 'suspendido' %}
+                <span class="badge bg-danger">Suspendido</span>
+                {% else %}
+                <span class="badge bg-secondary">{{ affiliate.status }}</span>
+                {% endif %}
+            </h2>
+        </div>
+        <div class="col-auto">
+            <form method="post" action="{% url 'adm:afiliados_toggle_status' affiliate.pk %}" class="d-inline">
+                {% csrf_token %}
+                {% if affiliate.status == 'activo' %}
+                <button type="submit" class="btn btn-outline-danger">
+                    <i class="bi bi-pause-circle"></i> Suspender
+                </button>
+                {% else %}
+                <button type="submit" class="btn btn-outline-success">
+                    <i class="bi bi-play-circle"></i> Activar
+                </button>
+                {% endif %}
+            </form>
+            <form method="post" action="{% url 'adm:afiliados_toggle_auto_comision' affiliate.pk %}" class="d-inline ms-2">
+                {% csrf_token %}
+                {% if affiliate.comision_automatica %}
+                <button type="submit" class="btn btn-outline-warning">
+                    <i class="bi bi-hand-thumbs-down"></i> Desactivar Auto-Comision
+                </button>
+                {% else %}
+                <button type="submit" class="btn btn-success">
+                    <i class="bi bi-hand-thumbs-up"></i> Activar Auto-Comision
+                </button>
+                {% endif %}
+            </form>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Info Column -->
+        <div class="col-md-4">
+            <!-- Info Card -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <strong>Informacion del Afiliado</strong>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <tr>
+                            <th>Email:</th>
+                            <td>{{ affiliate.user.email }}</td>
+                        </tr>
+                        <tr>
+                            <th>Codigo Afiliado:</th>
+                            <td><code class="fs-5">{{ affiliate.codigo_afiliado }}</code></td>
+                        </tr>
+                        <tr>
+                            <th>Codigo Descuento:</th>
+                            <td><code class="fs-5">{{ affiliate.codigo_descuento }}</code></td>
+                        </tr>
+                        <tr>
+                            <th>% Descuento:</th>
+                            <td>
+                                <form method="post" action="{% url 'adm:afiliados_update_descuento' affiliate.pk %}" class="d-flex align-items-center gap-2">
+                                    {% csrf_token %}
+                                    <div class="input-group input-group-sm" style="width: 120px;">
+                                        <input type="number" step="0.1" min="0" max="100" name="porcentaje_descuento" class="form-control form-control-sm" value="{{ affiliate.porcentaje_descuento }}">
+                                        <span class="input-group-text">%</span>
+                                    </div>
+                                    <button type="submit" class="btn btn-sm btn-outline-primary" title="Guardar">
+                                        <i class="bi bi-check-lg"></i>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Metodo Retiro:</th>
+                            <td>{{ affiliate.get_metodo_retiro_display }}</td>
+                        </tr>
+                        <tr>
+                            <th>Auto-Comision:</th>
+                            <td>
+                                {% if affiliate.comision_automatica %}
+                                <span class="badge bg-success">Si</span>
+                                {% else %}
+                                <span class="badge bg-secondary">No</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Registro:</th>
+                            <td>{{ affiliate.created_at|date:"d/m/Y H:i" }}</td>
+                        </tr>
+                        {% if affiliate.referido_por %}
+                        <tr>
+                            <th>Referido por:</th>
+                            <td>
+                                <a href="{% url 'adm:afiliados_detail' affiliate.referido_por.pk %}">
+                                    {{ affiliate.referido_por.codigo_afiliado }}
+                                </a>
+                            </td>
+                        </tr>
+                        {% endif %}
+                    </table>
+                </div>
+            </div>
+
+            <!-- Stats Card -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <strong>Estadisticas</strong>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-6 mb-3">
+                            <h4 class="text-primary">{{ stats.total_ventas }}</h4>
+                            <small class="text-muted">Ventas</small>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <h4 class="text-success">${{ stats.monto_ventas|floatformat:0 }}</h4>
+                            <small class="text-muted">Monto Ventas</small>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <h4 class="text-info">${{ stats.comisiones_aprobadas|floatformat:2 }}</h4>
+                            <small class="text-muted">Com. Aprobadas</small>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <h4 class="text-warning">${{ stats.comisiones_pendientes|floatformat:2 }}</h4>
+                            <small class="text-muted">Com. Pendientes</small>
+                        </div>
+                        <div class="col-6">
+                            <h4 class="text-secondary">${{ stats.total_retirado|floatformat:2 }}</h4>
+                            <small class="text-muted">Total Retirado</small>
+                        </div>
+                        <div class="col-6">
+                            <h4 class="text-info">{{ stats.total_referidos }}</h4>
+                            <small class="text-muted">Referidos</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Balance Card -->
+            <div class="card bg-success text-white mb-4">
+                <div class="card-body text-center">
+                    <h6>Balance Disponible</h6>
+                    <h2>${{ affiliate.balance_disponible|floatformat:2 }} MXN</h2>
+                </div>
+            </div>
+            {% if affiliate.balance_pendiente > 0 %}
+            <div class="card bg-warning text-dark">
+                <div class="card-body text-center">
+                    <h6>Pendiente de Aprobacion</h6>
+                    <h3>${{ affiliate.balance_pendiente|floatformat:2 }} MXN</h3>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Activity Column -->
+        <div class="col-md-8">
+            <!-- Tabs -->
+            <ul class="nav nav-tabs" id="affiliateTabs" role="tablist">
+                <li class="nav-item">
+                    <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#ventas">
+                        Ventas ({{ ultimas_ventas|length }})
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#comisiones">
+                        Comisiones ({{ ultimas_comisiones|length }})
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#retiros">
+                        Retiros ({{ ultimos_retiros|length }})
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#referidos">
+                        Referidos ({{ referidos|length }})
+                    </button>
+                </li>
+            </ul>
+
+            <div class="tab-content">
+                <!-- Ventas Tab -->
+                <div class="tab-pane fade show active" id="ventas">
+                    <div class="card border-top-0 rounded-0 rounded-bottom">
+                        <div class="table-responsive">
+                            <table class="table table-sm mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>ID Venta</th>
+                                        <th>Monto</th>
+                                        <th>Fecha</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for venta in ultimas_ventas %}
+                                    <tr>
+                                        <td>#{{ venta.sale.id }}</td>
+                                        <td>${{ venta.sale.payment_amount|floatformat:2 }}</td>
+                                        <td>{{ venta.created_at|date:"d/m/Y H:i" }}</td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr><td colspan="3" class="text-center text-muted py-3">Sin ventas</td></tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Comisiones Tab -->
+                <div class="tab-pane fade" id="comisiones">
+                    <div class="card border-top-0 rounded-0 rounded-bottom">
+                        <div class="table-responsive">
+                            <table class="table table-sm mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Monto</th>
+                                        <th>Tipo</th>
+                                        <th>Status</th>
+                                        <th>Fecha</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for com in ultimas_comisiones %}
+                                    <tr>
+                                        <td>${{ com.monto|floatformat:2 }}</td>
+                                        <td>{{ com.get_tipo_display }}</td>
+                                        <td>
+                                            {% if com.status == 'aprobada' %}
+                                            <span class="badge bg-success">Aprobada</span>
+                                            {% elif com.status == 'pendiente' %}
+                                            <span class="badge bg-warning">Pendiente</span>
+                                            {% else %}
+                                            <span class="badge bg-danger">Rechazada</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ com.created_at|date:"d/m/Y H:i" }}</td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr><td colspan="4" class="text-center text-muted py-3">Sin comisiones</td></tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Retiros Tab -->
+                <div class="tab-pane fade" id="retiros">
+                    <div class="card border-top-0 rounded-0 rounded-bottom">
+                        <div class="table-responsive">
+                            <table class="table table-sm mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Monto</th>
+                                        <th>Metodo</th>
+                                        <th>Status</th>
+                                        <th>Fecha</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for ret in ultimos_retiros %}
+                                    <tr>
+                                        <td>${{ ret.monto|floatformat:2 }}</td>
+                                        <td>{{ ret.get_metodo_display }}</td>
+                                        <td>
+                                            {% if ret.status == 'completado' %}
+                                            <span class="badge bg-success">Completado</span>
+                                            {% elif ret.status == 'pendiente' %}
+                                            <span class="badge bg-warning">Pendiente</span>
+                                            {% else %}
+                                            <span class="badge bg-danger">Rechazado</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ ret.created_at|date:"d/m/Y H:i" }}</td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr><td colspan="4" class="text-center text-muted py-3">Sin retiros</td></tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Referidos Tab -->
+                <div class="tab-pane fade" id="referidos">
+                    <div class="card border-top-0 rounded-0 rounded-bottom">
+                        <div class="table-responsive">
+                            <table class="table table-sm mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Usuario</th>
+                                        <th>Codigo</th>
+                                        <th>Status</th>
+                                        <th>Fecha</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for ref in referidos %}
+                                    <tr>
+                                        <td>
+                                            <a href="{% url 'adm:afiliados_detail' ref.pk %}">
+                                                {{ ref.user.username }}
+                                            </a>
+                                        </td>
+                                        <td><code>{{ ref.codigo_afiliado }}</code></td>
+                                        <td>
+                                            {% if ref.status == 'activo' %}
+                                            <span class="badge bg-success">Activo</span>
+                                            {% else %}
+                                            <span class="badge bg-secondary">{{ ref.status }}</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ ref.created_at|date:"d/m/Y" }}</td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr><td colspan="4" class="text-center text-muted py-3">Sin referidos</td></tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock body %}

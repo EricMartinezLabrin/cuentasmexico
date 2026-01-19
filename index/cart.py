@@ -108,6 +108,7 @@ class CartDb:
         transaction_amount_refunded=None,
         coupon_amount=None,
         customer=None,
+        affiliate_code=None,
     ):
         cart = IndexCart.objects.create(
             payment_id=payment_id,
@@ -123,6 +124,7 @@ class CartDb:
             transaction_amount_refunded=transaction_amount_refunded,
             coupon_amount=coupon_amount,
             customer=customer,
+            affiliate_code=affiliate_code,
         )
         return cart
 
@@ -149,7 +151,12 @@ class CartDb:
             # Check if user is authenticated
             if not self.request.user.is_authenticated:
                 return None
-            cart = CartDb.create_cart(customer=self.request.user)
+            # Capturar codigo de afiliado de la sesion
+            affiliate_code = self.request.session.get('affiliate_code')
+            cart = CartDb.create_cart(
+                customer=self.request.user,
+                affiliate_code=affiliate_code
+            )
             print(cart.id)
             for item in cart_data.items():
                 service = Service.objects.get(description=item[1]['name'])

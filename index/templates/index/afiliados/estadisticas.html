@@ -1,0 +1,199 @@
+{% extends 'index/afiliados/base.html' %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item active">Estadisticas</li>
+{% endblock %}
+
+{% block affiliate_content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Estadisticas</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group me-2">
+            <a href="?periodo=semana" class="btn btn-sm {% if periodo_actual == 'semana' %}btn-primary{% else %}btn-outline-secondary{% endif %}">Semana</a>
+            <a href="?periodo=mes" class="btn btn-sm {% if periodo_actual == 'mes' %}btn-primary{% else %}btn-outline-secondary{% endif %}">Mes</a>
+            <a href="?periodo=ano" class="btn btn-sm {% if periodo_actual == 'ano' %}btn-primary{% else %}btn-outline-secondary{% endif %}">Ano</a>
+            <a href="?periodo=total" class="btn btn-sm {% if periodo_actual == 'total' %}btn-primary{% else %}btn-outline-secondary{% endif %}">Total</a>
+        </div>
+    </div>
+</div>
+
+<!-- Tarjetas de resumen -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-4 col-lg-2">
+        <div class="card border-0 shadow-sm text-center h-100">
+            <div class="card-body">
+                <i class="bi bi-cursor text-info fs-3"></i>
+                <h4 class="mt-2 mb-0">{{ stats.total_clics }}</h4>
+                <small class="text-muted">Clics</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-4 col-lg-2">
+        <div class="card border-0 shadow-sm text-center h-100">
+            <div class="card-body">
+                <i class="bi bi-cart-check text-success fs-3"></i>
+                <h4 class="mt-2 mb-0">{{ stats.total_ventas }}</h4>
+                <small class="text-muted">Ventas</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-4 col-lg-2">
+        <div class="card border-0 shadow-sm text-center h-100">
+            <div class="card-body">
+                <i class="bi bi-graph-up text-warning fs-3"></i>
+                <h4 class="mt-2 mb-0">{{ stats.tasa_conversion }}%</h4>
+                <small class="text-muted">Conversion</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-4 col-lg-2">
+        <div class="card border-0 shadow-sm text-center h-100">
+            <div class="card-body">
+                <i class="bi bi-cash-stack text-primary fs-3"></i>
+                <h4 class="mt-2 mb-0">${{ stats.monto_ventas|floatformat:0 }}</h4>
+                <small class="text-muted">Monto Ventas</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-4 col-lg-2">
+        <div class="card border-0 shadow-sm text-center h-100 bg-success text-white">
+            <div class="card-body">
+                <i class="bi bi-check-circle fs-3"></i>
+                <h4 class="mt-2 mb-0">${{ stats.comisiones_aprobadas|floatformat:2 }}</h4>
+                <small>Aprobadas</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-4 col-lg-2">
+        <div class="card border-0 shadow-sm text-center h-100 bg-warning">
+            <div class="card-body">
+                <i class="bi bi-hourglass-split fs-3"></i>
+                <h4 class="mt-2 mb-0">${{ stats.comisiones_pendientes|floatformat:2 }}</h4>
+                <small>Pendientes</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Grafico de ventas -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white">
+                <h5 class="mb-0"><i class="bi bi-bar-chart me-2"></i>Ventas - Ultimos 30 dias</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="ventasChart" height="100"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Resumen de balance -->
+<div class="row">
+    <div class="col-md-6">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white">
+                <h5 class="mb-0"><i class="bi bi-wallet2 me-2"></i>Balance</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3 pb-3 border-bottom">
+                    <span>Balance Disponible</span>
+                    <span class="h4 text-success mb-0">${{ stats.balance_disponible|floatformat:2 }}</span>
+                </div>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span>Pendiente de Aprobacion</span>
+                    <span class="h5 text-warning mb-0">${{ stats.balance_pendiente|floatformat:2 }}</span>
+                </div>
+                <div class="d-grid">
+                    <a href="{% url 'afiliados_solicitar_retiro' %}" class="btn btn-success">
+                        <i class="bi bi-cash me-2"></i>Solicitar Retiro
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white">
+                <h5 class="mb-0"><i class="bi bi-info-circle me-2"></i>Informacion</h5>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled mb-0">
+                    <li class="mb-2">
+                        <i class="bi bi-check-circle text-success me-2"></i>
+                        Comision por venta: <strong>${{ affiliate_settings.comision_monto|floatformat:2 }} MXN</strong>
+                    </li>
+                    <li class="mb-2">
+                        <i class="bi bi-percent text-primary me-2"></i>
+                        Descuento a clientes: <strong>{{ affiliate.porcentaje_descuento }}%</strong>
+                    </li>
+                    <li class="mb-2">
+                        <i class="bi bi-cash-coin text-warning me-2"></i>
+                        Minimo para retiro: <strong>${{ affiliate_settings.minimo_retiro|floatformat:0 }} MXN</strong>
+                    </li>
+                    <li class="mb-2">
+                        <i class="bi bi-credit-card text-info me-2"></i>
+                        Metodo de retiro: <strong>{{ affiliate.get_metodo_retiro_display }}</strong>
+                    </li>
+                    {% if affiliate.comision_automatica %}
+                    <li class="mb-2">
+                        <i class="bi bi-lightning text-success me-2"></i>
+                        <span class="badge bg-success">Comisiones Auto-aprobadas</span>
+                    </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock affiliate_content %}
+
+{% block affiliate_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Datos para el grafico
+var ventasData = {{ stats.ventas_por_dia|safe }};
+
+var labels = [];
+var cantidades = [];
+var montos = [];
+
+ventasData.forEach(function(item) {
+    labels.push(item.fecha);
+    cantidades.push(item.cantidad);
+    montos.push(item.monto || 0);
+});
+
+// Si no hay datos, mostrar mensaje
+if (labels.length === 0) {
+    document.getElementById('ventasChart').parentElement.innerHTML = '<div class="text-center py-5 text-muted"><i class="bi bi-bar-chart fs-1"></i><p class="mt-2">No hay datos suficientes para mostrar el grafico</p></div>';
+} else {
+    var ctx = document.getElementById('ventasChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Ventas',
+                data: cantidades,
+                backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                borderColor: 'rgba(54, 162, 235, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1
+                    }
+                }
+            }
+        }
+    });
+}
+</script>
+{% endblock affiliate_js %}

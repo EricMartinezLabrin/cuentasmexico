@@ -29,7 +29,11 @@ from api.functions.notifications import send_push_notification
 from django.db.models import DurationField
 # import pandas as pd
 # Local
-from .models import Business, PaymentMethod, Sale, UserDetail, Service, Account, Bank, Status, Supplier, Credits, Promocion
+from .models import (
+    Business, PaymentMethod, Sale, UserDetail, Service, Account, Bank,
+    Status, Supplier, Credits, Promocion,
+    Affiliate, AffiliateCommission, AffiliateWithdrawal, AffiliateSettings, AffiliateSale
+)
 from cupon.models import Cupon
 from .functions.alerts import Alerts
 from .functions.forms import AccountsForm, BankForm, PaymentMethodForm, ServicesForm, SettingsForm, UserDetailForm, UserForm, FilterAccountForm, StatusForm, SupplierForm, CustomerUpdateForm, UserMainForm
@@ -2305,3 +2309,634 @@ def PromocionFechasDisponiblesView(request):
         response_data['ultima_promocion_termina'] = recomendacion['ultima_promocion_termina'].strftime('%d/%m/%Y %H:%M')
 
     return JsonResponse(response_data)
+
+
+# ============================================
+# VISTAS DE AFILIADOS - ADMIN
+# ============================================
+
+def AfiliadosListView(request):
+    """Lista de afiliados con filtros"""
+    template_name = "adm/afiliados/list.html"
+
+    afiliados = Affiliate.objects.select_related('user', 'referido_por').all()
+
+    # Filtros
+    status = request.GET.get('status', '')
+    search = request.GET.get('search', '')
+
+    if status:
+        afiliados = afiliados.filter(status=status)
+
+    if search:
+        afiliados = afiliados.filter(
+            Q(user__username__icontains=search) |
+            Q(user__email__icontains=search) |
+            Q(codigo_afiliado__icontains=search) |
+            Q(codigo_descuento__icontains=search)
+        )
+
+    # Estadisticas rapidas
+    stats = {
+        'total': Affiliate.objects.count(),
+        'activos': Affiliate.objects.filter(status='activo').count(),
+        'pendientes_comision': AffiliateCommission.objects.filter(status='pendiente').count(),
+        'pendientes_retiro': AffiliateWithdrawal.objects.filter(status='pendiente').count(),
+    }
+
+    # Paginacion
+    paginator = Paginator(afiliados, 25)
+    page = request.GET.get('page', 1)
+    afiliados_page = paginator.get_page(page)
+
+    return render(request, template_name, {
+        'afiliados': afiliados_page,
+        'stats': stats,
+        'status_filter': status,
+        'search': search,
+    })
+
+
+def AfiliadosDetailView(request, pk):
+    """Detalle de un afiliado"""
+    template_name = "adm/afiliados/detail.html"
+
+    try:
+        affiliate = Affiliate.objects.select_related('user', 'referido_por').get(pk=pk)
+    except Affiliate.DoesNotExist:
+        from django.contrib import messages
+        messages.error(request, 'Afiliado no encontrado')
+        return redirect('adm:afiliados_list')
+
+    # Ultimas ventas
+    ultimas_ventas = affiliate.ventas.select_related('sale').order_by('-created_at')[:10]
+
+    # Ultimas comisiones
+    ultimas_comisiones = affiliate.comisiones.order_by('-created_at')[:10]
+
+    # Ultimos retiros
+    ultimos_retiros = affiliate.retiros.order_by('-created_at')[:10]
+
+    # Referidos
+    referidos = affiliate.referidos.all()[:10]
+
+    # Estadisticas
+    from django.db.models import Sum, Count
+    stats = {
+        'total_ventas': affiliate.ventas.count(),
+        'monto_ventas': affiliate.ventas.aggregate(
+            total=Sum('sale__payment_amount')
+        )['total'] or 0,
+        'comisiones_aprobadas': affiliate.comisiones.filter(
+            status='aprobada'
+        ).aggregate(total=Sum('monto'))['total'] or 0,
+        'comisiones_pendientes': affiliate.comisiones.filter(
+            status='pendiente'
+        ).aggregate(total=Sum('monto'))['total'] or 0,
+        'total_retirado': affiliate.retiros.filter(
+            status='completado'
+        ).aggregate(total=Sum('monto'))['total'] or 0,
+        'total_referidos': affiliate.referidos.count(),
+    }
+
+    return render(request, template_name, {
+        'affiliate': affiliate,
+        'ultimas_ventas': ultimas_ventas,
+        'ultimas_comisiones': ultimas_comisiones,
+        'ultimos_retiros': ultimos_retiros,
+        'referidos': referidos,
+        'stats': stats,
+    })
+
+
+def AfiliadosToggleStatus(request, pk):
+    """Activa/desactiva un afiliado"""
+    from django.contrib import messages
+
+    try:
+        affiliate = Affiliate.objects.get(pk=pk)
+        if affiliate.status == 'activo':
+            affiliate.status = 'suspendido'
+            messages.success(request, f'Afiliado {affiliate.codigo_afiliado} suspendido.')
+        else:
+            affiliate.status = 'activo'
+            messages.success(request, f'Afiliado {affiliate.codigo_afiliado} activado.')
+        affiliate.save()
+    except Affiliate.DoesNotExist:
+        messages.error(request, 'Afiliado no encontrado')
+
+    return redirect('adm:afiliados_detail', pk=pk)
+
+
+def AfiliadosToggleAutoComision(request, pk):
+    """Activa/desactiva comisiones automaticas para un afiliado"""
+    from django.contrib import messages
+
+    try:
+        affiliate = Affiliate.objects.get(pk=pk)
+        affiliate.comision_automatica = not affiliate.comision_automatica
+        affiliate.save()
+        if affiliate.comision_automatica:
+            messages.success(request, f'Comisiones automaticas activadas para {affiliate.codigo_afiliado}.')
+        else:
+            messages.info(request, f'Comisiones automaticas desactivadas para {affiliate.codigo_afiliado}.')
+    except Affiliate.DoesNotExist:
+        messages.error(request, 'Afiliado no encontrado')
+
+    return redirect('adm:afiliados_detail', pk=pk)
+
+
+def AfiliadosConfigView(request):
+    """Configuracion global del sistema de afiliados"""
+    template_name = "adm/afiliados/config.html"
+    from django.contrib import messages
+
+    settings_aff = AffiliateSettings.get_settings()
+
+    if request.method == 'POST':
+        try:
+            settings_aff.comision_monto = float(request.POST.get('comision_monto', 50))
+            settings_aff.porcentaje_descuento_default = float(request.POST.get('porcentaje_descuento_default', 5))
+            settings_aff.minimo_retiro = float(request.POST.get('minimo_retiro', 500))
+            settings_aff.porcentaje_comision_referido = float(request.POST.get('porcentaje_comision_referido', 10))
+            settings_aff.email_soporte = request.POST.get('email_soporte', '')
+            settings_aff.whatsapp_soporte = request.POST.get('whatsapp_soporte', '')
+            settings_aff.umbral_soporte_premium = float(request.POST.get('umbral_soporte_premium', 5000))
+            settings_aff.url_terminos = request.POST.get('url_terminos', '')
+            settings_aff.save()
+            messages.success(request, 'Configuracion guardada correctamente.')
+        except Exception as e:
+            messages.error(request, f'Error guardando configuracion: {str(e)}')
+
+    return render(request, template_name, {
+        'settings': settings_aff,
+        'total_afiliados': Affiliate.objects.filter(status='activo').count(),
+    })
+
+
+def AfiliadosUpdateDescuento(request, pk):
+    """Actualiza el descuento de un afiliado individual"""
+    from django.contrib import messages
+
+    if request.method == 'POST':
+        try:
+            affiliate = Affiliate.objects.get(pk=pk)
+            nuevo_descuento = float(request.POST.get('porcentaje_descuento', 0))
+
+            if 0 <= nuevo_descuento <= 100:
+                affiliate.porcentaje_descuento = nuevo_descuento
+                affiliate.save()
+                messages.success(request, f'Descuento actualizado a {nuevo_descuento}% para {affiliate.codigo_afiliado}.')
+            else:
+                messages.error(request, 'El descuento debe estar entre 0 y 100.')
+        except Affiliate.DoesNotExist:
+            messages.error(request, 'Afiliado no encontrado.')
+        except ValueError:
+            messages.error(request, 'Valor de descuento invalido.')
+
+    return redirect('adm:afiliados_detail', pk=pk)
+
+
+def AfiliadosDescuentoMasivo(request):
+    """Actualiza el descuento de todos los afiliados activos"""
+    from django.contrib import messages
+
+    if request.method == 'POST':
+        try:
+            nuevo_descuento = float(request.POST.get('nuevo_descuento', 0))
+
+            if 0 <= nuevo_descuento <= 100:
+                afiliados_actualizados = Affiliate.objects.filter(status='activo').update(
+                    porcentaje_descuento=nuevo_descuento
+                )
+                messages.success(
+                    request,
+                    f'Descuento actualizado a {nuevo_descuento}% para {afiliados_actualizados} afiliados.'
+                )
+            else:
+                messages.error(request, 'El descuento debe estar entre 0 y 100.')
+        except ValueError:
+            messages.error(request, 'Valor de descuento invalido.')
+
+    return redirect('adm:afiliados_config')
+
+
+def AfiliadosComisionesListView(request):
+    """Lista de comisiones para gestion"""
+    template_name = "adm/afiliados/comisiones.html"
+
+    comisiones = AffiliateCommission.objects.select_related(
+        'affiliate__user', 'affiliate_sale__sale'
+    ).order_by('-created_at')
+
+    # Filtros
+    status = request.GET.get('status', 'pendiente')
+    if status:
+        comisiones = comisiones.filter(status=status)
+
+    # Paginacion
+    paginator = Paginator(comisiones, 50)
+    page = request.GET.get('page', 1)
+    comisiones_page = paginator.get_page(page)
+
+    # Stats
+    stats = {
+        'pendientes': AffiliateCommission.objects.filter(status='pendiente').count(),
+        'monto_pendiente': AffiliateCommission.objects.filter(
+            status='pendiente'
+        ).aggregate(total=Sum('monto'))['total'] or 0,
+    }
+
+    return render(request, template_name, {
+        'comisiones': comisiones_page,
+        'stats': stats,
+        'status_filter': status,
+    })
+
+
+def AfiliadosComisionAprobar(request, pk):
+    """Aprueba una comision pendiente"""
+    from django.contrib import messages
+    from index.utils_affiliates import crear_notificacion_afiliado
+
+    try:
+        comision = AffiliateCommission.objects.get(pk=pk)
+        if comision.status == 'pendiente':
+            comision.aprobar()
+            messages.success(request, f'Comision #{pk} aprobada.')
+            # Notificar al afiliado
+            crear_notificacion_afiliado(
+                comision.affiliate,
+                'comision',
+                'Comision Aprobada',
+                f'Tu comision de ${comision.monto:.2f} MXN ha sido aprobada.',
+                '/afiliados/comisiones/'
+            )
+        else:
+            messages.warning(request, f'La comision #{pk} no esta pendiente.')
+    except AffiliateCommission.DoesNotExist:
+        messages.error(request, 'Comision no encontrada')
+
+    return redirect('adm:afiliados_comisiones_admin')
+
+
+def AfiliadosComisionRechazar(request, pk):
+    """Rechaza una comision"""
+    from django.contrib import messages
+    from index.utils_affiliates import crear_notificacion_afiliado
+
+    try:
+        comision = AffiliateCommission.objects.get(pk=pk)
+        if comision.status == 'pendiente':
+            motivo = request.POST.get('motivo', 'Rechazada por admin')
+            comision.rechazar(motivo)
+            messages.success(request, f'Comision #{pk} rechazada.')
+            # Notificar al afiliado
+            crear_notificacion_afiliado(
+                comision.affiliate,
+                'comision_rechazada',
+                'Comision Rechazada',
+                f'Tu comision de ${comision.monto:.2f} MXN ha sido rechazada. Motivo: {motivo}',
+                '/afiliados/comisiones/'
+            )
+        else:
+            messages.warning(request, f'La comision #{pk} no esta pendiente.')
+    except AffiliateCommission.DoesNotExist:
+        messages.error(request, 'Comision no encontrada')
+
+    return redirect('adm:afiliados_comisiones_admin')
+
+
+def AfiliadosRetirosListView(request):
+    """Lista de retiros para gestion"""
+    template_name = "adm/afiliados/retiros.html"
+
+    retiros = AffiliateWithdrawal.objects.select_related('affiliate__user').order_by('-created_at')
+
+    # Filtros
+    status = request.GET.get('status', 'pendiente')
+    if status:
+        retiros = retiros.filter(status=status)
+
+    # Paginacion
+    paginator = Paginator(retiros, 50)
+    page = request.GET.get('page', 1)
+    retiros_page = paginator.get_page(page)
+
+    # Stats
+    stats = {
+        'pendientes': AffiliateWithdrawal.objects.filter(status='pendiente').count(),
+        'monto_pendiente': AffiliateWithdrawal.objects.filter(
+            status='pendiente'
+        ).aggregate(total=Sum('monto'))['total'] or 0,
+    }
+
+    return render(request, template_name, {
+        'retiros': retiros_page,
+        'stats': stats,
+        'status_filter': status,
+    })
+
+
+def AfiliadosRetiroAprobar(request, pk):
+    """Aprueba un retiro pendiente"""
+    from django.contrib import messages
+    from index.utils_affiliates import crear_notificacion_afiliado
+
+    try:
+        retiro = AffiliateWithdrawal.objects.get(pk=pk)
+        if retiro.status == 'pendiente':
+            retiro.aprobar()
+            messages.success(request, f'Retiro #{pk} aprobado y completado.')
+            # Notificar al afiliado
+            crear_notificacion_afiliado(
+                retiro.affiliate,
+                'retiro',
+                'Retiro Procesado',
+                f'Tu retiro de ${retiro.monto:.2f} MXN ha sido procesado.',
+                '/afiliados/retiros/'
+            )
+        else:
+            messages.warning(request, f'El retiro #{pk} no esta pendiente.')
+    except AffiliateWithdrawal.DoesNotExist:
+        messages.error(request, 'Retiro no encontrado')
+
+    return redirect('adm:afiliados_retiros_admin')
+
+
+def AfiliadosRetiroRechazar(request, pk):
+    """Rechaza un retiro"""
+    from django.contrib import messages
+    from index.utils_affiliates import crear_notificacion_afiliado
+
+    try:
+        retiro = AffiliateWithdrawal.objects.get(pk=pk)
+        if retiro.status == 'pendiente':
+            motivo = request.POST.get('motivo', 'Rechazado por admin')
+            retiro.rechazar(motivo)
+            messages.success(request, f'Retiro #{pk} rechazado.')
+            # Notificar al afiliado
+            crear_notificacion_afiliado(
+                retiro.affiliate,
+                'retiro_rechazado',
+                'Retiro Rechazado',
+                f'Tu retiro de ${retiro.monto:.2f} MXN ha sido rechazado. Motivo: {motivo}',
+                '/afiliados/retiros/'
+            )
+        else:
+            messages.warning(request, f'El retiro #{pk} no esta pendiente.')
+    except AffiliateWithdrawal.DoesNotExist:
+        messages.error(request, 'Retiro no encontrado')
+
+    return redirect('adm:afiliados_retiros_admin')
+
+
+def AfiliadosStatsView(request):
+    """Dashboard de estadisticas de afiliados"""
+    template_name = "adm/afiliados/stats.html"
+
+    from django.db.models import Count
+    from django.db.models.functions import TruncMonth, TruncDate
+
+    now = timezone.now()
+    inicio_mes = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    # Estadisticas generales
+    stats = {
+        'total_afiliados': Affiliate.objects.count(),
+        'afiliados_activos': Affiliate.objects.filter(status='activo').count(),
+        'ventas_mes': AffiliateSale.objects.filter(created_at__gte=inicio_mes).count(),
+        'monto_ventas_mes': AffiliateSale.objects.filter(
+            created_at__gte=inicio_mes
+        ).aggregate(total=Sum('sale__payment_amount'))['total'] or 0,
+        'comisiones_mes': AffiliateCommission.objects.filter(
+            created_at__gte=inicio_mes
+        ).aggregate(total=Sum('monto'))['total'] or 0,
+        'comisiones_pendientes': AffiliateCommission.objects.filter(
+            status='pendiente'
+        ).aggregate(total=Sum('monto'))['total'] or 0,
+        'retiros_pendientes': AffiliateWithdrawal.objects.filter(
+            status='pendiente'
+        ).aggregate(total=Sum('monto'))['total'] or 0,
+    }
+
+    # Top afiliados del mes
+    top_afiliados = Affiliate.objects.filter(
+        ventas__created_at__gte=inicio_mes
+    ).annotate(
+        ventas_count=Count('ventas')
+    ).order_by('-ventas_count')[:10]
+
+    # Ventas por dia (ultimos 30 dias)
+    ventas_por_dia = AffiliateSale.objects.filter(
+        created_at__gte=now - timedelta(days=30)
+    ).annotate(
+        fecha=TruncDate('created_at')
+    ).values('fecha').annotate(
+        cantidad=Count('id'),
+        monto=Sum('sale__payment_amount')
+    ).order_by('fecha')
+
+    return render(request, template_name, {
+        'stats': stats,
+        'top_afiliados': top_afiliados,
+        'ventas_por_dia': list(ventas_por_dia),
+    })
+
+
+# ============================================================================
+# LOGS DE SINCRONIZACIÓN DE GOOGLE SHEETS
+# ============================================================================
+
+@login_required
+def sync_logs_view(request):
+    """
+    Vista para ver los logs de sincronización de Google Sheets.
+    Ubicación: /adm/sync-logs/
+    Filtros: por fecha (desde/hasta)
+    """
+    from pathlib import Path
+    from datetime import datetime, date
+    
+    log_file_path = Path(os.path.dirname(os.path.dirname(__file__))) / "logs" / "sync_sheets.log"
+    
+    # Obtener filtros de fecha del request
+    date_from = request.GET.get('date_from', '')
+    date_to = request.GET.get('date_to', '')
+    
+    # Parámetros de paginación
+    lines_per_page = 100
+    page = request.GET.get('page', 1)
+    
+    all_lines = []
+    
+    if log_file_path.exists():
+        try:
+            with open(log_file_path, 'r', encoding='utf-8') as f:
+                all_lines = f.readlines()
+                
+                # Filtrar por fecha si se proporcionan
+                if date_from or date_to:
+                    filtered_lines = []
+                    for line in all_lines:
+                        try:
+                            # Extraer timestamp del log (formato: [YYYY-MM-DDTHH:MM:SS...]
+                            if '[' in line and ']' in line:
+                                timestamp_str = line.split(']')[0].strip('[')
+                                # Parsear la fecha (tomar solo la parte YYYY-MM-DD)
+                                log_date = timestamp_str.split('T')[0]  # YYYY-MM-DD
+                                
+                                # Comparar fechas
+                                include = True
+                                if date_from:
+                                    include = include and log_date >= date_from
+                                if date_to:
+                                    include = include and log_date <= date_to
+                                
+                                if include:
+                                    filtered_lines.append(line)
+                        except:
+                            # Si no se puede parsear la fecha, incluir la línea
+                            filtered_lines.append(line)
+                    all_lines = filtered_lines
+                
+                # Invertir para mostrar los más recientes primero
+                all_lines = list(reversed(all_lines))
+        except Exception as e:
+            all_lines = [f"❌ Error leyendo logs: {str(e)}"]
+    
+    # Paginar
+    paginator = Paginator(all_lines, lines_per_page)
+    
+    try:
+        logs_page = paginator.page(page)
+    except PageNotAnInteger:
+        logs_page = paginator.page(1)
+    except EmptyPage:
+        logs_page = paginator.page(paginator.num_pages)
+    
+    # Colorear logs por tipo
+    colorized_logs = []
+    for line in logs_page:
+        if "❌" in line:
+            color_class = "log-error"
+        elif "✅" in line:
+            color_class = "log-success"
+        elif "📱" in line or "📧" in line:
+            color_class = "log-notification"
+        elif "⚠️" in line:
+            color_class = "log-warning"
+        elif "✏️" in line:
+            color_class = "log-update"
+        elif "ℹ️" in line:
+            color_class = "log-info"
+        else:
+            color_class = "log-default"
+        
+        colorized_logs.append({
+            'text': line.rstrip(),
+            'class': color_class
+        })
+    
+    context = {
+        'logs': colorized_logs,
+        'paginator': paginator,
+        'page_obj': logs_page,
+        'total_lines': len(all_lines),
+        'has_logs': len(all_lines) > 0,
+        'date_from': date_from,
+        'date_to': date_to,
+    }
+    
+    return render(request, 'adm/sync_logs.html', context)
+
+
+@login_required
+def sync_logs_download(request):
+    """
+    Descargar archivo completo de logs.
+    """
+    from pathlib import Path
+    
+    log_file_path = Path(os.path.dirname(os.path.dirname(__file__))) / "logs" / "sync_sheets.log"
+    
+    if not log_file_path.exists():
+        return JsonResponse({'error': 'No hay logs'}, status=404)
+    
+    with open(log_file_path, 'r', encoding='utf-8') as f:
+        logs_content = f.read()
+    
+    response = HttpResponse(logs_content, content_type='text/plain; charset=utf-8')
+    response['Content-Disposition'] = 'attachment; filename="sync_sheets.log"'
+    return response
+
+
+@login_required
+@csrf_exempt
+def sync_logs_clear(request):
+    """
+    Limpiar los logs (solo para admin).
+    """
+    from pathlib import Path
+    
+    if not request.user.is_staff:
+        return JsonResponse({'error': 'No tienes permiso'}, status=403)
+    
+    log_file_path = Path(os.path.dirname(os.path.dirname(__file__))) / "logs" / "sync_sheets.log"
+    
+    try:
+        # Crear backup
+        if log_file_path.exists():
+            backup_path = log_file_path.parent / f"sync_sheets_backup_{timezone.now().strftime('%Y%m%d_%H%M%S')}.log"
+            with open(log_file_path, 'r') as f:
+                backup_content = f.read()
+            with open(backup_path, 'w') as f:
+                f.write(backup_content)
+        
+        # Limpiar
+        with open(log_file_path, 'w') as f:
+            f.write(f"[{timezone.now().isoformat()}] 🔄 Logs limpiados por {request.user.username}\n")
+        
+        return JsonResponse({
+            'status': 'success',
+            'message': 'Logs limpiados exitosamente'
+        })
+    except Exception as e:
+        return JsonResponse({
+            'status': 'error',
+            'message': str(e)
+        }, status=500)
+
+
+@login_required
+@csrf_exempt
+def sync_google_sheets_execute(request):
+    """
+    Ejecuta la sincronización de Google Sheets desde el panel /adm.
+    Solo para admin.
+    """
+    from django.core.management import call_command
+    from io import StringIO
+    
+    if not request.user.is_staff:
+        return JsonResponse({'error': 'No tienes permiso'}, status=403)
+    
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Solo POST permitido'}, status=405)
+    
+    try:
+        # Ejecutar el comando de sincronización
+        output = StringIO()
+        call_command('sync_google_sheets', '--verbose', stdout=output)
+        result = output.getvalue()
+        
+        return JsonResponse({
+            'status': 'success',
+            'message': 'Sincronización completada',
+            'result': result
+        })
+    except Exception as e:
+        return JsonResponse({
+            'status': 'error',
+            'message': f'Error en sincronización: {str(e)}'
+        }, status=500)

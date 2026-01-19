@@ -1,0 +1,178 @@
+{% extends 'adm/base/base.html' %}
+
+{% block title %}Estadisticas de Afiliados{% endblock %}
+
+{% block body %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'adm:afiliados_list' %}">Afiliados</a></li>
+                    <li class="breadcrumb-item active">Estadisticas</li>
+                </ol>
+            </nav>
+            <h2><i class="bi bi-graph-up me-2"></i>Estadisticas del Sistema de Afiliados</h2>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h6 class="card-title">Total Afiliados</h6>
+                    <h3 class="mb-0">{{ stats.total_afiliados }}</h3>
+                    <small>{{ stats.afiliados_activos }} activos</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h6 class="card-title">Ventas del Mes</h6>
+                    <h3 class="mb-0">{{ stats.ventas_mes }}</h3>
+                    <small>${{ stats.monto_ventas_mes|floatformat:0 }} MXN</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <h6 class="card-title">Comisiones del Mes</h6>
+                    <h3 class="mb-0">${{ stats.comisiones_mes|floatformat:0 }}</h3>
+                    <small>MXN</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-dark">
+                <div class="card-body">
+                    <h6 class="card-title">Pendiente de Pago</h6>
+                    <h3 class="mb-0">${{ stats.comisiones_pendientes|floatformat:0 }}</h3>
+                    <small>+ ${{ stats.retiros_pendientes|floatformat:0 }} en retiros</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Chart -->
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <strong>Ventas por Afiliados (Ultimos 30 dias)</strong>
+                </div>
+                <div class="card-body">
+                    <canvas id="ventasChart" height="100"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Top Affiliates -->
+        <div class="col-md-4">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <strong>Top Afiliados del Mes</strong>
+                </div>
+                <ul class="list-group list-group-flush">
+                    {% for aff in top_afiliados %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <a href="{% url 'adm:afiliados_detail' aff.pk %}">
+                                {{ aff.user.username }}
+                            </a>
+                            <br><small class="text-muted">{{ aff.codigo_afiliado }}</small>
+                        </div>
+                        <span class="badge bg-primary rounded-pill">{{ aff.ventas_count }} ventas</span>
+                    </li>
+                    {% empty %}
+                    <li class="list-group-item text-center text-muted py-4">
+                        Sin ventas este mes
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Links -->
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body text-center">
+                    <i class="bi bi-cash-coin fs-1 text-warning"></i>
+                    <h5 class="mt-2">Comisiones Pendientes</h5>
+                    <p class="text-muted">Aprobar o rechazar comisiones</p>
+                    <a href="{% url 'adm:afiliados_comisiones_admin' %}" class="btn btn-outline-warning">
+                        Ver Comisiones
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body text-center">
+                    <i class="bi bi-wallet2 fs-1 text-info"></i>
+                    <h5 class="mt-2">Retiros Pendientes</h5>
+                    <p class="text-muted">Procesar solicitudes de retiro</p>
+                    <a href="{% url 'adm:afiliados_retiros_admin' %}" class="btn btn-outline-info">
+                        Ver Retiros
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body text-center">
+                    <i class="bi bi-gear fs-1 text-secondary"></i>
+                    <h5 class="mt-2">Configuracion</h5>
+                    <p class="text-muted">Ajustar comisiones y parametros</p>
+                    <a href="{% url 'adm:afiliados_config' %}" class="btn btn-outline-secondary">
+                        Configurar
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const ventasData = {{ ventas_por_dia|safe }};
+
+    const labels = ventasData.map(d => {
+        const date = new Date(d.fecha);
+        return date.toLocaleDateString('es-MX', { day: '2-digit', month: 'short' });
+    });
+    const cantidades = ventasData.map(d => d.cantidad);
+    const montos = ventasData.map(d => d.monto || 0);
+
+    const ctx = document.getElementById('ventasChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Ventas',
+                data: cantidades,
+                backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                borderColor: 'rgba(54, 162, 235, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1
+                    }
+                }
+            }
+        }
+    });
+});
+</script>
+{% endblock body %}

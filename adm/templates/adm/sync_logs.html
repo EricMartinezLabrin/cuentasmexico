@@ -1,0 +1,467 @@
+{% extends 'adm/base/base.html' %}
+{% load static %}
+
+{% block title %}Logs de Sincronización - Google Sheets{% endblock %}
+
+{% block extra_css %}
+<style>
+    .logs-container {
+        background: #1e1e1e;
+        color: #d4d4d4;
+        font-family: 'Courier New', monospace;
+        padding: 20px;
+        border-radius: 8px;
+        height: 600px;
+        overflow-y: auto;
+        border: 1px solid #404040;
+        margin: 20px 0;
+    }
+    
+    .log-line {
+        padding: 4px 0;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+    }
+    
+    .log-error {
+        color: #f48771;
+        background-color: rgba(244, 135, 113, 0.1);
+        padding: 2px 4px;
+        border-left: 3px solid #f48771;
+    }
+    
+    .log-success {
+        color: #89d185;
+        background-color: rgba(137, 209, 133, 0.1);
+        padding: 2px 4px;
+        border-left: 3px solid #89d185;
+    }
+    
+    .log-notification {
+        color: #ce9178;
+        background-color: rgba(206, 145, 120, 0.1);
+        padding: 2px 4px;
+        border-left: 3px solid #ce9178;
+    }
+    
+    .log-warning {
+        color: #dcdcaa;
+        background-color: rgba(220, 220, 170, 0.1);
+        padding: 2px 4px;
+        border-left: 3px solid #dcdcaa;
+    }
+    
+    .log-update {
+        color: #9cdcfe;
+        background-color: rgba(156, 220, 254, 0.1);
+        padding: 2px 4px;
+        border-left: 3px solid #9cdcfe;
+    }
+    
+    .log-info {
+        color: #75beff;
+        background-color: rgba(117, 190, 255, 0.1);
+        padding: 2px 4px;
+        border-left: 3px solid #75beff;
+    }
+    
+    .log-default {
+        color: #d4d4d4;
+    }
+    
+    .stats-box {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin-bottom: 20px;
+    }
+    
+    .stat-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 20px;
+        border-radius: 8px;
+        text-align: center;
+    }
+    
+    .stat-card h3 {
+        margin: 0;
+        font-size: 14px;
+        opacity: 0.9;
+    }
+    
+    .stat-card .number {
+        font-size: 28px;
+        font-weight: bold;
+        margin-top: 10px;
+    }
+    
+    .action-buttons {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+    }
+    
+    .btn-action {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-weight: bold;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-download {
+        background-color: #4CAF50;
+        color: white;
+    }
+    
+    .btn-download:hover {
+        background-color: #45a049;
+    }
+    
+    .btn-clear {
+        background-color: #f44336;
+        color: white;
+    }
+    
+    .btn-clear:hover {
+        background-color: #da190b;
+    }
+    
+    .btn-refresh {
+        background-color: #2196F3;
+        color: white;
+    }
+    
+    .btn-refresh:hover {
+        background-color: #0b7dda;
+    }
+    
+    .btn-sync {
+        background-color: #FF9800;
+        color: white;
+    }
+    
+    .btn-sync:hover {
+        background-color: #e68900;
+    }
+    
+    .btn-sync.loading {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+    
+    .pagination {
+        margin-top: 20px;
+        display: flex;
+        justify-content: center;
+        gap: 5px;
+    }
+    
+    .pagination a, .pagination span {
+        padding: 8px 12px;
+        border: 1px solid #667eea;
+        border-radius: 4px;
+        color: #667eea;
+        text-decoration: none;
+    }
+    
+    .pagination a:hover {
+        background-color: #667eea;
+        color: white;
+    }
+    
+    .pagination .page-current {
+        background-color: #667eea;
+        color: white;
+        border-color: #667eea;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 40px;
+        color: #999;
+    }
+    
+    .empty-state svg {
+        width: 80px;
+        height: 80px;
+        margin-bottom: 20px;
+        opacity: 0.5;
+    }
+    
+    .filter-form {
+        background: #f5f5f5;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr 1fr;
+        gap: 10px;
+        align-items: flex-end;
+    }
+    
+    .filter-form-group {
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .filter-form-group label {
+        font-size: 12px;
+        font-weight: bold;
+        margin-bottom: 5px;
+        color: #333;
+    }
+    
+    .filter-form-group input {
+        padding: 8px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-size: 14px;
+    }
+    
+    .filter-form-group button {
+        padding: 8px 15px;
+        background-color: #667eea;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: bold;
+    }
+    
+    .filter-form-group button:hover {
+        background-color: #5568d3;
+    }
+    
+    .filter-form-group .btn-reset {
+        background-color: #999;
+    }
+    
+    .filter-form-group .btn-reset:hover {
+        background-color: #777;
+    }
+    
+    @media (max-width: 1024px) {
+        .filter-form {
+            grid-template-columns: 1fr 1fr;
+        }
+    }
+    
+    @media (max-width: 640px) {
+        .filter-form {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <h1>📊 Logs de Sincronización - Google Sheets</h1>
+            <p class="text-muted">Historial completo de todas las operaciones de sincronización</p>
+        </div>
+    </div>
+    
+    <!-- Estadísticas -->
+    {% if has_logs %}
+    <div class="stats-box">
+        <div class="stat-card">
+            <h3>Total de líneas</h3>
+            <div class="number">{{ total_lines }}</div>
+        </div>
+        <div class="stat-card">
+            <h3>Página actual</h3>
+            <div class="number">{{ page_obj.number }} / {{ paginator.num_pages }}</div>
+        </div>
+        <div class="stat-card">
+            <h3>Última actualización</h3>
+            <div class="number">Hace poco</div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Filtros de Fecha -->
+    <div class="filter-form">
+        <div class="filter-form-group">
+            <label for="date_from">📅 Desde:</label>
+            <input type="date" id="date_from" name="date_from" value="{{ date_from }}">
+        </div>
+        <div class="filter-form-group">
+            <label for="date_to">📅 Hasta:</label>
+            <input type="date" id="date_to" name="date_to" value="{{ date_to }}">
+        </div>
+        <div class="filter-form-group">
+            <button onclick="filtrarPorFecha()">🔍 Filtrar</button>
+        </div>
+        <div class="filter-form-group">
+            <button class="btn-reset" onclick="limpiarFiltros()">🗑️ Limpiar Filtros</button>
+        </div>
+    </div>
+    
+    <!-- Acciones -->
+    <div class="action-buttons">
+        {% if user.is_staff %}
+        <button class="btn-action btn-sync" onclick="ejecutarSincronizacion()">🔄 Ejecutar Sincronización</button>
+        {% endif %}
+        <button class="btn-action btn-refresh" onclick="location.reload()">🔄 Actualizar</button>
+        <a href="{% url 'adm:sync_logs_download' %}" class="btn-action btn-download">⬇️ Descargar</a>
+        {% if user.is_staff %}
+        <button class="btn-action btn-clear" onclick="confirmarLimpiar()">🗑️ Limpiar Logs</button>
+        {% endif %}
+    </div>
+    
+    <!-- Logs -->
+    <p>DEBUG: has_logs = {{ has_logs }}, total_lines = {{ total_lines }}, logs count = {{ logs|length }}</p>
+    {% if has_logs %}
+    <div class="logs-container">
+        {% for log in logs %}
+        <div class="log-line {{ log.class }}">{{ log.text }}</div>
+        {% endfor %}
+    </div>
+    
+    <!-- Paginación -->
+    {% if paginator.num_pages > 1 %}
+    <nav class="pagination">
+        {% if page_obj.has_previous %}
+            <a href="?page=1">« Primera</a>
+            <a href="?page={{ page_obj.previous_page_number }}">‹ Anterior</a>
+        {% endif %}
+        
+        {% for num in paginator.page_range %}
+            {% if page_obj.number == num %}
+                <span class="page-current">{{ num }}</span>
+            {% else %}
+                <a href="?page={{ num }}">{{ num }}</a>
+            {% endif %}
+        {% endfor %}
+        
+        {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}">Siguiente ›</a>
+            <a href="?page={{ paginator.num_pages }}">Última »</a>
+        {% endif %}
+    </nav>
+    {% endif %}
+    {% else %}
+    <div class="empty-state">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4v.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+        <h3>📭 No hay logs todavía</h3>
+        <p>Los logs aparecerán aquí cuando se ejecute una sincronización</p>
+    </div>
+    {% endif %}
+</div>
+
+{% if user.is_staff %}
+<script>
+function confirmarLimpiar() {
+    if (confirm('⚠️ ¿Estás seguro de que quieres limpiar los logs?\n\nSe creará un backup automáticamente.')) {
+        fetch('{% url "adm:sync_logs_clear" %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                alert('✅ Logs limpiados exitosamente');
+                location.reload();
+            } else {
+                alert('❌ Error: ' + data.message);
+            }
+        })
+        .catch(error => {
+            alert('❌ Error: ' + error);
+        });
+    }
+}
+
+function ejecutarSincronizacion() {
+    const btn = document.querySelector('.btn-sync');
+    
+    if (!confirm('¿Deseas ejecutar la sincronización de Google Sheets ahora?')) {
+        return;
+    }
+    
+    // Desabilitar botón
+    btn.disabled = true;
+    btn.classList.add('loading');
+    const originalText = btn.textContent;
+    btn.textContent = '⏳ Ejecutando...';
+    
+    fetch('{% url "adm:sync_execute" %}', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            alert('✅ Sincronización completada exitosamente\n\n' + data.result);
+            setTimeout(() => {
+                location.reload();
+            }, 2000);
+        } else {
+            alert('❌ Error en sincronización:\n\n' + data.message);
+        }
+    })
+    .catch(error => {
+        alert('❌ Error de red:\n\n' + error);
+    })
+    .finally(() => {
+        // Rehabilitar botón
+        btn.disabled = false;
+        btn.classList.remove('loading');
+        btn.textContent = originalText;
+    });
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+function filtrarPorFecha() {
+    const dateFrom = document.getElementById('date_from').value;
+    const dateTo = document.getElementById('date_to').value;
+    
+    // Construir URL con filtros
+    let url = '{% url "adm:sync_logs" %}?';
+    
+    if (dateFrom) {
+        url += `date_from=${dateFrom}&`;
+    }
+    if (dateTo) {
+        url += `date_to=${dateTo}&`;
+    }
+    
+    // Ir a la primera página con los filtros
+    window.location.href = url;
+}
+
+function limpiarFiltros() {
+    document.getElementById('date_from').value = '';
+    document.getElementById('date_to').value = '';
+    window.location.href = '{% url "adm:sync_logs" %}';
+}
+</script>
+{% endif %}
+{% endblock %}

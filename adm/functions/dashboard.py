@@ -251,6 +251,8 @@ class Dashboard():
         """
         Ventas por la web esta semana (solo pasarelas de pago)
         """
+        from django.db.models import Q
+
         today = timezone.now()
         week_start = today - timedelta(days=today.weekday())
         week_start = timezone.make_aware(datetime.combine(week_start.date(), datetime.min.time()))
@@ -259,15 +261,10 @@ class Dashboard():
         web_sales = Sale.objects.filter(
             created_at__gte=week_start
         ).filter(
-            payment_method__description__icontains='MercadoPago'
-        ) | Sale.objects.filter(
-            created_at__gte=week_start
-        ).filter(
-            payment_method__description__icontains='Stripe'
-        ) | Sale.objects.filter(
-            created_at__gte=week_start
-        ).filter(
-            payment_method__description__icontains='PayPal'
+            Q(payment_method__description__icontains='MercadoPago') |
+            Q(payment_method__description__icontains='Mercado Pago') |
+            Q(payment_method__description__icontains='Stripe') |
+            Q(payment_method__description__icontains='PayPal')
         )
 
         total = web_sales.aggregate(Sum('payment_amount'))
@@ -282,6 +279,8 @@ class Dashboard():
         """
         Ventas por la web este mes (solo pasarelas de pago)
         """
+        from django.db.models import Q
+
         month = timezone.now().month
         year = timezone.now().year
         last_day = monthrange(year, month)[1]
@@ -293,15 +292,10 @@ class Dashboard():
         web_sales = Sale.objects.filter(
             created_at__range=(start, end)
         ).filter(
-            payment_method__description__icontains='MercadoPago'
-        ) | Sale.objects.filter(
-            created_at__range=(start, end)
-        ).filter(
-            payment_method__description__icontains='Stripe'
-        ) | Sale.objects.filter(
-            created_at__range=(start, end)
-        ).filter(
-            payment_method__description__icontains='PayPal'
+            Q(payment_method__description__icontains='MercadoPago') |
+            Q(payment_method__description__icontains='Mercado Pago') |
+            Q(payment_method__description__icontains='Stripe') |
+            Q(payment_method__description__icontains='PayPal')
         )
 
         total = web_sales.aggregate(Sum('payment_amount'))
@@ -316,6 +310,8 @@ class Dashboard():
         """
         Ventas por la web este año (solo pasarelas de pago)
         """
+        from django.db.models import Q
+
         year = timezone.now().year
 
         start = timezone.make_aware(datetime(year, 1, 1, 0, 0, 0))
@@ -325,15 +321,10 @@ class Dashboard():
         web_sales = Sale.objects.filter(
             created_at__range=(start, end)
         ).filter(
-            payment_method__description__icontains='MercadoPago'
-        ) | Sale.objects.filter(
-            created_at__range=(start, end)
-        ).filter(
-            payment_method__description__icontains='Stripe'
-        ) | Sale.objects.filter(
-            created_at__range=(start, end)
-        ).filter(
-            payment_method__description__icontains='PayPal'
+            Q(payment_method__description__icontains='MercadoPago') |
+            Q(payment_method__description__icontains='Mercado Pago') |
+            Q(payment_method__description__icontains='Stripe') |
+            Q(payment_method__description__icontains='PayPal')
         )
 
         total = web_sales.aggregate(Sum('payment_amount'))
@@ -368,6 +359,7 @@ class Dashboard():
                 created_at__range=(start, end)
             ).filter(
                 Q(payment_method__description__icontains='MercadoPago') |
+                Q(payment_method__description__icontains='Mercado Pago') |
                 Q(payment_method__description__icontains='Stripe') |
                 Q(payment_method__description__icontains='PayPal')
             )

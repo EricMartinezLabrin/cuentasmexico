@@ -30,6 +30,13 @@
                     <span class="text-decoration-line-through text-muted" id="regularPriceDisplay"></span>
                     <small class="fs-6 ms-2 text-danger" id="off"></small>
                 </div>
+                
+                {% if descuento_efectivo.tiene_descuento %}
+                <div class="alert alert-success py-2 mb-3" role="alert">
+                    <i class="bi bi-tag-fill me-1"></i>
+                    <strong>{{ descuento_efectivo.porcentaje_descuento }}% de descuento</strong> - {{ descuento_efectivo.nombre_descuento }}
+                </div>
+                {% endif %}
 
                 <!-- Dispositivos -->
                 <div class="mb-3">
@@ -73,10 +80,18 @@
                 <!-- Formulario agregar al carrito -->
                 <form action="{% url 'addCart' object.pk object.price %}" method="POST">
                     {% csrf_token %}
+                    <!-- Siempre enviar precio original, el descuento se aplica en el carrito -->
                     {% if user.userdetail.level.discount %}
                     <input type="hidden" name="price" id="correct-price" value="{{object.price|new_price:user.userdetail.level.discount|new_currency:1}}">
+                    <input type="hidden" id="precio-original" value="{{object.price|new_currency:1}}">
                     {% else %}
                     <input type="hidden" name="price" id="correct-price" value="{{object.price|new_currency:1}}">
+                    <input type="hidden" id="precio-original" value="{{object.price|new_currency:1}}">
+                    {% endif %}
+                    {% if descuento_efectivo.tiene_descuento %}
+                    <input type="hidden" id="descuento-porcentaje" value="{{ descuento_efectivo.porcentaje_descuento }}">
+                    <input type="hidden" id="descuento-nombre" value="{{ descuento_efectivo.nombre_descuento }}">
+                    <input type="hidden" id="precio-visual" value="{{ descuento_efectivo.precio_final }}">
                     {% endif %}
                     <input type="hidden" name="quantity" id="quantity" value="1">
                     <input type="hidden" name="profiles" id="profiles" value="1">
@@ -106,25 +121,32 @@
     const btnminus = document.getElementById('btnminus');
     const quantityForm = document.getElementById('quantity');
     const profilesForm = document.getElementById('profiles');
-    const correctPrice = parseInt(document.getElementById('correct-price').value);
     
-    var price = correctPrice;
+    // Precio que se enviará al carrito (sin descuento promo/afiliado)
+    const correctPrice = parseFloat(document.getElementById('correct-price').value);
+    
+    // Obtener precio visual (con descuento efectivo si existe)
+    const precioVisualElem = document.getElementById('precio-visual');
+    const precioVisualBase = precioVisualElem ? parseFloat(precioVisualElem.value) : correctPrice;
+    
+    var price = precioVisualBase;
     var regularPrice = {{object.regular_price}};
     var off = (100-((price*100)/regularPrice)).toFixed(1);
     var prof = 1;
 
-    priceDisplay.innerHTML = `$ ${price} `;
+    priceDisplay.innerHTML = `$ ${price.toFixed(2)} `;
     regularPriceDisplay.innerHTML = `$ ${regularPrice}`;
     offDisplay.innerHTML = `${off}% Off`;
     profilesForm.value = 1;
     quantityForm.value = 1;
 
     function prices(){
-        var price = correctPrice*monthsDisplay.value*prof;
+        // Calcular precio visual multiplicando por meses y perfiles
+        var priceVisualCalc = precioVisualBase * monthsDisplay.value * prof;
         var regularPrice = {{object.regular_price}}*monthsDisplay.value*prof;
-        var off = (100-((price*100)/regularPrice)).toFixed(1);
+        var off = (100-((priceVisualCalc*100)/regularPrice)).toFixed(1);
 
-        priceDisplay.innerHTML = `$ ${price} `;
+        priceDisplay.innerHTML = `$ ${priceVisualCalc.toFixed(2)} `;
         regularPriceDisplay.innerHTML = `$ ${regularPrice}`
         offDisplay.innerHTML = `${off}% Off`
         quantityForm.value = monthsDisplay.value

@@ -42,12 +42,24 @@ class StripePayment:
             logger.warning("No hay carrito en la sesion")
             return None
 
+        # Obtener porcentaje de descuento de la sesion (si hay descuento activo)
+        descuento_porcentaje = 0
+        if self.request.session.get('descuento_aplicado', 0) > 0:
+            subtotal_original = self.request.session.get('cart_total', 0)
+            if subtotal_original > 0:
+                descuento_porcentaje = (self.request.session.get('descuento_aplicado', 0) / subtotal_original) * 100
+
         # Convertir items del carrito al formato de Stripe
         line_items = []
 
         for item_id, item_data in cart.items():
             # Calcular precio por perfil (unitPrice * cantidad de meses)
             item_cost = float(item_data['unitPrice']) * float(item_data['quantity'])
+            
+            # Aplicar descuento si existe
+            if descuento_porcentaje > 0:
+                item_cost = item_cost * (1 - descuento_porcentaje / 100)
+            
             # Total de este item (precio por perfil * cantidad de perfiles)
             item_total = item_cost * float(item_data['profiles'])
 
@@ -114,12 +126,24 @@ class StripePayment:
         if not cart:
             return None, 0
 
+        # Obtener porcentaje de descuento de la sesion (si hay descuento activo)
+        descuento_porcentaje = 0
+        if request.session.get('descuento_aplicado', 0) > 0:
+            subtotal_original = request.session.get('cart_total', 0)
+            if subtotal_original > 0:
+                descuento_porcentaje = (request.session.get('descuento_aplicado', 0) / subtotal_original) * 100
+
         items = []
         subtotal = 0
 
         for item_id, item_data in cart.items():
             # Calcular precio por perfil (unitPrice * cantidad de meses)
             item_cost = float(item_data['unitPrice']) * float(item_data['quantity'])
+            
+            # Aplicar descuento si existe
+            if descuento_porcentaje > 0:
+                item_cost = item_cost * (1 - descuento_porcentaje / 100)
+            
             # Total de este item (precio por perfil * cantidad de perfiles)
             item_total = item_cost * float(item_data['profiles'])
             subtotal += item_total

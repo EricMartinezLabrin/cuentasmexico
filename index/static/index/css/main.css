@@ -139,3 +139,94 @@ html {
   align-items: center;
   justify-content: center;
 }
+
+/* =============================================
+   Estilos del Banner de Afiliados
+   ============================================= */
+
+.affiliate-banner {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 1.5rem 0;
+}
+
+.affiliate-banner .container {
+  max-width: 1200px;
+}
+
+.affiliate-banner h4 {
+  color: #ffffff;
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.affiliate-banner p {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 1rem;
+  margin-bottom: 0;
+}
+
+.affiliate-banner .btn-light {
+  background-color: #ffffff;
+  color: #667eea;
+  font-weight: 600;
+  padding: 0.75rem 1.5rem;
+  border: none;
+  transition: all 0.3s ease;
+}
+
+.affiliate-banner .btn-light:hover {
+  background-color: #f8f9fa;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Mini banner para afiliados existentes */
+.affiliate-mini-banner {
+  background-color: #198754;
+  padding: 0.75rem 0;
+}
+
+.affiliate-mini-banner,
+.affiliate-mini-banner span,
+.affiliate-mini-banner strong,
+.affiliate-mini-banner i {
+  color: #ffffff;
+}
+
+.affiliate-mini-banner .btn-outline-light {
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.7);
+  font-size: 0.875rem;
+}
+
+.affiliate-mini-banner .btn-outline-light:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  border-color: #ffffff;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .affiliate-banner {
+    text-align: center;
+  }
+
+  .affiliate-banner h4 {
+    font-size: 1.25rem;
+  }
+
+  .affiliate-banner p {
+    font-size: 0.9rem;
+  }
+
+  .affiliate-banner .btn-light {
+    margin-top: 1rem;
+    width: 100%;
+  }
+
+  .affiliate-mini-banner .d-flex {
+    flex-direction: column;
+    gap: 0.5rem;
+    text-align: center;
+  }
+}

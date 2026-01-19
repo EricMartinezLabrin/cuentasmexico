@@ -5,6 +5,7 @@ from django.contrib.auth.views import LoginView, PasswordResetView, PasswordRese
 
 
 from . import views
+from . import views_affiliates
 
 
 urlpatterns = [
@@ -78,5 +79,50 @@ urlpatterns = [
     path('stripe/cancel/', views.stripe_cancel, name='stripe_cancel'),
     path('stripe/payment-pending/<int:cart_id>/', views.stripe_payment_pending, name='stripe_payment_pending'),
     path('webhook/stripe/', views.stripe_webhook, name='stripe_webhook'),
+
+    # ============================================
+    # SISTEMA DE AFILIADOS
+    # ============================================
+    # Redirect publico (tracking de clics)
+    path('afiliados/r/<str:codigo>/', views_affiliates.affiliate_redirect, name='afiliados_redirect'),
+
+    # Activacion de afiliado
+    path('afiliados/activar/', views_affiliates.activar_afiliado, name='afiliados_activar'),
+
+    # Dashboard
+    path('afiliados/', views_affiliates.dashboard, name='afiliados_dashboard'),
+
+    # Estadisticas
+    path('afiliados/estadisticas/', views_affiliates.estadisticas, name='afiliados_estadisticas'),
+
+    # Ventas
+    path('afiliados/ventas/', views_affiliates.ventas_list, name='afiliados_ventas'),
+
+    # Comisiones
+    path('afiliados/comisiones/', views_affiliates.comisiones_list, name='afiliados_comisiones'),
+
+    # Retiros
+    path('afiliados/retiros/', views_affiliates.retiros_list, name='afiliados_retiros'),
+    path('afiliados/retiros/solicitar/', views_affiliates.solicitar_retiro, name='afiliados_solicitar_retiro'),
+
+    # Perfil
+    path('afiliados/perfil/', views_affiliates.perfil, name='afiliados_perfil'),
+    path('afiliados/perfil/editar/', views_affiliates.editar_perfil, name='afiliados_editar_perfil'),
+
+    # Referidos
+    path('afiliados/referidos/', views_affiliates.referidos_list, name='afiliados_referidos'),
+
+    # Materiales promocionales
+    path('afiliados/materiales/', views_affiliates.materiales, name='afiliados_materiales'),
+    path('afiliados/qr/<str:codigo>/', views_affiliates.generar_qr, name='afiliados_generar_qr'),
+
+    # Notificaciones
+    path('afiliados/notificaciones/', views_affiliates.notificaciones, name='afiliados_notificaciones'),
+    path('afiliados/notificaciones/marcar-leida/<int:pk>/', views_affiliates.marcar_notificacion_leida, name='afiliados_marcar_leida'),
+    path('afiliados/notificaciones/marcar-todas-leidas/', views_affiliates.marcar_todas_leidas, name='afiliados_marcar_todas_leidas'),
+
+    # API interna (AJAX)
+    path('afiliados/api/stats/', views_affiliates.api_stats, name='afiliados_api_stats'),
+    path('afiliados/api/notificaciones-count/', views_affiliates.api_notificaciones_count, name='afiliados_api_notificaciones_count'),
 ]
 

@@ -151,3 +151,5 @@ staticfiles/
 dokploy-compose.yml
 
 .env.prod
+*.md
+*.txt

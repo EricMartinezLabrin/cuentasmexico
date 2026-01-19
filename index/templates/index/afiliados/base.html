@@ -1,0 +1,165 @@
+{% extends 'index/base/base.html' %}
+{% load static %}
+
+{% block title %}Panel de Afiliados - {{ block.super }}{% endblock %}
+
+{% block body %}
+<div class="container-fluid">
+    <div class="row">
+        <!-- Sidebar -->
+        <nav class="col-md-3 col-lg-2 d-md-block bg-light sidebar collapse" id="affiliateSidebar">
+            <div class="position-sticky pt-3">
+                <div class="px-3 mb-3">
+                    <h6 class="sidebar-heading d-flex justify-content-between align-items-center text-muted">
+                        <span>Panel de Afiliados</span>
+                    </h6>
+                </div>
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'afiliados_dashboard' %}active bg-primary text-white rounded{% endif %}" href="{% url 'afiliados_dashboard' %}">
+                            <i class="bi bi-speedometer2 me-2"></i>
+                            Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'afiliados_estadisticas' %}active bg-primary text-white rounded{% endif %}" href="{% url 'afiliados_estadisticas' %}">
+                            <i class="bi bi-graph-up me-2"></i>
+                            Estadisticas
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if 'ventas' in request.resolver_match.url_name %}active bg-primary text-white rounded{% endif %}" href="{% url 'afiliados_ventas' %}">
+                            <i class="bi bi-cart-check me-2"></i>
+                            Mis Ventas
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if 'comisiones' in request.resolver_match.url_name %}active bg-primary text-white rounded{% endif %}" href="{% url 'afiliados_comisiones' %}">
+                            <i class="bi bi-cash-coin me-2"></i>
+                            Comisiones
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if 'retiros' in request.resolver_match.url_name %}active bg-primary text-white rounded{% endif %}" href="{% url 'afiliados_retiros' %}">
+                            <i class="bi bi-wallet2 me-2"></i>
+                            Retiros
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if 'referidos' in request.resolver_match.url_name %}active bg-primary text-white rounded{% endif %}" href="{% url 'afiliados_referidos' %}">
+                            <i class="bi bi-people me-2"></i>
+                            Referidos
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if 'materiales' in request.resolver_match.url_name %}active bg-primary text-white rounded{% endif %}" href="{% url 'afiliados_materiales' %}">
+                            <i class="bi bi-link-45deg me-2"></i>
+                            Materiales
+                        </a>
+                    </li>
+                </ul>
+
+                <hr>
+
+                <ul class="nav flex-column mb-2">
+                    <li class="nav-item">
+                        <a class="nav-link {% if 'perfil' in request.resolver_match.url_name %}active bg-primary text-white rounded{% endif %}" href="{% url 'afiliados_perfil' %}">
+                            <i class="bi bi-person-gear me-2"></i>
+                            Mi Perfil
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link position-relative {% if 'notificaciones' in request.resolver_match.url_name %}active bg-primary text-white rounded{% endif %}" href="{% url 'afiliados_notificaciones' %}">
+                            <i class="bi bi-bell me-2"></i>
+                            Notificaciones
+                            {% if notificaciones_no_leidas > 0 %}
+                            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                                {{ notificaciones_no_leidas }}
+                            </span>
+                            {% endif %}
+                        </a>
+                    </li>
+                </ul>
+
+                <hr>
+
+                <!-- Balance rapido -->
+                <div class="px-3">
+                    <div class="card bg-success text-white mb-2">
+                        <div class="card-body py-2">
+                            <small class="text-white-50">Balance Disponible</small>
+                            <h5 class="mb-0">${{ affiliate.balance_disponible|floatformat:2 }} MXN</h5>
+                        </div>
+                    </div>
+                    {% if affiliate.balance_pendiente > 0 %}
+                    <div class="card bg-warning text-dark">
+                        <div class="card-body py-2">
+                            <small>Pendiente de Aprobacion</small>
+                            <h6 class="mb-0">${{ affiliate.balance_pendiente|floatformat:2 }} MXN</h6>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main content -->
+        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+            <!-- Mobile toggle -->
+            <div class="d-md-none mb-3 pt-3">
+                <button class="btn btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#affiliateSidebar">
+                    <i class="bi bi-list"></i> Menu Afiliados
+                </button>
+            </div>
+
+            <!-- Breadcrumb -->
+            <nav aria-label="breadcrumb" class="pt-3">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'index' %}">Inicio</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'afiliados_dashboard' %}">Afiliados</a></li>
+                    {% block breadcrumb %}{% endblock %}
+                </ol>
+            </nav>
+
+            <!-- Messages -->
+            {% if messages %}
+            <div class="mt-2">
+                {% for message in messages %}
+                <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <!-- Page content -->
+            {% block affiliate_content %}{% endblock %}
+        </main>
+    </div>
+</div>
+{% endblock body %}
+
+{% block extrajs %}
+{{ block.super }}
+<script>
+// Actualizar contador de notificaciones cada 60 segundos
+setInterval(function() {
+    fetch('{% url "afiliados_api_notificaciones_count" %}')
+        .then(response => response.json())
+        .then(data => {
+            const badges = document.querySelectorAll('.notif-badge');
+            badges.forEach(badge => {
+                if (data.count > 0) {
+                    badge.textContent = data.count;
+                    badge.style.display = 'inline';
+                } else {
+                    badge.style.display = 'none';
+                }
+            });
+        })
+        .catch(err => console.log('Error updating notifications'));
+}, 60000);
+</script>
+{% block affiliate_js %}{% endblock %}
+{% endblock extrajs %}

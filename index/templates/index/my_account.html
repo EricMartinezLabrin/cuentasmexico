@@ -444,6 +444,31 @@
         </div>
     </div>
     {% endif %}
+
+    <!-- Seccion de Afiliados -->
+    <div class="profile-info-item">
+        <div class="label">
+            <i class="bi bi-people-fill"></i>
+            <span>Programa de Afiliados</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px;">
+            {% if user_is_affiliate %}
+            <span class="value">
+                <span class="badge" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; padding: 6px 12px; border-radius: 8px;">
+                    <i class="bi bi-check-circle me-1"></i> Activo
+                </span>
+            </span>
+            <a href="{% url 'afiliados_dashboard' %}" class="edit-link">
+                <i class="bi bi-speedometer2"></i> Mi Panel
+            </a>
+            {% else %}
+            <span class="value text-muted">No activado</span>
+            <a href="{% url 'afiliados_activar' %}" class="edit-link">
+                <i class="bi bi-rocket-takeoff"></i> Activar
+            </a>
+            {% endif %}
+        </div>
+    </div>
 </div>
 
 <div class="section-header">
