@@ -460,7 +460,7 @@ Tu contraseña para *{account.account_name.description}* ha sido actualizada:
             
             # Enviar con Resend
             resend.Emails.send({
-                "from": "noreply@cuentasmexico.mx",
+                "from": "noreply@cuentasmexico.com",
                 "to": customer_email,
                 "subject": subject,
                 "html": html_content

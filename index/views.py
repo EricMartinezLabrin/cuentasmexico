@@ -734,7 +734,7 @@ def SendEmail(request):
     acc = Sale.objects.filter(pk__lte=3)
 
     if request.method == 'POST':
-        Email.email_passwords(request, 'contacto@cuentasmexico.mx', acc)
+        Email.email_passwords(request, 'contacto@cuentasmexico.com', acc)
 
     return render(request, template_name, {})
 
@@ -1964,7 +1964,7 @@ def stripe_create_checkout_session(request):
 
         # Configurar Stripe
         stripe.api_key = os.environ.get('STRIPE_SECRET_KEY')
-        site_url = os.environ.get('SITE_URL', 'https://www.cuentasmexico.mx')
+        site_url = os.environ.get('SITE_URL', 'https://www.cuentasmexico.com')
 
         # Preparar items del carrito
         cart_session = request.session.get('cart_number')

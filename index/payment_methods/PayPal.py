@@ -20,7 +20,7 @@ class PayPal:
 
     def __init__(self, request):
         self.request = request
-        self.site_url = os.environ.get('SITE_URL', 'https://www.cuentasmexico.mx')
+        self.site_url = os.environ.get('SITE_URL', 'https://www.cuentasmexico.com')
         # PayPal credentials se configuran en el MCP
         self.paypal_client_id = os.environ.get('PAYPAL_CLIENT_ID')
         self.paypal_client_secret = os.environ.get('PAYPAL_CLIENT_SECRET')

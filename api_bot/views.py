@@ -5,7 +5,7 @@ from django.urls import reverse
 import requests
 from django.views.decorators.csrf import csrf_exempt
 
-local_url = 'https://cuentasmexico.mx/api'
+local_url = 'https://cuentasmexico.com/api'
 pyc_url = 'https://bdpyc.cl/api'
 
 # Create your views here.

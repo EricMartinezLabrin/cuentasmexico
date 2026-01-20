@@ -450,7 +450,7 @@ def SendEmail(request):
     acc = Sale.objects.filter(pk__lte=3)
 
     if request.method == 'POST':
-        Email.email_passwords(request, 'contacto@cuentasmexico.mx', acc)
+        Email.email_passwords(request, 'contacto@cuentasmexico.com', acc)
 
     return render(request, template_name, {})
 

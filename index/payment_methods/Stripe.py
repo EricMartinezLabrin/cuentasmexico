@@ -21,7 +21,7 @@ class StripePayment:
 
     def __init__(self, request):
         self.request = request
-        self.site_url = os.environ.get('SITE_URL', 'https://www.cuentasmexico.mx')
+        self.site_url = os.environ.get('SITE_URL', 'https://www.cuentasmexico.com')
         # Stripe credentials
         self.stripe_secret_key = os.environ.get('STRIPE_SECRET_KEY')
         self.stripe_publishable_key = os.environ.get('STRIPE_PUBLISHABLE_KEY')
