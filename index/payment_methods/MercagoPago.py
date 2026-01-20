@@ -18,7 +18,7 @@ class MercadoPago():
     def __init__(self, request):
         self.request = request
         self.mp_access_token = os.environ.get('MP_ACCESS_TOKEN')
-        self.site_url = os.environ.get('SITE_URL', 'https://www.cuentasmexico.mx')
+        self.site_url = os.environ.get('SITE_URL', 'https://www.cuentasmexico.com')
 
     def Mp_ExpressCheckout(self, cart_id):
         # Validar que el token esté configurado
@@ -52,7 +52,7 @@ class MercadoPago():
                 "quantity": item_data['profiles'],
                 "currency_id": "MXN",
                 "unit_price": item_data['unitPrice']*item_data['quantity'],
-                "picture_url": f'https://cuentasmexico.mx/{item_data["image"]}',
+                "picture_url": f'https://cuentasmexico.com/{item_data["image"]}',
             }
             new_cart.append(cart_items)
 

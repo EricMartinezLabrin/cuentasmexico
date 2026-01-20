@@ -32,7 +32,7 @@ def generar_qr_afiliado(affiliate, size=300):
         return None
 
     # Construir URL del afiliado
-    site_url = getattr(settings, 'SITE_URL', 'https://cuentasmexico.mx')
+    site_url = getattr(settings, 'SITE_URL', 'https://cuentasmexico.com')
     url = f"{site_url}/afiliados/r/{affiliate.codigo_afiliado}/"
 
     # Crear QR
@@ -62,7 +62,7 @@ def generar_qr_afiliado(affiliate, size=300):
 
 def get_affiliate_link(affiliate):
     """Retorna el link completo de afiliado"""
-    site_url = getattr(settings, 'SITE_URL', 'https://cuentasmexico.mx')
+    site_url = getattr(settings, 'SITE_URL', 'https://cuentasmexico.com')
     return f"{site_url}/afiliados/r/{affiliate.codigo_afiliado}/"
 
 

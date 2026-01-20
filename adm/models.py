@@ -252,7 +252,7 @@ class IndexPromoImage(models.Model):
 class PageVisit(models.Model):
     """Rastrear visitas por página"""
     PAGE_CHOICES = [
-        ('home', 'Página Principal (cuentasmexico.mx)'),
+        ('home', 'Página Principal (cuentasmexico.com)'),
         ('myaccount', 'Mi Cuenta (/myaccount)'),
         ('cart', 'Carrito (/cart)'),
         ('checkout', 'Checkout'),

@@ -88,10 +88,10 @@ class Email():
             # Configurar la API key
             resend.api_key = resend_api_key
             
-            # NOTA: Usar noreply@resend.dev mientras se verifica el dominio cuentasmexico.mx en Resend
-            # Una vez verificado el dominio, cambiar a: "from": "noreply@cuentasmexico.mx"
+            # NOTA: Usar noreply@resend.dev mientras se verifica el dominio cuentasmexico.com en Resend
+            # Una vez verificado el dominio, cambiar a: "from": "noreply@cuentasmexico.com"
             response = resend.Emails.send({
-                "from": "noreply@cuentasmexico.mx",
+                "from": "noreply@cuentasmexico.com",
                 "to": email,
                 "subject": subject,
                 "html": html_content,
