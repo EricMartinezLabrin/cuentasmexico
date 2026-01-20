@@ -1974,10 +1974,22 @@ def stripe_create_checkout_session(request):
                 'message': 'No hay items en el carrito'
             }, status=400)
 
+        # Obtener porcentaje de descuento de la sesión (si hay descuento activo)
+        descuento_porcentaje = 0
+        if request.session.get('descuento_aplicado', 0) > 0:
+            subtotal_original = request.session.get('cart_total', 0)
+            if subtotal_original > 0:
+                descuento_porcentaje = (request.session.get('descuento_aplicado', 0) / subtotal_original) * 100
+
         line_items = []
         for item_id, item_data in cart_session.items():
             # Calcular precio por perfil (unitPrice * cantidad de meses)
             item_cost = float(item_data['unitPrice']) * float(item_data['quantity'])
+
+            # Aplicar descuento si existe
+            if descuento_porcentaje > 0:
+                item_cost = item_cost * (1 - descuento_porcentaje / 100)
+
             # Stripe espera precios en centavos
             unit_amount_cents = int(round(item_cost * 100))
 
