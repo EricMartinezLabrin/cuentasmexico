@@ -212,12 +212,18 @@ class Sales():
                 sale.save()
                 if acc.pin == None:
                     acc.pin = "No tiene Pin"
-                message = f"Gracias por tu compra, tu cuenta {acc.account_name.description} ha sido activada, a continuación obtendras los datos de tu cuenta:\n"
-                message += f"Usuario: {acc.email}\n"
-                message += f"Contraseña: {acc.password}\n"
+                message = f"E-Mail: {acc.email}\n"
+                message += f"Clave: {acc.password}\n"
                 message += f"Perfil: {acc.profile}\n"
                 message += f"Pin: {acc.pin}\n"
-                message += f"Vencimiento: {sale.expiration_date.date()}\n"
+                message += f"Vencimiento: {sale.expiration_date.date()}\n\n"
+                message += f"💎 Esta es su cuenta {acc.account_name.description} para 1 Dispositivo.\n"
+                message += f"Inicie sesión con el EMAIL y CLAVE recibidos.\n\n"
+                message += f"* Usar SOLO EL PERFIL ASIGNADO\n"
+                message += f"* NO puedes cambiar las claves.\n\n"
+                message += f"Gracias por tu preferencia.\n"
+                message += f"Recuerda que los únicos canales oficiales de atención son:\n"
+                message += f"WhatsApp  al número 833 535 5863 y la web cuentasmexico.com"
                 customer_detail = UserDetail.objects.get(user=customer)
                 Notification.send_whatsapp_notification(message,customer_detail.lada,customer_detail.phone_number)
                 try:
