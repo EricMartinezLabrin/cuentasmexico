@@ -24,26 +24,31 @@ class WhatsAppVerification:
         return countries_dict.get(country_name, '')
 
     @staticmethod
-    def send_verification_code(phone_number, country, code):
+    def send_verification_code(phone_number, country, code, full_number_override=None):
         """
         Send verification code via Evolution API WhatsApp
 
         Args:
-            phone_number: Phone number without country code
-            country: Country name (e.g., 'México')
+            phone_number: Phone number without country code (db format - últimos 8 dígitos para Chile)
+            country: Country name (e.g., 'México', 'Chile')
             code: 6-digit verification code
+            full_number_override: Optional - número completo con código país (ej: 56912345678)
+                                  Si se proporciona, se usa este en lugar de lada+phone_number
 
         Returns:
             dict: {'success': bool, 'message': str}
         """
         try:
-            # Get country code (lada)
-            lada = WhatsAppVerification.get_lada_from_country(country)
-            if not lada:
-                return {'success': False, 'message': 'País no válido'}
-
-            # Prepare full phone number with country code (Evolution API format)
-            full_phone = f"{lada}{phone_number}"
+            # Determine full phone number for WhatsApp API
+            if full_number_override:
+                # Usar el número completo proporcionado (ya normalizado)
+                full_phone = full_number_override
+            else:
+                # Comportamiento original: concatenar lada + phone_number
+                lada = WhatsAppVerification.get_lada_from_country(country)
+                if not lada:
+                    return {'success': False, 'message': 'País no válido'}
+                full_phone = f"{lada}{phone_number}"
 
             # Prepare message
             message = f"Tu código de verificación para Cuentas México es: {code}\n\nEste código expira en 10 minutos."
@@ -75,6 +80,7 @@ class WhatsAppVerification:
 
             if response.status_code == 200 or response.status_code == 201:
                 # Store code in cache with 10 minute expiration
+                # IMPORTANTE: usar phone_number (db format) para el cache key
                 cache_key = f"whatsapp_verify_{country}_{phone_number}"
                 cache.set(cache_key, code, timeout=600)  # 10 minutes
 

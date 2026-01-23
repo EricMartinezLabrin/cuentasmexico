@@ -554,15 +554,20 @@ class RegisterCustomerView(CreateView):
 
     def form_valid(self, form):
         from .whatsapp_verification import WhatsAppVerification
+        from index.phone_utils import PhoneNumberHandler
         from adm.models import Business
 
         # Obtener datos del formulario
         phone_number = form.cleaned_data.get('phone_number')
         country = form.cleaned_data.get('country')
 
-        # Verificar que el número no esté ya registrado (doble verificación)
+        # Normalizar número según el país
+        normalized = PhoneNumberHandler.normalize_phone_by_country(phone_number, country)
+        db_number = normalized['db_number']
+
+        # Verificar que el número no esté ya registrado (doble verificación usando db_number)
         existing_user = UserDetail.objects.filter(
-            phone_number=phone_number,
+            phone_number=db_number,
             country=country
         ).first()
 
@@ -570,8 +575,8 @@ class RegisterCustomerView(CreateView):
             form.add_error(None, 'Este número de teléfono ya está registrado')
             return self.form_invalid(form)
 
-        # Verificar que el teléfono haya sido verificado
-        if not WhatsAppVerification.is_verified(phone_number, country):
+        # Verificar que el teléfono haya sido verificado (usando db_number)
+        if not WhatsAppVerification.is_verified(db_number, country):
             form.add_error(None, 'Debes verificar tu número de WhatsApp antes de registrarte')
             return self.form_invalid(form)
 
@@ -593,12 +598,12 @@ class RegisterCustomerView(CreateView):
         # Obtener la lada del país
         lada = WhatsAppVerification.get_lada_from_country(country)
 
-        # Crear UserDetail con la información de WhatsApp
+        # Crear UserDetail con la información de WhatsApp (guardar db_number en phone_number)
         try:
             business = Business.objects.get(id=1)
             UserDetail.objects.create(
                 user=user,
-                phone_number=phone_number,
+                phone_number=db_number,
                 lada=int(lada) if lada else 0,
                 country=country,
                 business=business
@@ -1266,6 +1271,8 @@ def send_whatsapp_verification(request):
     """
     Send verification code via WhatsApp
     """
+    from index.phone_utils import PhoneNumberHandler
+
     try:
         data = json.loads(request.body)
         phone_number = data.get('phone_number', '').strip()
@@ -1277,10 +1284,15 @@ def send_whatsapp_verification(request):
                 'message': 'Número de teléfono y país son requeridos'
             }, status=400)
 
-        # Verificar si el número ya está registrado
+        # Normalizar número según el país
+        normalized = PhoneNumberHandler.normalize_phone_by_country(phone_number, country)
+        db_number = normalized['db_number']
+        full_number = normalized['full_number']
+
+        # Verificar si el número ya está registrado (usando db_number)
         from adm.models import UserDetail
         existing_user = UserDetail.objects.filter(
-            phone_number=phone_number,
+            phone_number=db_number,
             country=country
         ).first()
 
@@ -1290,9 +1302,14 @@ def send_whatsapp_verification(request):
                 'message': 'Este número de teléfono ya está registrado'
             }, status=400)
 
-        # Generate and send code
+        # Generate and send code (usando db_number para identificar, full_number para enviar)
         code = WhatsAppVerification.generate_verification_code()
-        result = WhatsAppVerification.send_verification_code(phone_number, country, code)
+        result = WhatsAppVerification.send_verification_code(
+            db_number,
+            country,
+            code,
+            full_number_override=full_number
+        )
 
         return JsonResponse(result)
 
@@ -1314,6 +1331,8 @@ def verify_whatsapp_code(request):
     """
     Verify WhatsApp code
     """
+    from index.phone_utils import PhoneNumberHandler
+
     try:
         data = json.loads(request.body)
         phone_number = data.get('phone_number', '').strip()
@@ -1326,8 +1345,12 @@ def verify_whatsapp_code(request):
                 'message': 'Todos los campos son requeridos'
             }, status=400)
 
-        # Verify code
-        result = WhatsAppVerification.verify_code(phone_number, country, code)
+        # Normalizar número según el país (para consistencia con el cache)
+        normalized = PhoneNumberHandler.normalize_phone_by_country(phone_number, country)
+        db_number = normalized['db_number']
+
+        # Verify code (usando db_number)
+        result = WhatsAppVerification.verify_code(db_number, country, code)
 
         return JsonResponse(result)
 
@@ -1349,6 +1372,8 @@ def send_whatsapp_login_code(request):
     """
     Send verification code for login via WhatsApp
     """
+    from index.phone_utils import PhoneNumberHandler
+
     try:
         data = json.loads(request.body)
         phone_number = data.get('phone_number', '').strip()
@@ -1360,9 +1385,14 @@ def send_whatsapp_login_code(request):
                 'message': 'Número de teléfono y país son requeridos'
             }, status=400)
 
-        # Verificar que el número esté registrado
+        # Normalizar número según el país
+        normalized = PhoneNumberHandler.normalize_phone_by_country(phone_number, country)
+        db_number = normalized['db_number']
+        full_number = normalized['full_number']
+
+        # Verificar que el número esté registrado (usando db_number para consulta)
         existing_user = UserDetail.objects.filter(
-            phone_number=phone_number,
+            phone_number=db_number,
             country=country
         ).first()
 
@@ -1372,13 +1402,18 @@ def send_whatsapp_login_code(request):
                 'message': 'Este número de teléfono no está registrado. Por favor, regístrate primero.'
             }, status=404)
 
-        # Generate and send code
+        # Generate and send code (usando db_number para identificar, full_number para enviar)
         code = WhatsAppVerification.generate_verification_code()
-        result = WhatsAppVerification.send_verification_code(phone_number, country, code)
+        result = WhatsAppVerification.send_verification_code(
+            db_number,
+            country,
+            code,
+            full_number_override=full_number
+        )
 
-        # Store login intent in cache
+        # Store login intent in cache (usando db_number como identificador)
         if result['success']:
-            login_cache_key = f"whatsapp_login_{country}_{phone_number}"
+            login_cache_key = f"whatsapp_login_{country}_{db_number}"
             cache.set(login_cache_key, existing_user.user.id, timeout=600)  # 10 minutes
 
         return JsonResponse(result)
@@ -1402,6 +1437,7 @@ def whatsapp_login_verify_and_auth(request):
     Verify WhatsApp code and authenticate user
     """
     from django.contrib.auth import login
+    from index.phone_utils import PhoneNumberHandler
 
     try:
         data = json.loads(request.body)
@@ -1415,14 +1451,18 @@ def whatsapp_login_verify_and_auth(request):
                 'message': 'Todos los campos son requeridos'
             }, status=400)
 
-        # Verify code
-        verify_result = WhatsAppVerification.verify_code(phone_number, country, code)
+        # Normalizar número según el país (para consistencia con el cache)
+        normalized = PhoneNumberHandler.normalize_phone_by_country(phone_number, country)
+        db_number = normalized['db_number']
+
+        # Verify code (usando db_number)
+        verify_result = WhatsAppVerification.verify_code(db_number, country, code)
 
         if not verify_result['success']:
             return JsonResponse(verify_result)
 
-        # Get user from login cache
-        login_cache_key = f"whatsapp_login_{country}_{phone_number}"
+        # Get user from login cache (usando db_number)
+        login_cache_key = f"whatsapp_login_{country}_{db_number}"
         user_id = cache.get(login_cache_key)
 
         if not user_id:
