@@ -58,6 +58,30 @@ def test_normalize_phone_by_country_chile():
     print("✓ Test normalize_phone_by_country Chile: PASSED")
 
 
+def test_normalize_phone_by_country_mexico_10_digits():
+    """Test: normalize_phone_by_country México - Usuario ingresa 10 dígitos"""
+    result = PhoneNumberHandler.normalize_phone_by_country("5512345678", "México")
+    assert result['db_number'] == "5512345678", f"Expected '5512345678', got '{result['db_number']}'"
+    assert result['full_number'] == "5215512345678", f"Expected '5215512345678', got '{result['full_number']}'"
+    print("✓ Test México 10 dígitos: PASSED")
+
+
+def test_normalize_phone_by_country_mexico_with_52():
+    """Test: normalize_phone_by_country México - Usuario incluye 52 pero sin el 1"""
+    result = PhoneNumberHandler.normalize_phone_by_country("525512345678", "México")
+    assert result['db_number'] == "525512345678", f"Expected '525512345678', got '{result['db_number']}'"
+    assert result['full_number'] == "5215512345678", f"Expected '5215512345678', got '{result['full_number']}'"
+    print("✓ Test México con 52 (sin 1): PASSED")
+
+
+def test_normalize_phone_by_country_mexico_full():
+    """Test: normalize_phone_by_country México - Usuario ingresa número completo con 521"""
+    result = PhoneNumberHandler.normalize_phone_by_country("5215512345678", "México")
+    assert result['db_number'] == "5215512345678", f"Expected '5215512345678', got '{result['db_number']}'"
+    assert result['full_number'] == "5215512345678", f"Expected '5215512345678', got '{result['full_number']}'"
+    print("✓ Test México número completo (521): PASSED")
+
+
 def test_different_chile_formats():
     """Test: Diferentes formatos de entrada producen el mismo resultado"""
     formats = [
@@ -80,10 +104,12 @@ def test_different_chile_formats():
 
 if __name__ == "__main__":
     print("\n" + "="*60)
-    print("TESTING: Normalización de números telefónicos chilenos")
+    print("TESTING: Normalización de números telefónicos")
     print("="*60 + "\n")
 
     try:
+        # Tests de Chile
+        print("--- Tests para Chile ---")
         test_normalize_chile_8_digits()
         test_normalize_chile_9_digits_with_prefix()
         test_normalize_chile_11_digits_full()
@@ -91,6 +117,12 @@ if __name__ == "__main__":
         test_normalize_chile_with_special_chars()
         test_normalize_phone_by_country_chile()
         test_different_chile_formats()
+
+        # Tests de México
+        print("\n--- Tests para México ---")
+        test_normalize_phone_by_country_mexico_10_digits()
+        test_normalize_phone_by_country_mexico_with_52()
+        test_normalize_phone_by_country_mexico_full()
 
         print("\n" + "="*60)
         print("✓ TODOS LOS TESTS PASARON EXITOSAMENTE")

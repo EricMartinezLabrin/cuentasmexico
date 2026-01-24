@@ -1,10 +1,21 @@
 """
 Utilidades para el manejo de números telefónicos
+
+Formatos soportados:
+- Chile: 56 9 XXXXXXXX (11 dígitos)
+- México: 52 1 XXXXXXXXXX (13 dígitos)
+- Otros países: [lada] + [número]
 """
 
 
 class PhoneNumberHandler:
-    """Clase para normalizar y manejar números telefónicos según el país"""
+    """
+    Clase para normalizar y manejar números telefónicos según el país
+
+    Países con tratamiento especial:
+    - Chile: Normaliza a formato 56 9 XXXXXXXX, guarda solo últimos 8 dígitos en BD
+    - México: Normaliza a formato 52 1 XXXXXXXXXX, guarda número completo en BD
+    """
 
     @staticmethod
     def normalize_chile_phone(phone_number):
@@ -81,7 +92,7 @@ class PhoneNumberHandler:
         Args:
             phone_number (str): Número telefónico ingresado
             country (str): Nombre del país
-            lada (str, optional): Código de país (lada)
+            lada (str, optional): Código de país (lada). Si no se proporciona, se obtiene automáticamente.
 
         Returns:
             dict: {
@@ -89,21 +100,52 @@ class PhoneNumberHandler:
                 'full_number': str  # Número completo para enviar WhatsApp
             }
         """
-        # Por ahora solo manejamos Chile de manera especial
+        # Manejo especial para Chile
         if country == 'Chile':
             return PhoneNumberHandler.normalize_chile_phone(phone_number)
 
-        # Para otros países, mantener el comportamiento actual
-        # (no normalizar, usar el número tal cual)
+        # Limpiar el número (remover espacios y caracteres especiales)
         clean_number = ''.join(filter(str.isdigit, phone_number))
 
+        # Si no se proporciona lada, intentar obtenerlo del país
+        if not lada:
+            from adm.functions.country import Country
+            countries_dict = Country.get_country_lada()
+            lada = countries_dict.get(country, '')
+
+        # Manejo especial para México: formato 52 1 XXXXXXXXXX
+        if country == 'México' or country == 'Mexico':
+            # Verificar si ya tiene el formato completo (521XXXXXXXXXX - 13 dígitos)
+            if clean_number.startswith('521') and len(clean_number) == 13:
+                full_number = clean_number
+                db_number = clean_number
+            # Verificar si tiene lada pero sin el 1 (52XXXXXXXXXX - 12 dígitos)
+            elif clean_number.startswith('52') and len(clean_number) == 12:
+                full_number = f"521{clean_number[2:]}"  # Insertar el 1 después del 52
+                db_number = clean_number
+            # Solo tiene el número sin lada (XXXXXXXXXX - 10 dígitos)
+            elif len(clean_number) == 10:
+                full_number = f"521{clean_number}"  # Agregar 521 al inicio
+                db_number = clean_number
+            # Otros casos: usar tal cual y agregar 521
+            else:
+                full_number = f"521{clean_number}"
+                db_number = clean_number
+
+            return {
+                'db_number': db_number,
+                'full_number': full_number
+            }
+
+        # Para otros países, mantener el comportamiento actual
         if lada:
             # Si el número ya tiene el lada al inicio, no duplicarlo
-            if clean_number.startswith(lada):
+            if clean_number.startswith(str(lada)):
                 full_number = clean_number
             else:
                 full_number = f"{lada}{clean_number}"
         else:
+            # Si no hay lada, usar el número tal cual
             full_number = clean_number
 
         return {
