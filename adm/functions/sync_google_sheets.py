@@ -12,6 +12,7 @@ from django.db.models import Q
 
 from adm.models import Account, Service
 from adm.functions.send_whatsapp_notification import Notification
+from adm.functions.whatsapp_queue import enqueue_whatsapp
 
 
 logger = logging.getLogger(__name__)
@@ -345,10 +346,13 @@ class SheetsSyncManager:
     
     def _notify_password_change_whatsapp(self, account: Account, new_password: str):
         """
-        Envía notificación por WhatsApp solo si:
+        Encola notificación por WhatsApp para envío asíncrono solo si:
         - La cuenta tiene cliente asignado
         - El cliente tiene userdetail con phone_number
-        
+
+        Los mensajes se envían de forma asíncrona con un delay de 7-20 segundos
+        entre cada mensaje para evitar bloqueos por spam.
+
         Args:
             account: Instancia de Account
             new_password: Nueva contraseña
@@ -357,19 +361,23 @@ class SheetsSyncManager:
             if not account.customer:
                 self.logger.info(f"ℹ️ No hay cliente asignado a {account.email} - Sin notificación WhatsApp")
                 return
-            
+
             if not hasattr(account.customer, 'userdetail'):
                 self.logger.info(f"ℹ️ Cliente de {account.email} sin userdetail - Sin notificación WhatsApp")
                 return
-            
+
             phone = account.customer.userdetail.phone_number
             lada = account.customer.userdetail.lada
-            
+
+            if not phone or not lada:
+                self.logger.info(f"ℹ️ Cliente de {account.email} sin teléfono/lada - Sin notificación WhatsApp")
+                return
+
             # Obtener fecha de vencimiento de la última venta activa
             from adm.models import Sale
             from django.utils import timezone
             import pytz
-            
+
             last_sale = Sale.objects.filter(account=account, status=True).order_by('-expiration_date').first()
             if last_sale and last_sale.expiration_date:
                 # Convertir a zona horaria de Ciudad de México
@@ -378,7 +386,7 @@ class SheetsSyncManager:
                 expiration_str = expiration_local.strftime('%d/%m/%Y')
             else:
                 expiration_str = 'No definida'
-            
+
             message = f"""
 🔐 *Cambio de Contraseña*
 
@@ -391,11 +399,12 @@ Tu contraseña para *{account.account_name.description}* ha sido actualizada:
 
 ¡Guarda este mensaje en un lugar seguro!
             """
-            
-            Notification.send_whatsapp_notification(message.strip(), lada, phone)
-            self.logger.info(f"📱 Notificación WhatsApp enviada a {lada}{phone}")
+
+            # Encolar mensaje para envío asíncrono (no bloquea el proceso)
+            enqueue_whatsapp(message.strip(), lada, phone)
+            self.logger.info(f"📱 Notificación WhatsApp encolada para {lada}{phone}")
         except Exception as e:
-            self.logger.warning(f"⚠️ Error enviando WhatsApp a {account.email}: {str(e)}")
+            self.logger.warning(f"⚠️ Error encolando WhatsApp para {account.email}: {str(e)}")
     
     def _notify_password_change_email(self, account: Account, new_password: str):
         """
