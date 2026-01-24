@@ -10,6 +10,7 @@ import time
 import logging
 from typing import Optional
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
 
@@ -28,9 +29,10 @@ class WhatsAppQueue:
 
     Características:
     - Envía mensajes en un hilo separado (no bloquea el proceso principal)
-    - Delay aleatorio entre 7-20 segundos entre mensajes
+    - Delay aleatorio entre 7-20 segundos entre TODOS los mensajes
     - Thread-safe usando queue.Queue
     - Singleton para evitar múltiples hilos
+    - Rastrea el último envío para garantizar el delay incluso entre requests
     """
 
     _instance: Optional['WhatsAppQueue'] = None
@@ -54,17 +56,51 @@ class WhatsAppQueue:
         self._stop_event = threading.Event()
         self._min_delay = 7  # segundos
         self._max_delay = 20  # segundos
+        self._last_send_time: Optional[datetime] = None  # Rastrea último envío
+        self._send_lock = threading.Lock()  # Lock para el tiempo de envío
         self._initialized = True
+        self._is_first_message = True  # Primer mensaje no necesita delay
         logger.info("WhatsAppQueue inicializada")
+
+    def _wait_for_rate_limit(self):
+        """
+        Espera el tiempo necesario para respetar el rate limit.
+        SIEMPRE espera entre 7-20 segundos después del último mensaje.
+        """
+        with self._send_lock:
+            if self._last_send_time is not None:
+                # Calcular tiempo desde último envío
+                elapsed = (datetime.now() - self._last_send_time).total_seconds()
+
+                # Generar delay aleatorio requerido
+                required_delay = random.uniform(self._min_delay, self._max_delay)
+
+                # Si no ha pasado suficiente tiempo, esperar
+                if elapsed < required_delay:
+                    wait_time = required_delay - elapsed
+                    logger.info(f"⏳ Rate limit: esperando {wait_time:.1f}s más (elapsed: {elapsed:.1f}s, required: {required_delay:.1f}s)")
+
+                    # Esperar en intervalos pequeños para poder responder a stop_event
+                    waited = 0
+                    while waited < wait_time and not self._stop_event.is_set():
+                        time.sleep(0.5)
+                        waited += 0.5
+
+    def _update_last_send_time(self):
+        """Actualiza el timestamp del último envío"""
+        with self._send_lock:
+            self._last_send_time = datetime.now()
 
     def _worker(self):
         """
         Worker que procesa la cola de mensajes.
         Se ejecuta en un hilo separado.
+        SIEMPRE aplica delay entre mensajes.
         """
         from adm.functions.send_whatsapp_notification import Notification
 
-        logger.info("WhatsApp Queue Worker iniciado")
+        logger.info("🚀 WhatsApp Queue Worker iniciado")
+        messages_sent = 0
 
         while not self._stop_event.is_set() or not self._queue.empty():
             try:
@@ -74,35 +110,32 @@ class WhatsAppQueue:
                 except queue.Empty:
                     continue
 
+                # SIEMPRE esperar rate limit antes de enviar (excepto primer mensaje)
+                if messages_sent > 0:
+                    self._wait_for_rate_limit()
+
                 # Enviar mensaje
                 try:
-                    logger.info(f"Enviando WhatsApp a {msg.lada}{msg.phone_number}...")
+                    logger.info(f"📤 Enviando WhatsApp a {msg.lada}{msg.phone_number}... (mensaje #{messages_sent + 1}, cola: {self._queue.qsize()} restantes)")
                     Notification.send_whatsapp_notification(
                         msg.message,
                         msg.lada,
                         msg.phone_number
                     )
-                    logger.info(f"WhatsApp enviado exitosamente a {msg.lada}{msg.phone_number}")
+                    self._update_last_send_time()
+                    messages_sent += 1
+                    logger.info(f"✅ WhatsApp enviado exitosamente a {msg.lada}{msg.phone_number}")
                 except Exception as e:
-                    logger.error(f"Error enviando WhatsApp a {msg.lada}{msg.phone_number}: {e}")
+                    logger.error(f"❌ Error enviando WhatsApp a {msg.lada}{msg.phone_number}: {e}")
+                    # Aún así actualizar tiempo para no bombardear en caso de error
+                    self._update_last_send_time()
                 finally:
                     self._queue.task_done()
 
-                # Si hay más mensajes en la cola, esperar delay aleatorio
-                if not self._queue.empty():
-                    delay = random.uniform(self._min_delay, self._max_delay)
-                    logger.info(f"Esperando {delay:.1f}s antes del siguiente mensaje ({self._queue.qsize()} restantes)")
-
-                    # Esperar en intervalos pequeños para poder responder a stop_event
-                    wait_time = 0
-                    while wait_time < delay and not self._stop_event.is_set():
-                        time.sleep(0.5)
-                        wait_time += 0.5
-
             except Exception as e:
-                logger.error(f"Error en WhatsApp Queue Worker: {e}")
+                logger.error(f"❌ Error en WhatsApp Queue Worker: {e}")
 
-        logger.info("WhatsApp Queue Worker terminado")
+        logger.info(f"🏁 WhatsApp Queue Worker terminado (total enviados: {messages_sent})")
 
     def _ensure_worker_running(self):
         """Asegura que el worker esté corriendo"""
