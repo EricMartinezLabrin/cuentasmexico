@@ -398,6 +398,10 @@ Tu contraseña para *{account.account_name.description}* ha sido actualizada:
 📅 Vence: {expiration_str}
 
 ¡Guarda este mensaje en un lugar seguro!
+
+Recuerda que ahora puedes ver tus claves siempre activas en https://cuentasmexico.com/my_account
+
+También puedes hacer compras con entregas inmediatas (y con descuento) en https://cuentasmexico.com
             """
 
             # Encolar mensaje para envío asíncrono (no bloquea el proceso)

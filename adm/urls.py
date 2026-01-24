@@ -190,11 +190,14 @@ urlpatterns = [
     path('afiliados/retiros/<int:pk>/rechazar/', login_required(views.AfiliadosRetiroRechazar), name='afiliados_retiro_rechazar'),
     path('afiliados/estadisticas/', login_required(views.AfiliadosStatsView), name='afiliados_stats_admin'),
 
-    # API - Sincronización Google Sheets
+    # API - Sincronización Google Sheets (ejecutan en segundo plano)
     path('api/sync-sheets/', api_sync.sync_sheets_endpoint, name='api_sync_sheets'),
+    path('api/sync-sheets/status/', api_sync.sync_sheets_status, name='api_sync_sheets_status'),
     path('api/sync-sheets/debug/', api_sync.sync_sheets_debug, name='api_sync_sheets_debug'),
     path('api/verify-accounts/', api_sync.verify_accounts_endpoint, name='api_verify_accounts'),
+    path('api/verify-accounts/status/', api_sync.verify_accounts_status, name='api_verify_accounts_status'),
     path('api/verify-accounts/debug/', api_sync.verify_accounts_debug, name='api_verify_accounts_debug'),
+    path('api/tasks/', api_sync.tasks_list, name='api_tasks_list'),
     
     # Logs de Sincronización
     path('sync-logs/', views.sync_logs_view, name='sync_logs'),
