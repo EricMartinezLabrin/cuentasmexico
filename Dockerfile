@@ -67,10 +67,12 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
 CMD ["gunicorn", \
      "--bind", "0.0.0.0:8000", \
      "--workers", "1", \
-     "--worker-class", "sync", \
-     "--max-requests", "1000", \
-     "--max-requests-jitter", "100", \
+     "--threads", "4", \
+     "--worker-class", "gthread", \
+     "--max-requests", "5000", \
+     "--max-requests-jitter", "500", \
      "--timeout", "120", \
+     "--graceful-timeout", "60", \
      "--access-logfile", "-", \
      "--error-logfile", "-", \
      "CuentasMexico.wsgi:application"]
