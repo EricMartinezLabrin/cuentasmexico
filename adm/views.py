@@ -129,6 +129,10 @@ def index(request):
     web_sales_yearly = Dashboard.web_sales_yearly()
     web_sales_chart = Dashboard.web_sales_last_12_months()
 
+    # Estadísticas de carritos
+    cart_active = Dashboard.cart_stats_active()
+    cart_abandoned = Dashboard.cart_stats_abandoned()
+
     return render(request, template_name, {
         'sales_day': sales_day,
         'sales_month': sales_month,
@@ -149,6 +153,9 @@ def index(request):
         'web_sales_monthly': web_sales_monthly,
         'web_sales_yearly': web_sales_yearly,
         'web_sales_chart': web_sales_chart,
+        # Estadísticas de carritos
+        'cart_active': cart_active,
+        'cart_abandoned': cart_abandoned,
     })
 
 # ========== VISTAS DE DETALLE DE ESTADÍSTICAS WEB ==========

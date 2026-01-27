@@ -240,6 +240,150 @@
                 </div>
             </div>
 
+            <hr class="my-4">
+
+            <!-- ESTADÍSTICAS DE CARRITOS -->
+            <h2 class="mb-4">Estadísticas de Carritos</h2>
+
+            <!-- Cards resumen -->
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="card bg-info text-white">
+                        <div class="card-body">
+                            <h5 class="card-title">Carritos Activos</h5>
+                            <p class="card-text display-6">{{ cart_active.count }}</p>
+                            <small>Monto total: ${{ cart_active.total_amount|intcomma }}</small>
+                            <br><small class="opacity-75">Creados en las últimas 24h, sin pagar</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card bg-danger text-white">
+                        <div class="card-body">
+                            <h5 class="card-title">Carritos Abandonados</h5>
+                            <p class="card-text display-6">{{ cart_abandoned.count }}</p>
+                            <small>Monto perdido: ${{ cart_abandoned.total_amount|intcomma }}</small>
+                            <br><small class="opacity-75">Más de 24h sin pagar</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Productos más frecuentes en carritos abandonados -->
+            {% if cart_abandoned.products %}
+            <div class="row mb-4">
+                <div class="col-md-12">
+                    <h4>Productos más frecuentes en carritos abandonados</h4>
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Servicio</th>
+                                <th>Veces en carritos</th>
+                                <th>Cantidad total</th>
+                                <th>Monto total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for product in cart_abandoned.products %}
+                            <tr>
+                                <td>{{ product.service }}</td>
+                                <td>{{ product.times }}</td>
+                                <td>{{ product.total_qty }}</td>
+                                <td>${{ product.total_amount|intcomma }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Detalle carritos activos -->
+            {% if cart_active.details %}
+            <div class="row mb-4">
+                <div class="col-md-12">
+                    <h4>Detalle de Carritos Activos <small class="text-muted">(últimos 50)</small></h4>
+                    <div class="table-responsive">
+                        <table class="table table-hover table-sm">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Cliente</th>
+                                    <th>Productos</th>
+                                    <th>Monto</th>
+                                    <th>Método</th>
+                                    <th>Estado</th>
+                                    <th>Tiempo</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for cart in cart_active.details %}
+                                <tr>
+                                    <td>{{ cart.id }}</td>
+                                    <td>{{ cart.customer }}</td>
+                                    <td>
+                                        {% for item in cart.items %}
+                                            <span class="badge bg-secondary">{{ item.service }} x{{ item.quantity }} ({{ item.long }}m)</span>
+                                        {% empty %}
+                                            <span class="text-muted">—</span>
+                                        {% endfor %}
+                                    </td>
+                                    <td>${{ cart.amount|intcomma }}</td>
+                                    <td>{{ cart.payment_method }}</td>
+                                    <td>{{ cart.status }}</td>
+                                    <td>{{ cart.elapsed }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Detalle carritos abandonados -->
+            {% if cart_abandoned.details %}
+            <div class="row mb-4">
+                <div class="col-md-12">
+                    <h4>Detalle de Carritos Abandonados <small class="text-muted">(últimos 50)</small></h4>
+                    <div class="table-responsive">
+                        <table class="table table-hover table-sm">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Cliente</th>
+                                    <th>Productos</th>
+                                    <th>Monto</th>
+                                    <th>Método</th>
+                                    <th>Estado</th>
+                                    <th>Tiempo abandonado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for cart in cart_abandoned.details %}
+                                <tr>
+                                    <td>{{ cart.id }}</td>
+                                    <td>{{ cart.customer }}</td>
+                                    <td>
+                                        {% for item in cart.items %}
+                                            <span class="badge bg-secondary">{{ item.service }} x{{ item.quantity }} ({{ item.long }}m)</span>
+                                        {% empty %}
+                                            <span class="text-muted">—</span>
+                                        {% endfor %}
+                                    </td>
+                                    <td>${{ cart.amount|intcomma }}</td>
+                                    <td>{{ cart.payment_method }}</td>
+                                    <td>{{ cart.status }}</td>
+                                    <td>{{ cart.elapsed }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
         {% endblock body %}
         {% block extrajs %}
             <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>

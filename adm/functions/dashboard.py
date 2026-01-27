@@ -2,6 +2,7 @@
 from django.db.models import Sum, Count
 from django.contrib.auth.models import User
 from adm.models import UserDetail, Account, Service, PageVisit
+from index.models import IndexCart, IndexCartdetail
 from django.utils import timezone
 # Python
 from datetime import datetime, timedelta
@@ -504,4 +505,109 @@ class Dashboard():
         ).order_by('-created_at')
 
         return web_sales
+
+    # ========== ESTADÍSTICAS DE CARRITOS ==========
+
+    def _cart_query(status_list, created_before=None, created_after=None):
+        """Query base para carritos por status y rango de fecha de creación"""
+        qs = IndexCart.objects.filter(payment_status__in=status_list)
+        if created_before:
+            qs = qs.filter(date_created__lt=created_before)
+        if created_after:
+            qs = qs.filter(date_created__gte=created_after)
+        return qs
+
+    def cart_stats_active():
+        """Carritos activos: pending/awaiting_payment creados hace menos de 24h."""
+        cutoff = timezone.now() - timedelta(hours=24)
+        carts = Dashboard._cart_query(
+            ['pending', 'awaiting_payment'], created_after=cutoff
+        ).select_related('customer').order_by('-date_created')
+        return Dashboard._build_cart_stats(carts)
+
+    def cart_stats_abandoned():
+        """Carritos abandonados: pending/awaiting_payment creados hace más de 24h."""
+        cutoff = timezone.now() - timedelta(hours=24)
+        carts = Dashboard._cart_query(
+            ['pending', 'awaiting_payment'], created_before=cutoff
+        ).select_related('customer').order_by('-date_created')
+        return Dashboard._build_cart_stats(carts)
+
+    def _build_cart_stats(carts):
+        """Construye estadísticas a partir de un queryset de carritos"""
+        now = timezone.now()
+        cart_ids = list(carts.values_list('id', flat=True))
+
+        count = carts.count()
+        total_amount = carts.aggregate(total=Sum('transaction_amount'))['total'] or 0
+
+        # Productos más frecuentes
+        top_products = IndexCartdetail.objects.filter(
+            cart_id__in=cart_ids
+        ).values(
+            'service__description'
+        ).annotate(
+            times=Count('id'),
+            total_qty=Sum('quantity'),
+            total_amount=Sum('price')
+        ).order_by('-times')[:10]
+
+        products = [
+            {
+                'service': p['service__description'],
+                'times': p['times'],
+                'total_qty': p['total_qty'],
+                'total_amount': p['total_amount'] or 0,
+            }
+            for p in top_products
+        ]
+
+        # Detalle por carrito (últimos 50)
+        cart_slice_ids = [c.id for c in carts[:50]]
+        cart_items = IndexCartdetail.objects.filter(
+            cart_id__in=cart_slice_ids
+        ).select_related('service').values_list(
+            'cart_id', 'service__description', 'quantity', 'price', 'long'
+        )
+
+        items_by_cart = {}
+        for cart_id, svc, qty, price, long in cart_items:
+            items_by_cart.setdefault(cart_id, []).append({
+                'service': svc,
+                'quantity': qty,
+                'price': price,
+                'long': long,
+            })
+
+        details = []
+        for cart in carts[:50]:
+            elapsed = now - cart.date_created if cart.date_created else None
+            if elapsed:
+                hours = int(elapsed.total_seconds() // 3600)
+                minutes = int((elapsed.total_seconds() % 3600) // 60)
+                if hours >= 24:
+                    days = hours // 24
+                    elapsed_str = f"{days}d {hours % 24}h"
+                else:
+                    elapsed_str = f"{hours}h {minutes}m"
+            else:
+                elapsed_str = "—"
+
+            details.append({
+                'id': cart.id,
+                'customer': cart.customer.username if cart.customer else '—',
+                'amount': cart.transaction_amount or 0,
+                'status': cart.get_payment_status_display() if cart.payment_status else '—',
+                'payment_method': cart.payment_method_type or '—',
+                'elapsed': elapsed_str,
+                'date_created': cart.date_created,
+                'items': items_by_cart.get(cart.id, []),
+            })
+
+        return {
+            'count': count,
+            'total_amount': total_amount,
+            'products': products,
+            'details': details,
+        }
 
