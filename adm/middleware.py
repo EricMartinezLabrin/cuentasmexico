@@ -32,7 +32,7 @@ class PageVisitMiddleware(MiddlewareMixin):
             return None
 
         # Determinar qué página pública es
-        page_type = 'other'
+        page_type = path
         if path == '/' or path == '':
             page_type = 'home'
         elif 'myaccount' in path.lower() or 'mi-cuenta' in path.lower():

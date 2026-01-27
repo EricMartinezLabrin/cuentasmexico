@@ -258,10 +258,9 @@ class PageVisit(models.Model):
         ('checkout', 'Checkout'),
         ('services', 'Servicios'),
         ('service', 'Clic en Servicio'),
-        ('other', 'Otra'),
     ]
 
-    page = models.CharField(max_length=50, choices=PAGE_CHOICES)
+    page = models.CharField(max_length=500)
     page_url = models.CharField(max_length=500)
     service = models.ForeignKey(Service, on_delete=models.SET_NULL, null=True, blank=True, help_text="Servicio si se registró un clic en uno")
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
