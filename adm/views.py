@@ -578,6 +578,7 @@ def AccountsView(request):
     account_name = request.POST.get('account_name') or request.GET.get('account_name', '')
     email = (request.POST.get('email') or request.GET.get('email', '')).replace(" ", "")
     status = request.POST.get('status') or request.GET.get('status', '')
+    external_status = request.POST.get('external_status') or request.GET.get('external_status', '')
     page = request.GET.get('page', 1)
     
     # Base queryset optimizado con select_related para evitar consultas N+1
@@ -591,7 +592,7 @@ def AccountsView(request):
     ).filter(business=business_id)
     
     # Si hay filtros aplicados
-    if request.method == 'POST' or any([account_name, email, status]):
+    if request.method == 'POST' or any([account_name, email, status, external_status]):
         # Aplicar filtros de manera eficiente
         if account_name:
             base_queryset = base_queryset.filter(account_name=account_name)
@@ -599,6 +600,8 @@ def AccountsView(request):
             base_queryset = base_queryset.filter(email__icontains=email)
         if status:
             base_queryset = base_queryset.filter(status=status == 'True')
+        if external_status:
+            base_queryset = base_queryset.filter(external_status=external_status)
         
         # Ordenar de manera eficiente
         accounts = base_queryset.order_by('-created_at', 'profile')
@@ -607,7 +610,8 @@ def AccountsView(request):
         form_data = {
             'account_name': account_name,
             'email': email,
-            'status': status
+            'status': status,
+            'external_status': external_status
         }
         
         # Paginación optimizada
@@ -626,7 +630,9 @@ def AccountsView(request):
             filter_params.append(f'email={email}')
         if status:
             filter_params.append(f'status={status}')
-        
+        if external_status:
+            filter_params.append(f'external_status={external_status}')
+
         filter_query = '&'.join(filter_params)
         
         # Crear contexto sin objetos que no se pueden serializar

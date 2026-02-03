@@ -208,6 +208,7 @@
                                 <th>F. Compra</th>
                                 <th>F. Vencimiento</th>
                                 <th>F. Vencimiento Cuenta</th>
+                                <th>Estado Externo</th>
                                 <th>Vendedor</th>
                                 <th class="text-center">Acciones</th>
                             </tr>
@@ -273,10 +274,21 @@ WhatsApp y Telegram al número 833 535 5863.
                                     <td class="text-nowrap">{{ a.created_at|date:'d/m/Y' }}</td>
                                     <td class="text-nowrap">{{ a.expiration_date|date:'d/m/Y' }}</td>
                                     <td class="text-nowrap">{{ a.account.expiration_date|date:'d/m/Y' }}</td>
+                                    <td>
+                                        {% if a.account.external_status == 'Disponible' %}
+                                            <span class="badge bg-success">{{ a.account.external_status }}</span>
+                                        {% elif a.account.external_status == 'No Disponible' %}
+                                            <span class="badge bg-danger">{{ a.account.external_status }}</span>
+                                        {% elif a.account.external_status == 'Suspendida' %}
+                                            <span class="badge bg-secondary">{{ a.account.external_status }}</span>
+                                        {% else %}
+                                            <span class="badge bg-warning">{{ a.account.external_status }}</span>
+                                        {% endif %}
+                                    </td>
                                     <td>{{ a.user_seller }}</td>
                                     <td class="text-center">
                                         <div class="btn-group btn-group-sm" role="group">
-                                            <button class="btn btn-outline-info" 
+                                            <button class="btn btn-outline-info"
                                                     onclick="getHomeCode('{{ a.account.email }}')"
                                                     title="Obtener Código Hogar"
                                                     type="button">
@@ -358,6 +370,7 @@ WhatsApp y Telegram al número 833 535 5863.
                                 <th>F. Compra</th>
                                 <th>F. Vencimiento Cliente</th>
                                 <th>F. Vencimiento Cuenta</th>
+                                <th>Estado Externo</th>
                                 <th>Vendedor</th>
                                 <th class="text-center">Acciones</th>
                             </tr>
@@ -394,6 +407,17 @@ WhatsApp y Telegram al número 833 535 5863.
                                     <td class="text-nowrap">{{ a.created_at|date:'d/m/Y' }}</td>
                                     <td class="text-nowrap">{{ a.expiration_date|date:'d/m/Y' }}</td>
                                     <td class="text-nowrap">{{ a.account.expiration_date|date:'d/m/Y' }}</td>
+                                    <td>
+                                        {% if a.account.external_status == 'Disponible' %}
+                                            <span class="badge bg-success">{{ a.account.external_status }}</span>
+                                        {% elif a.account.external_status == 'No Disponible' %}
+                                            <span class="badge bg-danger">{{ a.account.external_status }}</span>
+                                        {% elif a.account.external_status == 'Suspendida' %}
+                                            <span class="badge bg-secondary">{{ a.account.external_status }}</span>
+                                        {% else %}
+                                            <span class="badge bg-warning">{{ a.account.external_status }}</span>
+                                        {% endif %}
+                                    </td>
                                     <td>{{ a.user_seller }}</td>
                                     <td class="text-center">
                                         {% if a.old_acc %}

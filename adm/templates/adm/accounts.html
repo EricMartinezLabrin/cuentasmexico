@@ -68,6 +68,25 @@
                         </select>
                     </div>
                 </div>
+                {% comment %} External Status {% endcomment %}
+                <div class="col-12">
+                    <label class="visually-hidden" for="external_status_select">{{ form.external_status.label }}</label>
+                    <div class="input-group">
+                        <div class="input-group-text">{{ form.external_status.label }}</div>
+                        {% if form_data.external_status %}
+                            <select name="external_status" class="form-select" id="external_status_select">
+                                {% for choice in form.external_status.field.choices %}
+                                    <option value="{{ choice.0 }}"
+                                            {% if form_data.external_status == choice.0|stringformat:"s" %}selected{% endif %}>
+                                        {{ choice.1 }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        {% else %}
+                            {{ form.external_status }}
+                        {% endif %}
+                    </div>
+                </div>
                 <div class="col-12">
                     <input type="submit" class="btn btn-info" value="Filtrar">
                     <a href="{% url 'adm:accounts' %}" class="btn btn-cm-cancel">Limpiar Filtro</a>

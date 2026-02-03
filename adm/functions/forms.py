@@ -99,15 +99,16 @@ class FilterAccountForm(forms.ModelForm):
     class Meta:
         model = Account
 
-        fields = ['account_name', 'email']
+        fields = ['account_name', 'email', 'external_status']
         labels = {
             'account_name': 'Cuenta',
             'email': 'E-Mail',
-
+            'external_status': 'Estado Externo',
         }
         widgets = {
             'account_name': forms.Select(attrs={'class': 'form-select', 'id': 'inputGroupSelect01'}),
             'email': forms.TextInput(attrs={'id': 'addon-wrapping'}),
+            'external_status': forms.Select(attrs={'class': 'form-select'}),
         }
 
 
