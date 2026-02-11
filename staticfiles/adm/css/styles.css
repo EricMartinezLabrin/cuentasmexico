@@ -92,3 +92,70 @@ p.details{
         font-size: 1rem;
     }
 }
+
+/* Mobile cards for sales page */
+@media (max-width: 767.98px) {
+    .sales-mobile-list {
+        display: grid;
+        gap: 0.85rem;
+    }
+
+    .sales-mobile-card {
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+        padding: 0.85rem;
+        background: #ffffff;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    }
+
+    .sales-mobile-card-inactive {
+        border-left: 4px solid #c51f2b;
+    }
+
+    .sales-mobile-header {
+        display: flex;
+        justify-content: space-between;
+        gap: 0.5rem;
+        align-items: flex-start;
+        margin-bottom: 0.65rem;
+    }
+
+    .sales-mobile-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.6rem 0.75rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .sales-mobile-grid div {
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.2rem;
+    }
+
+    .sales-mobile-grid small {
+        color: #6b7280;
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+    }
+
+    .sales-mobile-grid span,
+    .sales-mobile-grid code {
+        font-size: 0.82rem;
+        overflow-wrap: anywhere;
+    }
+
+    .sales-mobile-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.45rem;
+        padding-top: 0.65rem;
+        border-top: 1px dashed #e5e7eb;
+    }
+
+    .sales-mobile-actions .btn {
+        min-width: 36px;
+    }
+}
