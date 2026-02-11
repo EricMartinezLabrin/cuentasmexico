@@ -3,133 +3,279 @@
 {% block title %}
     Ventas
 {% endblock title %}
+{% block head %}
+    <style>
+        .sale-create-page .service-list {
+            max-height: 330px;
+            overflow-y: auto;
+            border: 1px solid #e9ecef;
+            border-radius: 0.5rem;
+            padding: 0.75rem;
+            background: #fff;
+        }
+
+        .sale-create-page .service-list .form-check {
+            padding: 0.4rem 0.2rem 0.4rem 1.8rem;
+            border-bottom: 1px dashed #e9ecef;
+        }
+
+        .sale-create-page .service-list .form-check:last-child {
+            border-bottom: 0;
+        }
+
+        .sale-create-page .info-badges {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .sale-create-page .info-badges .badge {
+            font-size: 0.85rem;
+            font-weight: 600;
+            padding: 0.55rem 0.75rem;
+            background: #eef4ff;
+            color: #0d6efd;
+            border: 1px solid #d8e7ff;
+        }
+
+        .sale-create-page .table-hint {
+            font-size: 0.8rem;
+            color: #6c757d;
+        }
+
+        .sale-create-page .mobile-result-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 0.6rem;
+            padding: 0.7rem;
+            background: #fff;
+        }
+
+        .sale-create-page .mobile-result-card.selected {
+            border: 2px solid #16a34a;
+        }
+
+        .sale-create-page .mobile-result-card-selectable {
+            cursor: pointer;
+        }
+
+        .sale-create-page .mobile-result-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.45rem 0.6rem;
+            margin-top: 0.6rem;
+        }
+
+        .sale-create-page .mobile-result-grid small {
+            color: #6b7280;
+            font-size: 0.72rem;
+            text-transform: uppercase;
+        }
+
+        .sale-create-page .mobile-result-grid span,
+        .sale-create-page .mobile-result-grid code {
+            font-size: 0.82rem;
+            overflow-wrap: anywhere;
+        }
+
+        .sale-create-page .table td,
+        .sale-create-page .table th {
+            white-space: nowrap;
+        }
+
+        @media (max-width: 767.98px) {
+            .sale-create-page .table {
+                font-size: 0.82rem;
+            }
+        }
+    </style>
+{% endblock head %}
 {% block body %}
-    <h1>Venta a {{ customer.username }}</h1>
-    <!--Available Account-->
-    <div class="d-flex mb-4">
-        {% for key,value in availables.items %}<b class="ms-2">{{ key }}:</b> {{ value }}{% endfor %}
-    </div>
-    <h4>Selecciona uno o más Servicios</h4>
-    <form action="{% url 'adm:sales_create' customer.id %}" method="post">
-        <input type="hidden" name="customer" id="customer" value="{{ customer.id }}">
-        <div class="d-flex">
-            <div class="service m-2">
-                {% csrf_token %}
-                {% for s in services %}
-                    <div class="form-check pb-2" id="service-group">
-                        <input class="form-check-input serv "
-                               type="checkbox"
-                               value="{{ s.id }}"
-                               name="service"
-                               id="{{ s.id }}"
-                               onclick="services()">
-                        <label class="form-check-label" for="{{ s.id }}">{{ s.description }}</label>
-                    </div>
-                {% endfor %}
-            </div>
-            <div class="price m-2">
-                <label for="created_at">Fecha Venta</label>
-                <input type="datetime"
-                       class="form-control"
-                       name="created_at"
-                       id="created_at"
-                       value="{{ created_at|date:"Y-m-d H:i:sO" }}">
-            </div>
-            <div class="price m-2">
-                <label for="price">Precio:</label>
-                <input type="number" name="price" id="price" class="form-control" required>
-            </div>
-            <div class="duration m-2">
-                <label for="duration">Duración:</label>
-                <select name="duration" id="duration" class="form-control" required>
-                    <option value="">------</option>
-                    <option value="1">1 Mes</option>
-                    <option value="2">2 Meses</option>
-                    <option value="3">3 Meses</option>
-                    <option value="4">4 Meses</option>
-                    <option value="5">5 Meses</option>
-                    <option value="6">6 Meses</option>
-                    <option value="7">7 Meses</option>
-                    <option value="8">8 Meses</option>
-                    <option value="9">9 Meses</option>
-                    <option value="10">10 Meses</option>
-                    <option value="11">11 Meses</option>
-                    <option value="12">1 Año</option>
-                    <option value="custom">Custom</option>
-                </select>
-            </div>
-            <div class="comp m-2">
-                <label for="comp">Comprobante:</label>
-                <div class="input-group">
-                    <input type="text" name="comp" id="comp" class="form-control" required>
-                    <button class="btn btn-outline-secondary" type="button" id="generateUUID" title="Generar UUID">
-                        <i class="bi bi-hash"></i>
-                    </button>
-                </div>
-            </div>
-            <div class="bank m-2">
-                <label for="bank">Cuenta:</label>
-                <input name="bank" id="bank" class="form-control" list="banklist" required>
-                <datalist id="banklist">
-                    {% for b in bank %}
-                        <option value="{{ b.id }}">{{ b.headline }} - {{ b.bank_name }} - {{ b.card_number }}</option>
+    <div class="container-fluid py-3 sale-create-page">
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-body">
+                <h1 class="h3 mb-2">Venta a {{ customer.username }}</h1>
+                <div class="info-badges">
+                    {% for key, value in availables.items %}
+                        <span class="badge rounded-pill">{{ key }}: {{ value }}</span>
                     {% endfor %}
-                </datalist>
-            </div>
-            <div class="method m-2">
-                <label for="method">Metodo de Pago:</label>
-                <input name="method"
-                       id="method"
-                       class="form-control"
-                       list="paymentlist"
-                       required>
-                <datalist id="paymentlist">
-                    {% for pay in payment %}<option value="{{ pay.id }}">{{ pay.description }}</option>{% endfor %}
-                </datalist>
-            </div>
-            <input type="submit" id="end" value="terminar" class="btn btn-cm" disabled>
-        </div>
-        <div id="accounts" class="not-visible">
-            <div class="d-flex mb-3">
-                <input type="text" id="search-email" placeholder="Buscar por email..." class="form-control w-25" onkeydown="if(event.key==='Enter')event.preventDefault()">
-            </div>
-            <div class="d-flex">
-                <div class="accfree">
-                    <table class="table table-hover">
-                        <thead>
-                            <th></th>
-                            <th></th>
-                            <th>Email</th>
-                            <th>Clave</th>
-                            <th>Vencimient Cta</th>
-                            <th>Perfil</th>
-                        </thead>
-                        <tbody class="t-img" id="results-box">
-                            <!--Rellenado Automaticamente-->
-                        </tbody>
-                    </table>
-                </div>
-                <div id="main-accdetail" class="ms-5 not-visible">
-                    <table class="table table-hover">
-                        <thead>
-                            <th></th>
-                            <th>E-mail</th>
-                            <th>Cliente</th>
-                            <th>Vencimient Cliente</th>
-                            <th>Perfil</th>
-                            <th>Acción</th>
-                        </thead>
-                        <tbody class="t-img" id="accdetail">
-                            <!--Rellenado Automaticamente-->
-                        </tbody>
-                    </table>
                 </div>
             </div>
         </div>
-    </form>
+
+        <form action="{% url 'adm:sales_create' customer.id %}" method="post">
+            <input type="hidden" name="customer" id="customer" value="{{ customer.id }}">
+            {% csrf_token %}
+
+            <div class="row g-3">
+                <div class="col-12 col-lg-4">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-body">
+                            <h4 class="h6 mb-3">Selecciona uno o más servicios</h4>
+                            <div class="service-list">
+                                {% for s in services %}
+                                    <div class="form-check" id="service-group">
+                                        <input class="form-check-input serv"
+                                               type="checkbox"
+                                               value="{{ s.id }}"
+                                               name="service"
+                                               id="{{ s.id }}"
+                                               onclick="services()">
+                                        <label class="form-check-label" for="{{ s.id }}">{{ s.description }}</label>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-12 col-lg-8">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-body">
+                            <div class="row g-3">
+                                <div class="col-12 col-md-6">
+                                    <label for="created_at" class="form-label">Fecha Venta</label>
+                                    <input type="datetime"
+                                           class="form-control"
+                                           name="created_at"
+                                           id="created_at"
+                                           value="{{ created_at|date:"Y-m-d H:i:sO" }}">
+                                </div>
+                                <div class="col-12 col-md-6">
+                                    <label for="price" class="form-label">Precio</label>
+                                    <input type="number" name="price" id="price" class="form-control" required>
+                                </div>
+                                <div class="col-12 col-md-6">
+                                    <label for="duration" class="form-label">Duración</label>
+                                    <select name="duration" id="duration" class="form-control" required>
+                                        <option value="">------</option>
+                                        <option value="1">1 Mes</option>
+                                        <option value="2">2 Meses</option>
+                                        <option value="3">3 Meses</option>
+                                        <option value="4">4 Meses</option>
+                                        <option value="5">5 Meses</option>
+                                        <option value="6">6 Meses</option>
+                                        <option value="7">7 Meses</option>
+                                        <option value="8">8 Meses</option>
+                                        <option value="9">9 Meses</option>
+                                        <option value="10">10 Meses</option>
+                                        <option value="11">11 Meses</option>
+                                        <option value="12">1 Año</option>
+                                        <option value="custom">Custom</option>
+                                    </select>
+                                </div>
+                                <div class="col-12 col-md-6">
+                                    <label for="comp" class="form-label">Comprobante</label>
+                                    <div class="input-group">
+                                        <input type="text" name="comp" id="comp" class="form-control" required>
+                                        <button class="btn btn-outline-secondary" type="button" id="generateUUID" title="Generar UUID">
+                                            <i class="bi bi-hash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="col-12 col-md-6">
+                                    <label for="bank" class="form-label">Cuenta</label>
+                                    <input name="bank" id="bank" class="form-control" list="banklist" required>
+                                    <datalist id="banklist">
+                                        {% for b in bank %}
+                                            <option value="{{ b.id }}">{{ b.headline }} - {{ b.bank_name }} - {{ b.card_number }}</option>
+                                        {% endfor %}
+                                    </datalist>
+                                </div>
+                                <div class="col-12 col-md-6">
+                                    <label for="method" class="form-label">Método de Pago</label>
+                                    <input name="method"
+                                           id="method"
+                                           class="form-control"
+                                           list="paymentlist"
+                                           required>
+                                    <datalist id="paymentlist">
+                                        {% for pay in payment %}<option value="{{ pay.id }}">{{ pay.description }}</option>{% endfor %}
+                                    </datalist>
+                                </div>
+                                <div class="col-12">
+                                    <input type="submit" id="end" value="Terminar" class="btn btn-cm w-100" disabled>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="accounts" class="not-visible mt-4">
+                <div class="card border-0 shadow-sm mb-3">
+                    <div class="card-body">
+                        <div class="row g-2 align-items-center">
+                            <div class="col-12 col-md-6 col-lg-4">
+                                <input type="text" id="search-email" placeholder="Buscar por email..." class="form-control" onkeydown="if(event.key==='Enter')event.preventDefault()">
+                            </div>
+                            <div class="col-12 col-md-6 col-lg-8 text-md-end">
+                                <span class="table-hint">En móvil puedes deslizar horizontalmente para ver todas las columnas.</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row g-3">
+                    <div class="col-12 col-xl-7">
+                        <div class="card border-0 shadow-sm">
+                            <div class="card-body">
+                                <h5 class="h6 mb-3">Cuentas disponibles</h5>
+                                <div class="d-grid gap-2 d-md-none" id="results-box-mobile"></div>
+                                <div class="table-responsive d-none d-md-block">
+                                    <table class="table table-hover mb-0">
+                                        <thead>
+                                            <tr>
+                                                <th></th>
+                                                <th></th>
+                                                <th>Email</th>
+                                                <th>Clave</th>
+                                                <th>Vencimient Cta</th>
+                                                <th>Perfil</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="t-img" id="results-box">
+                                            <!--Rellenado Automaticamente-->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-12 col-xl-5">
+                        <div id="main-accdetail" class="not-visible">
+                            <div class="card border-0 shadow-sm">
+                                <div class="card-body">
+                                    <h5 class="h6 mb-3">Detalle de cuenta seleccionada</h5>
+                                    <div class="d-grid gap-2 d-md-none" id="accdetail-mobile"></div>
+                                    <div class="table-responsive d-none d-md-block">
+                                        <table class="table table-hover mb-0">
+                                            <thead>
+                                                <tr>
+                                                    <th></th>
+                                                    <th>E-mail</th>
+                                                    <th>Cliente</th>
+                                                    <th>Vencimient Cliente</th>
+                                                    <th>Perfil</th>
+                                                    <th>Acción</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody class="t-img" id="accdetail">
+                                                <!--Rellenado Automaticamente-->
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
 {% endblock body %}
 {% block extrajs %}
-    <script src="{% static 'adm/js/sales.js' %}?v=2"></script>
+    <script src="{% static 'adm/js/sales.js' %}?v=3"></script>
     <script>
         // Script de búsqueda - agregado directamente en el template para evitar problemas de caché
         $(document).ready(function() {
@@ -153,30 +299,16 @@
                 console.log('✅ Resultados filtrados:', filteredAccounts.length);
                 
                 resultsBox.innerHTML = "";
-                
+
+                if (typeof window.renderSalesSearchResults === 'function') {
+                    window.renderSalesSearchResults(filteredAccounts);
+                    return;
+                }
+
                 if (filteredAccounts.length === 0) {
                     resultsBox.innerHTML = '<tr><td colspan="6" class="text-center"><b>No se encontraron resultados</b></td></tr>';
                     return;
                 }
-                
-                filteredAccounts.forEach((data, index) => {
-                    let borderStyle = index === 0 ? "border: 2px solid green;" : "";
-                    // Asegurar que el logo URL sea válido (escapar caracteres especiales si es necesario)
-                    const logoUrl = data.logo || '';
-                    resultsBox.innerHTML += `
-                        <tr style="${borderStyle}">
-                            <td><input class="form-check-input details" name="serv" id="${data.id}" type="checkbox" value="${data.id}" onclick="detail()"></td>
-                            <label for="${data.id}">
-                            <td><img src="${logoUrl}" width="20" style="object-fit: contain;"></td>
-                            <td>${data.email}</td>
-                            <td>${data.password}</td>
-                            <td>${moment(data.expiration_acc).format("DD/MM/YYYY")}</td>
-                            <td>${data.profile}</td>            
-                            <br>
-                            </label>
-                        </tr>
-                    `;
-                });
             });
 
             // Generar UUID para el comprobante

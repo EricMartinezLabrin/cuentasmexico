@@ -3,8 +3,10 @@ const service = document.querySelectorAll('.serv');
 const details = document.getElementsByClassName('details');
 const csrf = document.getElementsByName('csrfmiddlewaretoken')[0].value;
 const resultsBox = document.getElementById('results-box');
+const resultsBoxMobile = document.getElementById('results-box-mobile');
 const accounts = document.getElementById('accounts');
 const accdetail = document.getElementById('accdetail');
+const accdetailMobile = document.getElementById('accdetail-mobile');
 const mainAccdetail = document.getElementById('main-accdetail');
 const duration = document.getElementById('duration');
 const end = document.getElementById('end');
@@ -20,76 +22,245 @@ const paymentMethod = document.getElementById('method');
 const listPaymentMethod = document.getElementById('paymentlist');
 const changeService = document.getElementById('service');
 
-// --- Paginación ---
-let currentPage = 1;
-let pageSize = 20;
-let lastSearchData = [];
+// Variables para búsqueda (global para acceso desde template)
+window.allAccounts = [];
+let allAccounts = window.allAccounts;
 
-function renderPagination(total, page, pageSize) {
-  const totalPages = Math.ceil(total / pageSize);
-  let html = '<div class="pagination-controls">';
-  if (totalPages <= 1) return '';
-  if (page > 1) {
-    html += `<button class="btn btn-sm btn-primary" onclick="goToPage(${
-      page - 1
-    })">Anterior</button>`;
+const isMobileView = () => window.matchMedia('(max-width: 767.98px)').matches;
+
+function toggleResultCardSelection(event, checkboxId) {
+  const checkbox = document.getElementById(checkboxId);
+  if (!checkbox) return;
+
+  const interactiveTarget = event.target.closest(
+    'button, a, textarea, select, option, label'
+  );
+
+  if (interactiveTarget) return;
+
+  if (event.target === checkbox) {
+    detail();
+    return;
   }
-  html += ` <span>Página ${page} de ${totalPages}</span> `;
-  if (page < totalPages) {
-    html += `<button class="btn btn-sm btn-primary" onclick="goToPage(${
-      page + 1
-    })">Siguiente</button>`;
-  }
-  html += '</div>';
-  return html;
+
+  checkbox.checked = !checkbox.checked;
+  detail();
 }
 
-function goToPage(page) {
-  currentPage = page;
-  sendSearchData(lastSearchData, page, pageSize);
-}
+window.toggleResultCardSelection = toggleResultCardSelection;
 
-const sendSearchData = (data, page = 1, pageSizeParam = 20) => {
-  lastSearchData = data;
-  $.ajax({
-    type: 'POST',
-    url: '/adm/sales/search',
-    data: {
-      csrfmiddlewaretoken: csrf,
-      'data[]': data,
-      page: page,
-      page_size: pageSizeParam,
-    },
-    success: (res) => {
-      const data = res.data;
-      const total = res.total || 0;
-      const page = res.page || 1;
-      const pageSize = res.page_size || 20;
-      if (Array.isArray(data)) {
-        resultsBox.innerHTML = '';
-        data.forEach((data) => {
-          resultsBox.innerHTML += `
-            <td><input class="form-check-input details" name="serv" id="${
-              data.id
-            }" type="checkbox" value="${data.id}" onclick="detail()"></td>
-            <label for="${data.id}">
-            <td><img src="${data.logo}" width="20"></td>
-            <td>${data.email}</td>
-            <td>${data.password}</td>
-            <td>${moment(data.expiration_acc).format('DD/MM/YYYY')}</td>
-            <td>${data.profile}</td>            
-            <br>
-            </label>
-          `;
-        });
-        // Renderizar controles de paginación
-        resultsBox.innerHTML += renderPagination(total, page, pageSize);
-      } else {
-        resultsBox.innerHTML = `<b>${data}</b>`;
-        accounts.classList.add('not-visible');
-      }
-    },
+const renderNoResults = () => {
+  if (resultsBox) {
+    resultsBox.innerHTML =
+      '<tr><td colspan="6" class="text-center"><b>No se encontraron resultados</b></td></tr>';
+  }
+  if (resultsBoxMobile) {
+    resultsBoxMobile.innerHTML =
+      '<div class="mobile-result-card"><b>No se encontraron resultados</b></div>';
+  }
+};
+
+const renderSalesSearchResults = (accountsData) => {
+  if (!Array.isArray(accountsData) || accountsData.length === 0) {
+    renderNoResults();
+    return;
+  }
+
+  if (resultsBox) {
+    resultsBox.innerHTML = '';
+  }
+  if (resultsBoxMobile) {
+    resultsBoxMobile.innerHTML = '';
+  }
+
+  if (isMobileView() && resultsBoxMobile) {
+    accountsData.forEach((data, index) => {
+      const cardClass = index === 0 ? 'mobile-result-card selected' : 'mobile-result-card';
+      const checkboxId = `serv-mobile-${data.id}-${index}`;
+      resultsBoxMobile.innerHTML += `
+        <div class="${cardClass} mobile-result-card-selectable"
+             role="button"
+             tabindex="0"
+             onclick="toggleResultCardSelection(event, '${checkboxId}')"
+             onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); toggleResultCardSelection(event, '${checkboxId}'); }">
+          <div class="d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center gap-2">
+              <img src="${data.logo}" width="24" style="object-fit: contain;" alt="logo">
+              <strong>${data.email}</strong>
+            </div>
+            <input class="form-check-input details"
+                   name="serv"
+                   id="${checkboxId}"
+                   type="checkbox"
+                   value="${data.id}"
+                   onclick="event.stopPropagation(); detail()">
+          </div>
+          <div class="mobile-result-grid">
+            <div><small>Clave</small><code>${data.password}</code></div>
+            <div><small>Perfil</small><span>${data.profile}</span></div>
+            <div><small>Vencimiento Cta</small><span>${moment(data.expiration_acc).format(
+              'DD/MM/YYYY'
+            )}</span></div>
+            <div><small>ID Cuenta</small><span>${data.id}</span></div>
+          </div>
+        </div>
+      `;
+    });
+    return;
+  }
+
+  if (resultsBox) {
+    accountsData.forEach((data, index) => {
+      const borderStyle = index === 0 ? 'border: 2px solid green;' : '';
+      const checkboxId = `serv-desktop-${data.id}-${index}`;
+      resultsBox.innerHTML += `
+        <tr style="${borderStyle}">
+          <td><input class="form-check-input details" name="serv" id="${checkboxId}" type="checkbox" value="${
+            data.id
+          }" onclick="detail()"></td>
+          <td><img src="${data.logo}" width="20" style="object-fit: contain;" alt="logo"></td>
+          <td>${data.email}</td>
+          <td>${data.password}</td>
+          <td>${moment(data.expiration_acc).format('DD/MM/YYYY')}</td>
+          <td>${data.profile}</td>
+        </tr>
+      `;
+    });
+  }
+};
+
+window.renderSalesSearchResults = renderSalesSearchResults;
+
+const renderSalesDetailResults = (detailsData) => {
+  if (accdetail) {
+    accdetail.innerHTML = '';
+  }
+  if (accdetailMobile) {
+    accdetailMobile.innerHTML = '';
+  }
+
+  detailsData.forEach((data, index) => {
+    const statusText = data.status ? 'Suspender' : 'Reactivar';
+    const buttonClass = data.status ? 'btn-danger' : 'btn-success';
+
+    if (isMobileView() && accdetailMobile) {
+      accdetailMobile.innerHTML += `
+        <div class="mobile-result-card ${index === 0 ? 'selected' : ''}">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <div class="d-flex align-items-center gap-2">
+              <img src="${data.logo}" width="24" style="object-fit: contain;" alt="logo">
+              <strong>${data.email}</strong>
+            </div>
+            <button class="btn btn-sm ${buttonClass}" onclick="toggleAccountStatus(${data.id}, '${
+        data.email
+      }')" title="${statusText}">
+              ${statusText}
+            </button>
+          </div>
+          <div class="mobile-result-grid">
+            <div><small>Cliente</small><span>${NotNull(data.customer)}</span></div>
+            <div><small>Vencimiento Cliente</small><span>${data.customer_end_date}</span></div>
+            <div><small>Perfil</small><span>${data.profile}</span></div>
+            <div><small>ID Cuenta</small><span>${data.id}</span></div>
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    if (accdetail) {
+      accdetail.innerHTML += `
+        <tr>
+          <td><img src="${data.logo}" width="20" style="object-fit: contain;" alt="logo"></td>
+          <td>${data.email}</td>
+          <td>${NotNull(data.customer)}</td>
+          <td>${data.customer_end_date}</td>
+          <td>${data.profile}</td>
+          <td>
+            <button class="btn btn-sm ${buttonClass}" onclick="toggleAccountStatus(${data.id}, '${
+        data.email
+      }')" title="${statusText}">
+              ${statusText}
+            </button>
+          </td>
+        </tr>
+      `;
+    }
   });
+};
+
+const filterResults = (searchTerm) => {
+  console.log('filterResults called with:', searchTerm);
+  console.log('allAccounts length:', allAccounts.length);
+
+  const filteredAccounts = allAccounts.filter((account) => {
+    const matches = account.email.toLowerCase().includes(searchTerm.toLowerCase());
+    console.log(`Checking ${account.email}: ${matches}`);
+    return matches;
+  });
+
+  console.log('Filtered results:', filteredAccounts.length);
+  renderSalesSearchResults(filteredAccounts);
+};
+
+// Event delegation - configurar una sola vez cuando el documento esté listo
+$(document).ready(function () {
+  console.log('Document ready, setting up search listener');
+
+  // Usar event delegation para que funcione incluso si el elemento se carga después
+  $(document).on('input', '#search-email', function (e) {
+    const searchTerm = $(this).val();
+    console.log('🔍 Search term:', searchTerm);
+    console.log('📊 Total accounts:', allAccounts.length);
+    filterResults(searchTerm);
+  });
+
+  console.log('✅ Search listener configured');
+});
+
+const sendSearchData = (data) => {
+  try {
+    $.ajax({
+      type: 'POST',
+      url: '/adm/sales/search',
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest',
+      },
+      data: {
+        csrfmiddlewaretoken: csrf,
+        'data[]': data,
+        page: 1,
+      },
+      success: (res) => {
+        console.log('Response:', res);
+        const responseData = res.data;
+
+        if (Array.isArray(responseData)) {
+          allAccounts = responseData;
+          window.allAccounts = responseData;
+          console.log('Total accounts loaded:', allAccounts.length);
+          renderSalesSearchResults(responseData);
+
+          console.log('✅ Accounts loaded and ready for search');
+          console.log('📧 First account email:', responseData[0]?.email);
+        } else {
+          if (resultsBox) {
+            resultsBox.innerHTML = `<tr><td colspan="6"><b>${responseData}</b></td></tr>`;
+          }
+          if (resultsBoxMobile) {
+            resultsBoxMobile.innerHTML = `<div class="mobile-result-card"><b>${responseData}</b></div>`;
+          }
+          allAccounts = [];
+          accounts.classList.add('not-visible');
+        }
+      },
+      error: (error) => {
+        console.error('Error:', error);
+      },
+    });
+  } catch (error) {
+    console.error(error);
+  }
 };
 
 const sendSearchDetailData = (det) => {
@@ -104,29 +275,14 @@ const sendSearchDetailData = (det) => {
       const data = det.det;
 
       if (Array.isArray(data)) {
-        accdetail.innerHTML = '';
-        data.forEach((data) => {
-          const statusText = data.status ? 'Suspender' : 'Reactivar';
-          const buttonClass = data.status ? 'btn-danger' : 'btn-success';
-          accdetail.innerHTML += `
-            <tr>
-              <td><img src="${data.logo}" width="20"></td>
-              <td>${data.email}</td>
-              <td>${NotNull(data.customer)}</td>
-              <td>${data.customer_end_date}</td>
-              <td>${data.profile}</td>
-              <td>
-                <button class="btn btn-sm ${buttonClass}" onclick="toggleAccountStatus(${
-            data.id
-          }, '${data.email}')" title="${statusText}">
-                  ${statusText}
-                </button>
-              </td>
-            </tr>
-            `;
-        });
+        renderSalesDetailResults(data);
       } else {
-        accdetail.innerHTML = `<b>${data}</b>`;
+        if (accdetail) {
+          accdetail.innerHTML = `<b>${data}</b>`;
+        }
+        if (accdetailMobile) {
+          accdetailMobile.innerHTML = `<div class="mobile-result-card"><b>${data}</b></div>`;
+        }
         mainAccdetail.classList.add('not-visible');
       }
     },
@@ -151,7 +307,6 @@ function NotNull(string) {
 
 function detail() {
   var det = [];
-  console.log(det);
   Array.prototype.filter.call(details, (e) => {
     if (e.checked == true) {
       det.push(e.value);
@@ -165,17 +320,25 @@ function services() {
   var arr = [];
   service.forEach((e) => {
     if (e.checked == true) {
-      arr.push(e.value);
+      console.log(e.value);
+      console.log(duration.value);
+      arr.push(
+        JSON.stringify({
+          service: e.value,
+          duration: duration.value,
+        })
+      );
     }
   });
-  accounts.classList.remove('not-visible');
-  currentPage = 1;
-  sendSearchData(arr, currentPage, pageSize);
+  if (duration.value != 'None' && duration.value != '') {
+    accounts.classList.remove('not-visible');
+    sendSearchData(arr);
+  }
 }
 
 function CheckFields() {
-  console.log(duration.value);
-  if (duration.value != 'None') {
+  services();
+  if (duration.value != 'None' && duration.value != '') {
     end.disabled = false;
   } else {
     end.disabled = true;
@@ -207,7 +370,6 @@ ticket.addEventListener('change', () => {
     },
     success: (data) => {
       const res = data.data;
-      console.log(res);
       if (Array.isArray(res)) {
         modalTitle.innerHTML = `El comprobante ${res[0].ticket} ya fue utilizado`;
         modalContent.innerHTML = '';
