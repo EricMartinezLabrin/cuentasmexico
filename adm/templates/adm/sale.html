@@ -133,6 +133,7 @@
                 <div class="row g-2">
                     <div class="col-md-6">
                         <input type="text"
+                               id="customer-search-input"
                                class="form-control form-control-lg"
                                name="customer"
                                placeholder="Buscar por email o teléfono..."
@@ -142,6 +143,9 @@
                     <div class="col-md-auto d-flex gap-2">
                         <button type="submit" class="btn btn-primary btn-lg" style="border-radius: 8px;">
                             <i class="bi bi-search me-2"></i> Buscar
+                        </button>
+                        <button type="button" id="paste-customer-btn" class="btn btn-outline-primary btn-lg" style="border-radius: 8px;">
+                            <i class="bi bi-clipboard me-2"></i> Pegar
                         </button>
                         <a href="{% url 'adm:sales' %}" class="btn btn-outline-secondary btn-lg" style="border-radius: 8px;">
                             <i class="bi bi-x-lg me-2"></i> Limpiar
@@ -812,6 +816,46 @@ WhatsApp y Telegram al número 833 535 5863.
                     showToast('Código copiado al portapapeles');
                 });
             }
+        }
+
+        function normalizeCustomerClipboardText(text) {
+            const rawText = (text || '').trim();
+            if (!rawText) {
+                return '';
+            }
+
+            const startedWithPlus = rawText.startsWith('+');
+            const cleanedText = rawText.replace(/[(),-]/g, '').replace(/\s+/g, '');
+
+            if (!startedWithPlus) {
+                return cleanedText;
+            }
+
+            const digitsOnly = cleanedText.replace(/\D/g, '');
+            if (digitsOnly.startsWith('56') && digitsOnly.length >= 8) {
+                return digitsOnly.slice(-8);
+            }
+            if (digitsOnly.length >= 10) {
+                return digitsOnly.slice(-10);
+            }
+            return digitsOnly;
+        }
+
+        const pasteCustomerButton = document.getElementById('paste-customer-btn');
+        const customerSearchInput = document.getElementById('customer-search-input');
+
+        if (pasteCustomerButton && customerSearchInput) {
+            pasteCustomerButton.addEventListener('click', async function () {
+                try {
+                    const clipboardText = await navigator.clipboard.readText();
+                    const formattedText = normalizeCustomerClipboardText(clipboardText);
+
+                    customerSearchInput.value = formattedText;
+                    customerSearchInput.focus();
+                } catch (error) {
+                    showToast('No se pudo leer el portapapeles', 'danger');
+                }
+            });
         }
 
 // Al presionar 'c' sin selección, copiar la última clave activa visible
