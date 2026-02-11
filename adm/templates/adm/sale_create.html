@@ -193,9 +193,14 @@
             </div>
         </div>
 
-        <form action="{% url 'adm:sales_create' customer.id %}" method="post">
+        <form action="{% url 'adm:sales_create' customer.id %}" method="post" id="sale-create-form">
             <input type="hidden" name="customer" id="customer" value="{{ customer.id }}">
             {% csrf_token %}
+            {% if message %}
+                <div class="alert alert-danger mb-3" role="alert">
+                    {{ message }}
+                </div>
+            {% endif %}
 
             <div class="row g-3">
                 <div class="col-12 col-lg-4">
@@ -396,7 +401,7 @@
     </div>
 {% endblock body %}
 {% block extrajs %}
-    <script src="{% static 'adm/js/sales.js' %}?v=5"></script>
+    <script src="{% static 'adm/js/sales.js' %}?v=6"></script>
     <script>
         // Script de búsqueda - agregado directamente en el template para evitar problemas de caché
         $(document).ready(function() {
@@ -552,6 +557,15 @@
 
             syncServiceSelectionUI();
             initCreatedAtPicker();
+
+            $('#sale-create-form').on('submit', function(e) {
+                const selectedServices = $('.serv:checked').length;
+                if (selectedServices === 0) {
+                    e.preventDefault();
+                    alert('Debes seleccionar al menos un servicio para terminar la venta.');
+                    $('#service-search').focus();
+                }
+            });
         });
     </script>
 {% endblock extrajs %}
