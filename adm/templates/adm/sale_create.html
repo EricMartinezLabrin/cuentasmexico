@@ -99,6 +99,37 @@
             color: #6c757d;
         }
 
+        .sale-create-page .datetime-picker-wrap {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 0.6rem;
+            background: #f8fafc;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.6rem;
+            padding: 0.7rem;
+        }
+
+        .sale-create-page .datetime-picker-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.6rem;
+        }
+
+        .sale-create-page .datetime-picker-label {
+            font-size: 0.75rem;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-bottom: 0.25rem;
+            display: block;
+        }
+
+        .sale-create-page .datetime-picker-note {
+            font-size: 0.78rem;
+            color: #4b5563;
+            margin: 0;
+        }
+
         .sale-create-page .mobile-result-card {
             border: 1px solid #e5e7eb;
             border-radius: 0.6rem;
@@ -141,6 +172,10 @@
         @media (max-width: 767.98px) {
             .sale-create-page .table {
                 font-size: 0.82rem;
+            }
+
+            .sale-create-page .datetime-picker-grid {
+                grid-template-columns: 1fr;
             }
         }
     </style>
@@ -206,11 +241,25 @@
                             <div class="row g-3">
                                 <div class="col-12 col-md-6">
                                     <label for="created_at" class="form-label">Fecha Venta</label>
-                                    <input type="datetime"
-                                           class="form-control"
+                                    <input type="hidden"
                                            name="created_at"
                                            id="created_at"
                                            value="{{ created_at|date:"Y-m-d H:i:sO" }}">
+                                    <div class="datetime-picker-wrap">
+                                        <div class="datetime-picker-grid">
+                                            <div>
+                                                <label for="created_at_date" class="datetime-picker-label">Fecha</label>
+                                                <input type="date" class="form-control" id="created_at_date">
+                                            </div>
+                                            <div>
+                                                <label for="created_at_time" class="datetime-picker-label">Hora</label>
+                                                <input type="time" class="form-control" id="created_at_time" step="60">
+                                            </div>
+                                        </div>
+                                        <p class="datetime-picker-note mb-0">
+                                            Selecciona fecha y hora desde el calendario/reloj.
+                                        </p>
+                                    </div>
                                 </div>
                                 <div class="col-12 col-md-6">
                                     <label for="price" class="form-label">Precio</label>
@@ -347,7 +396,7 @@
     </div>
 {% endblock body %}
 {% block extrajs %}
-    <script src="{% static 'adm/js/sales.js' %}?v=3"></script>
+    <script src="{% static 'adm/js/sales.js' %}?v=5"></script>
     <script>
         // Script de búsqueda - agregado directamente en el template para evitar problemas de caché
         $(document).ready(function() {
@@ -396,6 +445,48 @@
 
                 $('#comp').val(generateUUID());
             });
+
+            function localOffsetCompact() {
+                const mins = -new Date().getTimezoneOffset();
+                const sign = mins >= 0 ? '+' : '-';
+                const abs = Math.abs(mins);
+                const hh = String(Math.floor(abs / 60)).padStart(2, '0');
+                const mm = String(abs % 60).padStart(2, '0');
+                return `${sign}${hh}${mm}`;
+            }
+
+            function initCreatedAtPicker() {
+                const hiddenInput = document.getElementById('created_at');
+                const dateInput = document.getElementById('created_at_date');
+                const timeInput = document.getElementById('created_at_time');
+
+                if (!hiddenInput || !dateInput || !timeInput) return;
+
+                const rawValue = (hiddenInput.value || '').trim();
+                const match = rawValue.match(/^(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2})(?::\d{2})?([+-]\d{4})?$/);
+                const offset = (match && match[3]) ? match[3] : localOffsetCompact();
+
+                hiddenInput.dataset.offset = offset;
+
+                if (match) {
+                    dateInput.value = match[1];
+                    timeInput.value = match[2];
+                } else {
+                    const now = new Date();
+                    dateInput.value = now.toISOString().slice(0, 10);
+                    timeInput.value = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+                }
+
+                function syncCreatedAtHidden() {
+                    if (!dateInput.value || !timeInput.value) return;
+                    const zone = hiddenInput.dataset.offset || localOffsetCompact();
+                    hiddenInput.value = `${dateInput.value} ${timeInput.value}:00${zone}`;
+                }
+
+                dateInput.addEventListener('change', syncCreatedAtHidden);
+                timeInput.addEventListener('change', syncCreatedAtHidden);
+                syncCreatedAtHidden();
+            }
 
             function syncServiceSelectionUI() {
                 const checked = document.querySelectorAll('.serv:checked');
@@ -460,6 +551,7 @@
             });
 
             syncServiceSelectionUI();
+            initCreatedAtPicker();
         });
     </script>
 {% endblock extrajs %}

@@ -330,15 +330,20 @@ function services() {
       );
     }
   });
-  if (duration.value != 'None' && duration.value != '') {
+  if (arr.length > 0 && duration.value != 'None' && duration.value != '') {
     accounts.classList.remove('not-visible');
     sendSearchData(arr);
+  } else if (accounts) {
+    accounts.classList.add('not-visible');
   }
+  CheckFields();
 }
 
 function CheckFields() {
-  services();
-  if (duration.value != 'None' && duration.value != '') {
+  const selectedServices = Array.from(service).filter((e) => e.checked).length;
+  const validDuration = duration.value != 'None' && duration.value != '';
+
+  if (selectedServices > 0 && validDuration) {
     end.disabled = false;
   } else {
     end.disabled = true;
