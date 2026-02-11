@@ -104,25 +104,55 @@ def _send_notifications_background(sales_to_report, email, password, data_accoun
 @permission_required('is_superuser', 'adm:no-permission')
 def index(request):
     """
-    Main Admin Page
+    Main Admin Page con filtros por período
     """
-    sales_day = Dashboard.sales_per_country_day()
-    sales_month = Dashboard.sales_per_country_month()
-    sales_acc = Dashboard.sales_per_account()
-    template_name = "adm/index.html"
+    # Obtener período seleccionado (por defecto: HOY)
+    period = request.GET.get('period', 'HOY')
+    custom_start = request.GET.get('custom_start')
+    custom_end = request.GET.get('custom_end')
+    
+    # Si hay fechas personalizadas, usar período personalizado
+    if custom_start and custom_end:
+        try:
+            start_date = datetime.strptime(custom_start, '%Y-%m-%d').date()
+            end_date = datetime.strptime(custom_end, '%Y-%m-%d').date()
+            period = 'CUSTOM'
+        except ValueError:
+            period = 'HOY'
+    
+    template_name = "adm/index_new.html"
+    
+    # Obtener fecha para el filtro de clientes nuevos (mantener compatibilidad)
     if 'date' in request.GET:
         date = datetime.strptime(request.GET['date'], '%Y-%m-%d')
     else:
         date = timezone.now().date()
 
-    # Nuevas estadísticas de visitas
+    # Estadísticas por período seleccionado
+    sales_by_period = Dashboard.sales_by_period(period, custom_start, custom_end)
+    sales_by_country = Dashboard.sales_by_country_period(period, custom_start, custom_end)
+    sales_by_service = Dashboard.sales_by_service_period(period, custom_start, custom_end)
+    new_users_stats = Dashboard.new_users_by_period(period, custom_start, custom_end)
+    page_visits_stats = Dashboard.page_visits_by_period(period, custom_start, custom_end)
+    sales_trend = Dashboard.sales_trend_chart(period, custom_start, custom_end)
+    top_services = Dashboard.top_services_by_period(period, 5, custom_start, custom_end)
+    top_countries = Dashboard.top_countries_by_period(period, 5, custom_start, custom_end)
+    conversion_stats = Dashboard.conversion_rate_by_period(period, custom_start, custom_end)
+    ticket_stats = Dashboard.average_ticket_by_period(period, custom_start, custom_end)
+    
+    # Mantener compatibilidad con estadísticas existentes
+    sales_day = Dashboard.sales_per_country_day()
+    sales_month = Dashboard.sales_per_country_month()
+    sales_acc = Dashboard.sales_per_account()
+    
+    # Estadísticas de visitas (mantener compatibilidad)
     page_visits_total = Dashboard.page_visits_by_page()
     page_visits_today_data = Dashboard.page_visits_today()
     page_visits_7days = Dashboard.page_visits_last_7_days()
     unique_visitors = Dashboard.unique_visitors_today()
     visits_chart_data = Dashboard.page_visits_last_30_days_chart()
 
-    # Nuevas estadísticas de ventas web
+    # Estadísticas de ventas web (mantener compatibilidad)
     web_sales_today = Dashboard.web_sales_today()
     web_sales_weekly = Dashboard.web_sales_weekly()
     web_sales_monthly = Dashboard.web_sales_monthly()
@@ -130,6 +160,22 @@ def index(request):
     web_sales_chart = Dashboard.web_sales_last_12_months()
 
     return render(request, template_name, {
+        # Datos por período
+        'period': period,
+        'custom_start': custom_start,
+        'custom_end': custom_end,
+        'sales_by_period': sales_by_period,
+        'sales_by_country': sales_by_country,
+        'sales_by_service': sales_by_service,
+        'new_users_stats': new_users_stats,
+        'page_visits_stats': page_visits_stats,
+        'sales_trend': sales_trend,
+        'top_services': top_services,
+        'top_countries': top_countries,
+        'conversion_stats': conversion_stats,
+        'ticket_stats': ticket_stats,
+        
+        # Datos existentes (para compatibilidad)
         'sales_day': sales_day,
         'sales_month': sales_month,
         'acc_name': sales_acc[0],
@@ -137,12 +183,14 @@ def index(request):
         'time': timezone.now(),
         'last_year_sales_new_user': Dashboard.last_year_sales_new_user(),
         'sales_per_day_new_user': Dashboard.sales_per_day_new_user(date),
+        
         # Estadísticas de visitas
         'page_visits_total': page_visits_total,
         'page_visits_today': page_visits_today_data,
         'page_visits_7days': page_visits_7days,
         'unique_visitors': unique_visitors,
         'visits_chart_data': visits_chart_data,
+        
         # Estadísticas de ventas web
         'web_sales_today': web_sales_today,
         'web_sales_weekly': web_sales_weekly,

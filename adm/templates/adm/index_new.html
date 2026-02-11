@@ -1,0 +1,905 @@
+{% extends 'adm/base/base.html' %}
+{% load static %}
+{% load humanize %}
+{% block title %}
+    Dashboard Mejorado
+{% endblock title %}
+
+{% block head %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<style>
+    :root {
+        --primary-color: #4361ee;
+        --secondary-color: #3a0ca3;
+        --success-color: #4cc9f0;
+        --info-color: #7209b7;
+        --warning-color: #f72585;
+        --light-bg: #f8f9fa;
+        --card-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        --card-hover-shadow: 0 10px 20px rgba(0, 0, 0, 0.15);
+    }
+
+    .dashboard-header {
+        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+        color: white;
+        padding: 1.5rem;
+        border-radius: 10px;
+        margin-bottom: 2rem;
+        box-shadow: var(--card-shadow);
+    }
+
+    .period-filter {
+        background: white;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+        box-shadow: var(--card-shadow);
+    }
+
+    .period-btn {
+        border: 2px solid #e9ecef;
+        border-radius: 6px;
+        padding: 0.5rem 1rem;
+        margin: 0.25rem;
+        transition: all 0.3s ease;
+        font-weight: 500;
+    }
+
+    .period-btn:hover {
+        background-color: #f8f9fa;
+        border-color: var(--primary-color);
+    }
+
+    .period-btn.active {
+        background-color: var(--primary-color);
+        color: white;
+        border-color: var(--primary-color);
+    }
+
+    .custom-date-range {
+        background: #f8f9fa;
+        border-radius: 6px;
+        padding: 1rem;
+        margin-top: 1rem;
+    }
+
+    .stat-card {
+        background: white;
+        border-radius: 10px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: var(--card-shadow);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        height: 100%;
+        border-left: 4px solid var(--primary-color);
+    }
+
+    .stat-card:hover {
+        transform: translateY(-5px);
+        box-shadow: var(--card-hover-shadow);
+    }
+
+    .stat-card.total-sales {
+        border-left-color: var(--primary-color);
+    }
+
+    .stat-card.web-sales {
+        border-left-color: var(--success-color);
+    }
+
+    .stat-card.manual-sales {
+        border-left-color: var(--info-color);
+    }
+
+    .stat-card.new-users {
+        border-left-color: var(--warning-color);
+    }
+
+    .stat-card.conversion {
+        border-left-color: #7209b7;
+    }
+
+    .stat-card.average-ticket {
+        border-left-color: #4cc9f0;
+    }
+
+    .stat-icon {
+        width: 50px;
+        height: 50px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .stat-icon.total-sales {
+        background: rgba(67, 97, 238, 0.1);
+        color: var(--primary-color);
+    }
+
+    .stat-icon.web-sales {
+        background: rgba(76, 201, 240, 0.1);
+        color: var(--success-color);
+    }
+
+    .stat-icon.manual-sales {
+        background: rgba(114, 9, 183, 0.1);
+        color: var(--info-color);
+    }
+
+    .stat-icon.new-users {
+        background: rgba(247, 37, 133, 0.1);
+        color: var(--warning-color);
+    }
+
+    .stat-value {
+        font-size: 1.8rem;
+        font-weight: 700;
+        margin: 0.5rem 0;
+        color: #212529;
+    }
+
+    .stat-label {
+        font-size: 0.9rem;
+        color: #6c757d;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .stat-change {
+        font-size: 0.85rem;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        display: inline-block;
+    }
+
+    .stat-change.positive {
+        background: rgba(40, 167, 69, 0.1);
+        color: #28a745;
+    }
+
+    .stat-change.negative {
+        background: rgba(220, 53, 69, 0.1);
+        color: #dc3545;
+    }
+
+    .chart-container {
+        background: white;
+        border-radius: 10px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: var(--card-shadow);
+    }
+
+    .chart-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid #e9ecef;
+    }
+
+    .chart-title {
+        font-size: 1.2rem;
+        font-weight: 600;
+        color: #212529;
+        margin: 0;
+    }
+
+    .table-card {
+        background: white;
+        border-radius: 10px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: var(--card-shadow);
+        overflow: hidden;
+    }
+
+    .table-card .table {
+        margin-bottom: 0;
+    }
+
+    .table-card .table thead th {
+        border-top: none;
+        font-weight: 600;
+        color: #495057;
+        background-color: #f8f9fa;
+    }
+
+    .table-card .table tbody tr:hover {
+        background-color: #f8f9fa;
+    }
+
+    .country-flag {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        margin-right: 8px;
+        object-fit: cover;
+    }
+
+    .service-icon {
+        width: 30px;
+        height: 30px;
+        border-radius: 6px;
+        margin-right: 10px;
+        object-fit: cover;
+    }
+
+    .badge-pill {
+        padding: 0.4em 0.8em;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .progress-thin {
+        height: 6px;
+        border-radius: 3px;
+    }
+
+    .loading-spinner {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 200px;
+    }
+
+    .spinner {
+        width: 40px;
+        height: 40px;
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid var(--primary-color);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    @media (max-width: 768px) {
+        .stat-value {
+            font-size: 1.5rem;
+        }
+        
+        .chart-container {
+            padding: 1rem;
+        }
+        
+        .period-btn {
+            padding: 0.4rem 0.8rem;
+            font-size: 0.9rem;
+        }
+    }
+</style>
+{% endblock head %}
+
+{% block body %}
+<div class="dashboard-header">
+    <div class="d-flex justify-content-between align-items-center">
+        <div>
+            <h1 class="h3 mb-2">Dashboard de Administración</h1>
+            <p class="mb-0 opacity-75">Monitorea el rendimiento de tu negocio en tiempo real</p>
+        </div>
+        <div class="text-end">
+            <div class="text-white opacity-75">Última actualización</div>
+            <div class="h5 mb-0">{{ time|date:"d/m/Y H:i" }}</div>
+        </div>
+    </div>
+</div>
+
+<!-- Filtros por Período -->
+<div class="period-filter">
+    <h5 class="mb-3">Seleccionar Período</h5>
+    
+    <div class="d-flex flex-wrap mb-3">
+        <a href="?period=HOY" class="btn period-btn {% if period == 'HOY' %}active{% endif %}">
+            HOY
+        </a>
+        <a href="?period=AYER" class="btn period-btn {% if period == 'AYER' %}active{% endif %}">
+            AYER
+        </a>
+        <a href="?period=ESTA_SEMANA" class="btn period-btn {% if period == 'ESTA_SEMANA' %}active{% endif %}">
+            ESTA SEMANA
+        </a>
+        <a href="?period=ESTE_MES" class="btn period-btn {% if period == 'ESTE_MES' %}active{% endif %}">
+            ESTE MES
+        </a>
+        <a href="?period=ULTIMOS_7_DIAS" class="btn period-btn {% if period == 'ULTIMOS_7_DIAS' %}active{% endif %}">
+            ÚLTIMOS 7 DÍAS
+        </a>
+        <a href="?period=ULTIMOS_30_DIAS" class="btn period-btn {% if period == 'ULTIMOS_30_DIAS' %}active{% endif %}">
+            ÚLTIMOS 30 DÍAS
+        </a>
+    </div>
+
+    <!-- Rango de Fechas Personalizado -->
+    <div class="custom-date-range">
+        <h6 class="mb-2">Rango de Fechas Personalizado</h6>
+        <form method="GET" class="row g-2">
+            <div class="col-md-4">
+                <input type="text" 
+                       name="custom_start" 
+                       class="form-control datepicker" 
+                       placeholder="Fecha de inicio"
+                       value="{{ custom_start|default:'' }}"
+                       readonly>
+            </div>
+            <div class="col-md-4">
+                <input type="text" 
+                       name="custom_end" 
+                       class="form-control datepicker" 
+                       placeholder="Fecha de fin"
+                       value="{{ custom_end|default:'' }}"
+                       readonly>
+            </div>
+            <div class="col-md-4">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-filter me-1"></i> Aplicar
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Tarjetas de Resumen -->
+<div class="row mb-4">
+    <div class="col-md-4 col-lg-2">
+        <div class="stat-card total-sales">
+            <div class="stat-icon total-sales">
+                <i class="bi bi-currency-dollar"></i>
+            </div>
+            <div class="stat-value">${{ sales_by_period.total.amount|intcomma }}</div>
+            <div class="stat-label">Ventas Totales</div>
+            <div class="d-flex justify-content-between align-items-center mt-2">
+                <small>{{ sales_by_period.total.count }} transacciones</small>
+                <span class="stat-change positive">
+                    <i class="bi bi-arrow-up"></i> Total
+                </span>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4 col-lg-2">
+        <div class="stat-card web-sales">
+            <div class="stat-icon web-sales">
+                <i class="bi bi-globe"></i>
+            </div>
+            <div class="stat-value">${{ sales_by_period.web.amount|intcomma }}</div>
+            <div class="stat-label">Ventas Web</div>
+            <div class="d-flex justify-content-between align-items-center mt-2">
+                <small>{{ sales_by_period.web.count }} ventas</small>
+                <span class="stat-change positive">
+                    <i class="bi bi-arrow-up"></i> Online
+                </span>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4 col-lg-2">
+        <div class="stat-card manual-sales">
+            <div class="stat-icon manual-sales">
+                <i class="bi bi-person-check"></i>
+            </div>
+            <div class="stat-value">${{ sales_by_period.manual.amount|intcomma }}</div>
+            <div class="stat-label">Ventas Manuales</div>
+            <div class="d-flex justify-content-between align-items-center mt-2">
+                <small>{{ sales_by_period.manual.count }} ventas</small>
+                <span class="stat-change positive">
+                    <i class="bi bi-arrow-up"></i> Admin
+                </span>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4 col-lg-2">
+        <div class="stat-card new-users">
+            <div class="stat-icon new-users">
+                <i class="bi bi-people"></i>
+            </div>
+            <div class="stat-value">{{ new_users_stats.total_new_users|intcomma }}</div>
+            <div class="stat-label">Nuevos Usuarios</div>
+            <div class="d-flex justify-content-between align-items-center mt-2">
+                <small>{{ new_users_stats.new_users_with_sales_mx }} con ventas MX</small>
+                <span class="stat-change positive">
+                    <i class="bi bi-arrow-up"></i> Registros
+                </span>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4 col-lg-2">
+        <div class="stat-card conversion">
+            <div class="stat-icon conversion">
+                <i class="bi bi-graph-up-arrow"></i>
+            </div>
+            <div class="stat-value">{{ conversion_stats.conversion_rate }}%</div>
+            <div class="stat-label">Tasa Conversión</div>
+            <div class="d-flex justify-content-between align-items-center mt-2">
+                <small>{{ conversion_stats.total_visits }} visitas</small>
+                <span class="stat-change positive">
+                    <i class="bi bi-arrow-up"></i> Eficiencia
+                </span>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4 col-lg-2">
+        <div class="stat-card average-ticket">
+            <div class="stat-icon average-ticket">
+                <i class="bi bi-receipt"></i>
+            </div>
+            <div class="stat-value">${{ ticket_stats.average_ticket|intcomma }}</div>
+            <div class="stat-label">Ticket Promedio</div>
+            <div class="d-flex justify-content-between align-items-center mt-2">
+                <small>{{ ticket_stats.total_count }} ventas</small>
+                <span class="stat-change positive">
+                    <i class="bi bi-arrow-up"></i> Valor
+                </span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Gráficos Principales -->
+<div class="row mb-4">
+    <div class="col-lg-8">
+        <div class="chart-container">
+            <div class="chart-header">
+                <h5 class="chart-title">Tendencia de Ventas - {{ period|title }}</h5>
+                <div class="btn-group">
+                    <button type="button" class="btn btn-sm btn-outline-secondary active" data-chart-type="line">
+                        <i class="bi bi-graph-up"></i> Línea
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-chart-type="bar">
+                        <i class="bi bi-bar-chart"></i> Barras
+                    </button>
+                </div>
+            </div>
+            <canvas id="salesTrendChart" height="250"></canvas>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="chart-container">
+            <div class="chart-header">
+                <h5 class="chart-title">Distribución por País</h5>
+            </div>
+            <canvas id="countriesChart" height="250"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Tablas de Top Performers -->
+<div class="row mb-4">
+    <div class="col-lg-6">
+        <div class="table-card">
+            <h5 class="mb-3">Top 5 Servicios Más Vendidos</h5>
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Servicio</th>
+                            <th class="text-end">Ventas</th>
+                            <th class="text-end">Monto</th>
+                            <th class="text-end">Participación</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for service in top_services %}
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="service-icon bg-light d-flex align-items-center justify-content-center">
+                                        <i class="bi bi-box-seam text-primary"></i>
+                                    </div>
+                                    <span class="fw-medium">{{ service.service|truncatechars:20 }}</span>
+                                </div>
+                            </td>
+                            <td class="text-end">{{ service.count }}</td>
+                            <td class="text-end fw-bold">${{ service.amount|intcomma }}</td>
+                            <td class="text-end">
+                                <div class="d-flex align-items-center justify-content-end">
+                                    <div class="progress progress-thin w-50 me-2">
+                                        <div class="progress-bar bg-primary" 
+                                             style="width: {% widthratio service.amount sales_by_period.total.amount 100 %}%">
+                                        </div>
+                                    </div>
+                                    <span class="small">{% widthratio service.amount sales_by_period.total.amount 100 %}%</span>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center text-muted py-3">
+                                No hay datos de servicios para este período
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-6">
+        <div class="table-card">
+            <h5 class="mb-3">Top 5 Países por Ventas</h5>
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>País</th>
+                            <th class="text-end">Ventas</th>
+                            <th class="text-end">Monto</th>
+                            <th class="text-end">Participación</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for country in top_countries %}
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="country-flag bg-light d-flex align-items-center justify-content-center">
+                                        <i class="bi bi-globe text-success"></i>
+                                    </div>
+                                    <span class="fw-medium">{{ country.country }}</span>
+                                </div>
+                            </td>
+                            <td class="text-end">{{ country.count }}</td>
+                            <td class="text-end fw-bold">${{ country.amount|intcomma }}</td>
+                            <td class="text-end">
+                                <div class="d-flex align-items-center justify-content-end">
+                                    <div class="progress progress-thin w-50 me-2">
+                                        <div class="progress-bar bg-success" 
+                                             style="width: {% widthratio country.amount sales_by_period.total.amount 100 %}%">
+                                        </div>
+                                    </div>
+                                    <span class="small">{% widthratio country.amount sales_by_period.total.amount 100 %}%</span>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center text-muted py-3">
+                                No hay datos de países para este período
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Estadísticas de Visitas -->
+<div class="row mb-4">
+    <div class="col-lg-6">
+        <div class="chart-container">
+            <div class="chart-header">
+                <h5 class="chart-title">Visitas por Página</h5>
+            </div>
+            <canvas id="pageVisitsChart" height="200"></canvas>
+        </div>
+    </div>
+    
+    <div class="col-lg-6">
+        <div class="table-card">
+            <h5 class="mb-3">Métricas de Visitas</h5>
+            <div class="row text-center">
+                <div class="col-4">
+                    <div class="display-6 fw-bold text-primary">{{ page_visits_stats.total_visits|intcomma }}</div>
+                    <div class="small text-muted">Visitas Totales</div>
+                </div>
+                <div class="col-4">
+                    <div class="display-6 fw-bold text-success">{{ page_visits_stats.unique_ips|intcomma }}</div>
+                    <div class="small text-muted">IPs Únicas</div>
+                </div>
+                <div class="col-4">
+                    <div class="display-6 fw-bold text-info">{{ page_visits_stats.unique_sessions|intcomma }}</div>
+                    <div class="small text-muted">Sesiones Únicas</div>
+                </div>
+            </div>
+            
+            <div class="mt-3">
+                <h6 class="mb-2">Páginas Más Visitadas</h6>
+                <div class="list-group list-group-flush">
+                    {% for page, count in page_visits_stats.visits_by_page.items|slice:":5" %}
+                    <div class="list-group-item d-flex justify-content-between align-items-center px-0">
+                        <span class="text-truncate">{{ page }}</span>
+                        <span class="badge bg-primary rounded-pill">{{ count }}</span>
+                    </div>
+                    {% empty %}
+                    <div class="text-center text-muted py-2">
+                        No hay datos de visitas para este período
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Ventas por País (Tabla Detallada) -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="table-card">
+            <h5 class="mb-3">Ventas por País - {{ period|title }}</h5>
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>País</th>
+                            <th class="text-end">Ventas Totales</th>
+                            <th class="text-end">Monto Total</th>
+                            <th class="text-end">Ticket Promedio</th>
+                            <th class="text-end">Participación</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for country, data in sales_by_country.items %}
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="country-flag bg-light d-flex align-items-center justify-content-center">
+                                        <i class="bi bi-flag text-warning"></i>
+                                    </div>
+                                    <span class="fw-medium">{{ country|default:"Desconocido" }}</span>
+                                </div>
+                            </td>
+                            <td class="text-end">{{ data.count }}</td>
+                            <td class="text-end fw-bold">${{ data.amount|intcomma }}</td>
+                            <td class="text-end">
+                                {% if data.count > 0 %}
+                                    ${{ data.amount|floatformat:0|intcomma }}
+                                {% else %}
+                                    $0
+                                {% endif %}
+                            </td>
+                            <td class="text-end">
+                                <div class="d-flex align-items-center justify-content-end">
+                                    <div class="progress progress-thin w-50 me-2">
+                                        <div class="progress-bar bg-warning" 
+                                             style="width: {% widthratio data.amount sales_by_period.total.amount 100 %}%">
+                                        </div>
+                                    </div>
+                                    <span class="small">{% widthratio data.amount sales_by_period.total.amount 100 %}%</span>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center text-muted py-3">
+                                No hay datos de ventas por país para este período
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Información del Período -->
+<div class="alert alert-info">
+    <div class="d-flex align-items-center">
+        <i class="bi bi-info-circle fs-4 me-3"></i>
+        <div>
+            <strong>Período seleccionado:</strong> {{ period|title }}
+            {% if custom_start and custom_end %}
+                ({{ custom_start }} al {{ custom_end }})
+            {% endif %}
+            • Mostrando datos de {{ sales_by_period.total.count }} ventas por un total de ${{ sales_by_period.total.amount|intcomma }}
+        </div>
+    </div>
+</div>
+{% endblock body %}
+
+{% block extrajs %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
+<script>
+// Inicializar datepickers
+flatpickr(".datepicker", {
+    locale: "es",
+    dateFormat: "Y-m-d",
+    maxDate: "today"
+});
+
+// Datos para gráficos
+const salesTrendData = {{ sales_trend|safe }};
+const salesByCountry = {{ sales_by_country|safe }};
+const pageVisitsData = {{ page_visits_stats.visits_by_page|safe }};
+
+// Gráfico de Tendencia de Ventas
+const salesTrendCtx = document.getElementById('salesTrendChart').getContext('2d');
+const salesTrendChart = new Chart(salesTrendCtx, {
+    type: 'line',
+    data: {
+        labels: salesTrendData.map(item => item.label),
+        datasets: [{
+            label: 'Ventas ($)',
+            data: salesTrendData.map(item => item.total),
+            borderColor: '#4361ee',
+            backgroundColor: 'rgba(67, 97, 238, 0.1)',
+            borderWidth: 2,
+            fill: true,
+            tension: 0.4
+        }, {
+            label: 'Cantidad',
+            data: salesTrendData.map(item => item.count),
+            borderColor: '#f72585',
+            backgroundColor: 'rgba(247, 37, 133, 0.1)',
+            borderWidth: 2,
+            fill: true,
+            tension: 0.4,
+            yAxisID: 'y1'
+        }]
+    },
+    options: {
+        responsive: true,
+        interaction: {
+            mode: 'index',
+            intersect: false,
+        },
+        scales: {
+            x: {
+                grid: {
+                    display: false
+                }
+            },
+            y: {
+                type: 'linear',
+                display: true,
+                position: 'left',
+                title: {
+                    display: true,
+                    text: 'Monto ($)'
+                },
+                ticks: {
+                    callback: function(value) {
+                        return '$' + value.toLocaleString();
+                    }
+                }
+            },
+            y1: {
+                type: 'linear',
+                display: true,
+                position: 'right',
+                title: {
+                    display: true,
+                    text: 'Cantidad'
+                },
+                grid: {
+                    drawOnChartArea: false,
+                },
+            }
+        },
+        plugins: {
+            tooltip: {
+                callbacks: {
+                    label: function(context) {
+                        let label = context.dataset.label || '';
+                        if (label.includes('Ventas')) {
+                            return label + ': $' + context.parsed.y.toLocaleString();
+                        } else {
+                            return label + ': ' + context.parsed.y.toLocaleString();
+                        }
+                    }
+                }
+            },
+            legend: {
+                position: 'top',
+            }
+        }
+    }
+});
+
+// Cambiar tipo de gráfico
+document.querySelectorAll('[data-chart-type]').forEach(button => {
+    button.addEventListener('click', function() {
+        const type = this.getAttribute('data-chart-type');
+        salesTrendChart.config.type = type;
+        salesTrendChart.update();
+        
+        // Actualizar clases activas
+        document.querySelectorAll('[data-chart-type]').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        this.classList.add('active');
+    });
+});
+
+// Gráfico de Países
+const countriesCtx = document.getElementById('countriesChart').getContext('2d');
+const countriesData = Object.entries(salesByCountry).slice(0, 10);
+const countriesChart = new Chart(countriesCtx, {
+    type: 'doughnut',
+    data: {
+        labels: countriesData.map(item => item[0] || 'Desconocido'),
+        datasets: [{
+            data: countriesData.map(item => item[1].amount),
+            backgroundColor: [
+                '#4361ee', '#3a0ca3', '#7209b7', '#f72585', '#4cc9f0',
+                '#4895ef', '#560bad', '#b5179e', '#f15bb5', '#00bbf9'
+            ],
+            borderWidth: 1
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: {
+                position: 'right',
+                labels: {
+                    boxWidth: 12,
+                    padding: 15
+                }
+            },
+            tooltip: {
+                callbacks: {
+                    label: function(context) {
+                        const label = context.label || '';
+                        const value = context.raw || 0;
+                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                        const percentage = Math.round((value / total) * 100);
+                        return `${label}: $${value.toLocaleString()} (${percentage}%)`;
+                    }
+                }
+            }
+        }
+    }
+});
+
+// Gráfico de Visitas por Página
+const pageVisitsCtx = document.getElementById('pageVisitsChart').getContext('2d');
+const pageVisitsEntries = Object.entries(pageVisitsData).slice(0, 8);
+const pageVisitsChart = new Chart(pageVisitsCtx, {
+    type: 'bar',
+    data: {
+        labels: pageVisitsEntries.map(item => item[0]),
+        datasets: [{
+            label: 'Visitas',
+            data: pageVisitsEntries.map(item => item[1]),
+            backgroundColor: '#4cc9f0',
+            borderColor: '#4895ef',
+            borderWidth: 1
+        }]
+    },
+    options: {
+        responsive: true,
+        scales: {
+            y: {
+                beginAtZero: true,
+                ticks: {
+                    stepSize: 1
+                }
+            },
+            x: {
+                ticks: {
+                    maxRotation: 45,
+                    minRotation: 45
+                }
+            }
+        },
+        plugins: {
+            legend: {
+                display: false
+            }
+        }
+    }
+});
+
+// Actualizar automáticamente cada 5 minutos
+setTimeout(() => {
+    window.location.reload();
+}, 300000); // 5 minutos
+</script>
+{% endblock extrajs %}
