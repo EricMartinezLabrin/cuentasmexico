@@ -10,17 +10,73 @@
             overflow-y: auto;
             border: 1px solid #e9ecef;
             border-radius: 0.5rem;
-            padding: 0.75rem;
+            padding: 0.5rem;
             background: #fff;
         }
 
-        .sale-create-page .service-list .form-check {
-            padding: 0.4rem 0.2rem 0.4rem 1.8rem;
-            border-bottom: 1px dashed #e9ecef;
+        .sale-create-page .service-toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            align-items: center;
+            margin-bottom: 0.75rem;
         }
 
-        .sale-create-page .service-list .form-check:last-child {
-            border-bottom: 0;
+        .sale-create-page .service-search {
+            flex: 1 1 200px;
+        }
+
+        .sale-create-page .service-actions {
+            display: flex;
+            gap: 0.35rem;
+            flex-wrap: wrap;
+        }
+
+        .sale-create-page .service-counter {
+            font-size: 0.8rem;
+            color: #4b5563;
+            margin-bottom: 0.55rem;
+        }
+
+        .sale-create-page .service-item {
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem;
+            padding: 0.55rem 0.65rem;
+            margin-bottom: 0.45rem;
+            cursor: pointer;
+            transition: border-color 0.15s ease, background-color 0.15s ease;
+            background: #ffffff;
+        }
+
+        .sale-create-page .service-item:hover {
+            border-color: #93c5fd;
+            background: #f8fbff;
+        }
+
+        .sale-create-page .service-item.selected {
+            border-color: #2563eb;
+            background: #eff6ff;
+        }
+
+        .sale-create-page .service-list .form-check {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            margin: 0;
+            padding-left: 0;
+            min-height: 1.5rem;
+        }
+
+        .sale-create-page .service-list .form-check-input {
+            margin: 0;
+            float: none;
+            flex-shrink: 0;
+        }
+
+        .sale-create-page .service-list .form-check-label {
+            width: 100%;
+            cursor: pointer;
+            margin: 0;
         }
 
         .sale-create-page .info-badges {
@@ -111,9 +167,24 @@
                     <div class="card border-0 shadow-sm h-100">
                         <div class="card-body">
                             <h4 class="h6 mb-3">Selecciona uno o más servicios</h4>
+                            <div class="service-toolbar">
+                                <input type="text"
+                                       id="service-search"
+                                       class="form-control form-control-sm service-search"
+                                       placeholder="Filtrar servicios..."
+                                       onkeydown="if(event.key==='Enter')event.preventDefault()">
+                                <div class="service-actions">
+                                    <button type="button" class="btn btn-outline-primary btn-sm" id="service-select-visible">Seleccionar visibles</button>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" id="service-clear">Limpiar</button>
+                                </div>
+                            </div>
+                            <div class="service-counter">
+                                Seleccionados: <strong id="service-selected-count">0</strong>
+                            </div>
                             <div class="service-list">
                                 {% for s in services %}
-                                    <div class="form-check" id="service-group">
+                                    <div class="service-item" data-service-item data-service-name="{{ s.description|lower }}">
+                                        <div class="form-check">
                                         <input class="form-check-input serv"
                                                type="checkbox"
                                                value="{{ s.id }}"
@@ -121,6 +192,7 @@
                                                id="{{ s.id }}"
                                                onclick="services()">
                                         <label class="form-check-label" for="{{ s.id }}">{{ s.description }}</label>
+                                        </div>
                                     </div>
                                 {% endfor %}
                             </div>
@@ -324,6 +396,70 @@
 
                 $('#comp').val(generateUUID());
             });
+
+            function syncServiceSelectionUI() {
+                const checked = document.querySelectorAll('.serv:checked');
+                $('#service-selected-count').text(checked.length);
+
+                $('[data-service-item]').each(function() {
+                    const checkbox = $(this).find('.serv').get(0);
+                    if (checkbox && checkbox.checked) {
+                        $(this).addClass('selected');
+                    } else {
+                        $(this).removeClass('selected');
+                    }
+                });
+            }
+
+            $(document).on('click', '[data-service-item]', function(event) {
+                if ($(event.target).closest('input, label, button, a').length) {
+                    return;
+                }
+
+                const checkbox = $(this).find('.serv').get(0);
+                if (!checkbox) return;
+
+                checkbox.checked = !checkbox.checked;
+                if (typeof services === 'function') {
+                    services();
+                }
+                syncServiceSelectionUI();
+            });
+
+            $(document).on('change', '.serv', function() {
+                syncServiceSelectionUI();
+            });
+
+            $('#service-search').on('input', function() {
+                const term = ($(this).val() || '').toLowerCase().trim();
+                $('[data-service-item]').each(function() {
+                    const serviceName = ($(this).data('service-name') || '').toString();
+                    const visible = !term || serviceName.includes(term);
+                    $(this).toggle(visible);
+                });
+            });
+
+            $('#service-select-visible').on('click', function() {
+                $('[data-service-item]:visible .serv').each(function() {
+                    this.checked = true;
+                });
+                if (typeof services === 'function') {
+                    services();
+                }
+                syncServiceSelectionUI();
+            });
+
+            $('#service-clear').on('click', function() {
+                $('.serv').each(function() {
+                    this.checked = false;
+                });
+                if (typeof services === 'function') {
+                    services();
+                }
+                syncServiceSelectionUI();
+            });
+
+            syncServiceSelectionUI();
         });
     </script>
 {% endblock extrajs %}
