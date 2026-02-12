@@ -167,6 +167,10 @@ class Sales():
         price = request.POST.get('price')
         duration_value = request.POST.get('duration')
 
+        # Debe existir al menos un servicio seleccionado
+        if not service:
+            return False
+
         # Validar que duration no sea None o 'None'
         if not duration_value or duration_value == 'None':
             return False
@@ -871,7 +875,6 @@ class Sales():
                 logger.error(f"Error enviando email a {customer.email}: {str(e)}", exc_info=True)
 
         return True, sale
-
 
 
 

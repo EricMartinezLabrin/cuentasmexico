@@ -395,7 +395,9 @@ ticket.addEventListener('change', () => {
   });
 });
 
-duration.addEventListener('change', CheckFields);
+duration.addEventListener('change', () => {
+  services();
+});
 
 inputListAcc.addEventListener('change', () => {
   if (inputListAcc.value.length > 0) {

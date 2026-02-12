@@ -1147,18 +1147,24 @@ def SalesCreateView(request, pk):
     template_name = 'adm/sale_create.html'
     bank = Bank.objects.filter(status=True)
     payment = PaymentMethod.objects.all()
+    message = None
     if request.method == 'POST':
-        if Sales.new_sale(request) == True:
+        if not request.POST.getlist('serv'):
+            message = 'Debes seleccionar al menos un servicio para terminar la venta.'
+        elif Sales.new_sale(request) == True:
             # Obtener el cliente y redirigir a su página de ventas
             customer = User.objects.get(pk=pk)
             return Sales.render_view(request, customer.id)
+        else:
+            message = 'No se pudo crear la venta. Verifica los datos e intenta nuevamente.'
     return render(request, template_name, {
         'customer': User.objects.get(pk=pk),
         'services': Sales.availables()[1],
         'bank': bank,
         'payment': payment,
         'availables': Sales.availables()[0],
-        'created_at': timezone.now()
+        'created_at': timezone.now(),
+        'message': message
     })
 
 @permission_required('is_staff', 'adm:no-permission')
