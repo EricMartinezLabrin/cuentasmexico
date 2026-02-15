@@ -145,7 +145,7 @@
                         <td>{{ active.pin|default:"" }}</td>
                         <td>{{ active.comments|default:""|truncatechars:30 }}</td>
                         <td>
-                            <span class="badge {% if active.external_status == 'Disponible' %}bg-success{% elif active.external_status == 'No Disponible' %}bg-danger{% else %}bg-secondary{% endif %}">
+                            <span class="badge external-status-badge {% if active.external_status == 'Disponible' %}bg-success{% elif active.external_status == 'No Disponible' %}bg-danger{% else %}bg-secondary{% endif %}">
                                 {{ active.external_status }}
                             </span>
                         </td>
@@ -169,7 +169,8 @@
                                 </a>
                                 <form method="post"
                                       action="{% url 'adm:accounts_external_status' active.id %}"
-                                      class="d-inline-flex align-items-center gap-1">
+                                      class="d-inline-flex align-items-center gap-1 external-status-form"
+                                      data-account-id="{{ active.id }}">
                                     {% csrf_token %}
                                     <select name="external_status" class="form-select form-select-sm" title="Estado externo">
                                         {% for option_value, option_label in external_status_choices %}
@@ -179,9 +180,6 @@
                                             </option>
                                         {% endfor %}
                                     </select>
-                                    <button type="submit" class="btn btn-sm btn-outline-secondary" title="Cambiar estado externo">
-                                        <i class="bi bi-check2"></i>
-                                    </button>
                                 </form>
                             </div>
                         </td>
@@ -403,6 +401,75 @@
                 btn.innerHTML = originalContent;
             });
         });
+    });
+
+    // Cambio de estado externo sin recargar página
+    document.querySelectorAll('.external-status-form').forEach(form => {
+        const select = form.querySelector('select[name="external_status"]');
+        if (!select) {
+            return;
+        }
+
+        let isUpdating = false;
+
+        const updateExternalStatus = () => {
+            if (isUpdating) {
+                return;
+            }
+
+            const row = form.closest('tr');
+            const badge = row ? row.querySelector('.external-status-badge') : null;
+            const originalValue = select.dataset.previousValue || select.value;
+            const selectedValue = select.value;
+
+            isUpdating = true;
+            select.disabled = true;
+
+            fetch(form.action, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                body: new FormData(form)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const selectedText = select.options[select.selectedIndex].text;
+                    select.dataset.previousValue = selectedValue;
+
+                    if (badge) {
+                        badge.textContent = selectedText;
+                        badge.classList.remove('bg-success', 'bg-danger', 'bg-secondary');
+
+                        if (data.new_external_status === 'Disponible') {
+                            badge.classList.add('bg-success');
+                        } else if (data.new_external_status === 'No Disponible') {
+                            badge.classList.add('bg-danger');
+                        } else {
+                            badge.classList.add('bg-secondary');
+                        }
+                    }
+
+                    showNotification('Estado externo actualizado correctamente', 'success');
+                } else {
+                    select.value = originalValue;
+                    showNotification(data.message || 'Error al actualizar estado externo', 'danger');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                select.value = originalValue;
+                showNotification('Error en la solicitud', 'danger');
+            })
+            .finally(() => {
+                select.disabled = false;
+                isUpdating = false;
+            });
+        };
+
+        select.dataset.previousValue = select.value;
+        select.addEventListener('change', updateExternalStatus);
     });
     
     // Función para mostrar notificaciones toast

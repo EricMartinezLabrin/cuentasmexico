@@ -1911,14 +1911,22 @@ def UpdateExternalStatusAccount(request, pk):
 
     account = Account.objects.filter(pk=pk).first()
     if not account:
+        is_ajax = request.headers.get('x-requested-with', '').lower() == 'xmlhttprequest'
+        if is_ajax:
+            return JsonResponse({'success': False, 'message': 'Cuenta no encontrada'}, status=404)
         return redirect(reverse('adm:accounts'))
 
     new_external_status = request.POST.get('external_status', '')
     available_statuses = [choice[0] for choice in Account._meta.get_field('external_status').choices]
+    is_ajax = request.headers.get('x-requested-with', '').lower() == 'xmlhttprequest'
 
     if new_external_status in available_statuses:
         account.external_status = new_external_status
         account.save(update_fields=['external_status'])
+        if is_ajax:
+            return JsonResponse({'success': True, 'new_external_status': new_external_status})
+    elif is_ajax:
+        return JsonResponse({'success': False, 'message': 'Estado externo inválido'}, status=400)
 
     return redirect(request.META.get('HTTP_REFERER', reverse('adm:accounts')))
 #     # ImportData.invoices()
