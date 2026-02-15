@@ -579,6 +579,7 @@ def AccountsView(request):
     email = (request.POST.get('email') or request.GET.get('email', '')).replace(" ", "")
     status = request.POST.get('status') or request.GET.get('status', '')
     external_status = request.POST.get('external_status') or request.GET.get('external_status', '')
+    ignore_external_status = external_status == '__ignore__'
     page = request.GET.get('page', 1)
     
     # Base queryset optimizado con select_related para evitar consultas N+1
@@ -600,7 +601,7 @@ def AccountsView(request):
             base_queryset = base_queryset.filter(email__icontains=email)
         if status:
             base_queryset = base_queryset.filter(status=status == 'True')
-        if external_status:
+        if external_status and not ignore_external_status:
             base_queryset = base_queryset.filter(external_status=external_status)
         
         # Ordenar de manera eficiente
@@ -639,6 +640,7 @@ def AccountsView(request):
         context = {
             "venues": venues,
             "form": FilterAccountForm(),
+            "external_status_choices": Account._meta.get_field('external_status').choices,
             "today": today,
             "form_data": form_data,
             "filter_query": filter_query,
@@ -665,6 +667,7 @@ def AccountsView(request):
         context = {
             "venues": venues,
             "form": FilterAccountForm(),
+            "external_status_choices": Account._meta.get_field('external_status').choices,
             "today": today,
             "has_filters": False
         }
@@ -1899,6 +1902,25 @@ def ActiveInactiveAccount(request, status, pk):
         # Respuesta para AJAX
         return JsonResponse({'success': True, 'new_status': new_status})
     return redirect(reverse('adm:accounts'))
+
+
+@permission_required('is_staff', 'adm:no-permission')
+def UpdateExternalStatusAccount(request, pk):
+    if request.method != 'POST':
+        return redirect(reverse('adm:accounts'))
+
+    account = Account.objects.filter(pk=pk).first()
+    if not account:
+        return redirect(reverse('adm:accounts'))
+
+    new_external_status = request.POST.get('external_status', '')
+    available_statuses = [choice[0] for choice in Account._meta.get_field('external_status').choices]
+
+    if new_external_status in available_statuses:
+        account.external_status = new_external_status
+        account.save(update_fields=['external_status'])
+
+    return redirect(request.META.get('HTTP_REFERER', reverse('adm:accounts')))
 #     # ImportData.invoices()
 #     # ImportData.update_country()
 #     ImportData.shop()

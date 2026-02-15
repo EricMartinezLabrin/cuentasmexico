@@ -71,6 +71,8 @@ urlpatterns = [
          login_required(views.ProfileUpdateView.as_view()), name='accounts_update_profile'),
     path('accounts/active/<str:status>/<int:pk>',
          login_required(views.ActiveInactiveAccount), name='accounts_active'),
+    path('accounts/external-status/<int:pk>',
+         login_required(views.UpdateExternalStatusAccount), name='accounts_external_status'),
     path('bank', login_required(views.BankListView), name='bank'),
     path('bank/create', login_required(views.bankCreateView.as_view()),
          name='bank_create'),

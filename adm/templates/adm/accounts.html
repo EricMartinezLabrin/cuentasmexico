@@ -73,18 +73,16 @@
                     <label class="visually-hidden" for="external_status_select">{{ form.external_status.label }}</label>
                     <div class="input-group">
                         <div class="input-group-text">{{ form.external_status.label }}</div>
-                        {% if form_data.external_status %}
-                            <select name="external_status" class="form-select" id="external_status_select">
-                                {% for choice in form.external_status.field.choices %}
-                                    <option value="{{ choice.0 }}"
-                                            {% if form_data.external_status == choice.0|stringformat:"s" %}selected{% endif %}>
-                                        {{ choice.1 }}
-                                    </option>
-                                {% endfor %}
-                            </select>
-                        {% else %}
-                            {{ form.external_status }}
-                        {% endif %}
+                        <select name="external_status" class="form-select" id="external_status_select">
+                            <option value="">------</option>
+                            <option value="__ignore__" {% if form_data.external_status == "__ignore__" %}selected{% endif %}>Ignorar estado externo</option>
+                            {% for choice in form.external_status.field.choices %}
+                                <option value="{{ choice.0 }}"
+                                        {% if form_data.external_status == choice.0|stringformat:"s" %}selected{% endif %}>
+                                    {{ choice.1 }}
+                                </option>
+                            {% endfor %}
+                        </select>
                     </div>
                 </div>
                 <div class="col-12">
@@ -169,6 +167,22 @@
                                    title="Perfil">
                                     <i class="bi bi-person-badge"></i>
                                 </a>
+                                <form method="post"
+                                      action="{% url 'adm:accounts_external_status' active.id %}"
+                                      class="d-inline-flex align-items-center gap-1">
+                                    {% csrf_token %}
+                                    <select name="external_status" class="form-select form-select-sm" title="Estado externo">
+                                        {% for option_value, option_label in external_status_choices %}
+                                            <option value="{{ option_value }}"
+                                                    {% if active.external_status == option_value %}selected{% endif %}>
+                                                {{ option_label }}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                    <button type="submit" class="btn btn-sm btn-outline-secondary" title="Cambiar estado externo">
+                                        <i class="bi bi-check2"></i>
+                                    </button>
+                                </form>
                             </div>
                         </td>
                     </tr>
