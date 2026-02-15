@@ -421,6 +421,7 @@
             const badge = row ? row.querySelector('.external-status-badge') : null;
             const originalValue = select.dataset.previousValue || select.value;
             const selectedValue = select.value;
+            const formData = new FormData(form);
 
             isUpdating = true;
             select.disabled = true;
@@ -430,7 +431,7 @@
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest',
                 },
-                body: new FormData(form)
+                body: formData
             })
             .then(response => response.json())
             .then(data => {
