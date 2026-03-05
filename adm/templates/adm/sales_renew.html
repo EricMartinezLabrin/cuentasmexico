@@ -3,104 +3,214 @@
 {% block title %}
     Renovar Cuenta
 {% endblock title %}
+{% block extracss %}
+    <style>
+        .renew-shell {
+            max-width: 1080px;
+            margin: 0 auto;
+        }
+
+        .renew-header-icon {
+            width: 52px;
+            height: 52px;
+            border-radius: 14px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #198754, #20c997);
+            color: #fff;
+            font-size: 1.2rem;
+        }
+
+        .renew-form-card {
+            border: 0;
+            border-radius: 16px;
+            box-shadow: 0 8px 28px rgba(16, 24, 40, 0.08);
+        }
+
+        .renew-section {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 1.2rem;
+            height: 100%;
+        }
+
+        .renew-section-title {
+            font-size: 0.85rem;
+            font-weight: 700;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+            color: #6c757d;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.45rem;
+        }
+
+        .renew-summary-item {
+            background: #fff;
+            border: 1px solid #e9ecef;
+            border-radius: 10px;
+            padding: 0.65rem 0.85rem;
+        }
+
+        .renew-summary-label {
+            display: block;
+            font-size: 0.76rem;
+            color: #6c757d;
+            margin-bottom: 0.2rem;
+            text-transform: uppercase;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+        }
+
+        .renew-summary-value {
+            font-weight: 600;
+            word-break: break-word;
+        }
+    </style>
+{% endblock extracss %}
 {% block body %}
-    <h1>Renovar a {{ object.customer.userdetail.phone_number }}</h1>
-    <form method="post">
-        {% csrf_token %}
-        <div class="w-100 d-flex">
-            <input type="hidden" name="customer" value="{{ object.customer.id }}">
-            <div class="me-4">
-                <p>
-                    <label for="email">Cuenta:</label>
-                    <input type="text"
-                           value="{{ object.account.account_name }}"
-                           class="form-control"
-                           disabled>
-                    <input type="hidden"
-                           value="{{ object.account.account_name.id }}"
-                           name="serv">
-                </p>
-                <p>
-                    <label for="email">E-Mail:</label>
-                    <input type="text"
-                           value="{{ object.account.email }}"
-                           class="form-control"
-                           disabled>
-                </p>
-                <p>
-                    <label for="profile">Perfil:</label>
-                    <input type="text"
-                           value="{{ object.account.profile }}"
-                           class="form-control"
-                           disabled>
-                </p>
-                <p>
-                    <label for="expiration">Ultimo Vencimiento:</label>
-                    <input type="text"
-                           value="{{ object.account.expiration_date }}"
-                           class="form-control"
-                           disabled>
-                </p>
+    <div class="container-fluid bg-light py-4 min-vh-100">
+        <div class="renew-shell">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+                <div class="d-flex align-items-center gap-3">
+                    <span class="renew-header-icon">
+                        <i class="bi bi-arrow-repeat"></i>
+                    </span>
+                    <div>
+                        <h1 class="h3 fw-bold mb-0">Renovar cuenta</h1>
+                        <p class="text-muted mb-0 small">Cliente {{ object.customer.userdetail.phone_number }}</p>
+                    </div>
+                </div>
+                <a href="{% url 'adm:sales' %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-2"></i>Volver a ventas
+                </a>
             </div>
-            <div class="me-4">
-                <p>
-                    <label for="duration">Duración</label>
-                    <select name="duration" id="duration" class="form-control">
-                        <option value="None">----</option>
-                        <option value="1">1 mes</option>
-                        <option value="2">2 meses</option>
-                        <option value="3">3 meses</option>
-                        <option value="4">4 meses</option>
-                        <option value="5">5 meses</option>
-                        <option value="6">6 meses</option>
-                        <option value="7">7 meses</option>
-                        <option value="8">8 meses</option>
-                        <option value="9">9 meses</option>
-                        <option value="10">10 meses</option>
-                        <option value="11">11 meses</option>
-                        <option value="12">12 meses</option>
-                    </select>
-                </p>
-                <p>
-                    <label for="payment">Monto de Pago:</label>
-                    <input type="number" name="price" id="payment" class="form-control" required>
-                </p>
-                <p>
-                    <label for="bank">Banco:</label>
-                    <input list="banklist" id="bank" name="bank" class="form-control" required>
-                    <datalist id="banklist">
-                        {% for data in banklist %}
-                            <option value="{{ data.id }}">{{ data.headline }} - {{ data.bank_name }} - {{ data.card_number }}</option>
-                        {% endfor %}
-                    </datalist>
-                </p>
-                <p>
-                    <label for="method">Metodo de Pago:</label>
-                    <input list="paymentlist"
-                           id="method"
-                           name="method"
-                           class="form-control"
-                           required>
-                    <datalist id="paymentlist">
-                        {% for data in paymentmethodlist %}<option value="{{ data.id }}">{{ data.description }}</option>{% endfor %}
-                    </datalist>
-                </p>
-            </div>
-            <div class="me-4">
-                <label for="ticket">Comprobante</label>
-                <input type="text" class="form-control" id="comp" name="comp" required>
+
+            <div class="card renew-form-card">
+                <div class="card-body p-4 p-lg-5">
+                    <form method="post" id="renew-form">
+                        {% csrf_token %}
+                        <input type="hidden" name="customer" value="{{ object.customer.id }}">
+                        <input type="hidden" value="{{ object.account.account_name.id }}" name="serv">
+
+                        <div class="row g-4">
+                            <div class="col-12 col-lg-5">
+                                <div class="renew-section">
+                                    <div class="renew-section-title">
+                                        <i class="bi bi-info-circle"></i>
+                                        Datos actuales
+                                    </div>
+                                    <div class="d-grid gap-2">
+                                        <div class="renew-summary-item">
+                                            <span class="renew-summary-label">Cuenta</span>
+                                            <span class="renew-summary-value">{{ object.account.account_name }}</span>
+                                        </div>
+                                        <div class="renew-summary-item">
+                                            <span class="renew-summary-label">E-mail</span>
+                                            <span class="renew-summary-value">{{ object.account.email }}</span>
+                                        </div>
+                                        <div class="renew-summary-item">
+                                            <span class="renew-summary-label">Perfil</span>
+                                            <span class="renew-summary-value">{{ object.account.profile }}</span>
+                                        </div>
+                                        <div class="renew-summary-item">
+                                            <span class="renew-summary-label">Vencimiento actual</span>
+                                            <span class="renew-summary-value">{{ object.expiration_date|date:'d/m/Y H:i' }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-12 col-lg-7">
+                                <div class="renew-section">
+                                    <div class="renew-section-title">
+                                        <i class="bi bi-pencil-square"></i>
+                                        Datos de renovación
+                                    </div>
+                                    <div class="row g-3">
+                                        <div class="col-12 col-md-6">
+                                            <label for="duration" class="form-label">Duración</label>
+                                            <select name="duration" id="duration" class="form-control" required>
+                                                <option value="None">----</option>
+                                                <option value="1">1 mes</option>
+                                                <option value="2">2 meses</option>
+                                                <option value="3">3 meses</option>
+                                                <option value="4">4 meses</option>
+                                                <option value="5">5 meses</option>
+                                                <option value="6">6 meses</option>
+                                                <option value="7">7 meses</option>
+                                                <option value="8">8 meses</option>
+                                                <option value="9">9 meses</option>
+                                                <option value="10">10 meses</option>
+                                                <option value="11">11 meses</option>
+                                                <option value="12">12 meses</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-12 col-md-6">
+                                            <label for="payment" class="form-label">Monto de pago</label>
+                                            <input type="number" name="price" id="payment" class="form-control" required>
+                                        </div>
+                                        <div class="col-12 col-md-6">
+                                            <label for="bank" class="form-label">Banco</label>
+                                            <input list="banklist" id="bank" name="bank" class="form-control" required>
+                                            <datalist id="banklist">
+                                                {% for data in banklist %}
+                                                    <option value="{{ data.id }}">{{ data.headline }} - {{ data.bank_name }} - {{ data.card_number }}</option>
+                                                {% endfor %}
+                                            </datalist>
+                                        </div>
+                                        <div class="col-12 col-md-6">
+                                            <label for="method" class="form-label">Método de pago</label>
+                                            <input list="paymentlist" id="method" name="method" class="form-control" required>
+                                            <datalist id="paymentlist">
+                                                {% for data in paymentmethodlist %}<option value="{{ data.id }}">{{ data.description }}</option>{% endfor %}
+                                            </datalist>
+                                        </div>
+                                        <div class="col-12">
+                                            <label for="comp" class="form-label">Comprobante</label>
+                                            <div class="input-group">
+                                                <input type="text" class="form-control" id="comp" name="comp" required>
+                                                <button class="btn btn-outline-secondary" type="button" id="generateUUID" title="Generar UUID">
+                                                    <i class="bi bi-hash"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="d-flex flex-wrap justify-content-end gap-2 mt-4 pt-3 border-top">
+                            <a href="{% url 'adm:sales' %}" class="btn btn-cm-cancel">
+                                <i class="bi bi-x-circle me-1"></i>Cancelar
+                            </a>
+                            <button type="submit" id="end" class="btn btn-cm" disabled>
+                                <i class="bi bi-check-circle me-1"></i>Renovar
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
-        <input type="submit" value="Renovar" id="end" class="btn btn-cm" disabled>
-    </form>
-    <form action="{% url 'adm:sales' %}" class="mt-2" method="post">
-        {% csrf_token %}
-        <input type="hidden"
-               name="customer"
-               value="{{ object.customer.userdetail.phone_number }}">
-        <input type="submit" value="Cancelar" class="btn btn-cm-cancel">
-    </form>
+    </div>
 {% endblock body %}
 {% block extrajs %}
     <script src="{% static 'adm/js/validations.js' %}"></script>
+    <script>
+        $(document).ready(function() {
+            $('#generateUUID').on('click', function() {
+                function generateUUID() {
+                    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                        const r = Math.random() * 16 | 0;
+                        const v = c === 'x' ? r : (r & 0x3 | 0x8);
+                        return v.toString(16);
+                    });
+                }
+
+                $('#comp').val(generateUUID());
+            });
+        });
+    </script>
 {% endblock extrajs %}

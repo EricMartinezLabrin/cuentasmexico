@@ -415,6 +415,22 @@ class Sales():
         old_sale.save()
 
         try:
+            account_name = acc.account_name
+            account_email = acc.email
+            message = (
+                f"Hemos renovado la fecha de vencimiento, de tu cuenta {account_name} "
+                f"con email {account_email} ahora vence el {exp_date.strftime('%d/%m/%Y')}"
+            )
+            customer_detail = UserDetail.objects.get(user=customer.id)
+            Notification.send_whatsapp_notification(
+                message,
+                customer_detail.lada,
+                customer_detail.phone_number
+            )
+        except:
+            pass
+
+        try:
             token = UserDetail.objects.get(user=customer).token
             title = f"Tu cuenta ha sido renovada"
             body = f"Tu nuevo vencimiento es {exp_date}, haz click en aceptar para ver el detalle."
