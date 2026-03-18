@@ -23,7 +23,7 @@ import stripe
 # Para habilitar MercadoPago, cambiar a True
 MERCADOPAGO_ENABLED = False
 PAYPAL_ENABLED = True
-STRIPE_ENABLED = True
+STRIPE_ENABLED = False
 
 # local
 from .forms import RegisterUserForm, RedeemForm, WhatsAppLoginForm
@@ -1978,6 +1978,12 @@ def stripe_create_checkout_session(request):
     logger = logging.getLogger(__name__)
 
     try:
+        if not STRIPE_ENABLED:
+            return JsonResponse({
+                'success': False,
+                'message': 'Stripe esta temporalmente deshabilitado. Usa PayPal para completar tu pago.'
+            }, status=503)
+
         if not request.user.is_authenticated:
             return JsonResponse({
                 'success': False,
