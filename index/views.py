@@ -14,6 +14,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
+from django.db import transaction
 from index.models import IndexCart, IndexCartdetail
 from index.payment_methods.MercagoPago import MercadoPago
 from index.payment_methods.PayPal import PayPal
@@ -30,7 +31,7 @@ STRIPE_ENABLED = False
 
 # local
 from .forms import RegisterUserForm, RedeemForm, WhatsAppLoginForm
-from adm.models import Level, UserDetail, Service, Sale, Account, Credits
+from adm.models import Level, UserDetail, Service, Sale, Account, Credits, PaymentMethod, AccountChangeHistory
 from adm.functions.business import BusinessInfo
 from .cart import CartProcessor, CartDb
 from cupon.models import Shop, Cupon
@@ -42,6 +43,9 @@ from .models import IndexCart, IndexCartdetail
 # Python
 from datetime import timedelta
 import json
+from urllib.request import urlopen
+from urllib.parse import quote
+from urllib.error import URLError, HTTPError
 
 # Afiliados
 from .utils_affiliates import procesar_venta_afiliado_desde_carrito
@@ -1258,6 +1262,311 @@ def add_gift_days_to_account(request):
         }, status=400)
     except Exception as e:
         logger.exception(f"Error al agregar días de regalo: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'message': f'Error del servidor: {str(e)}'
+        }, status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+def get_disney_home_code(request):
+    """
+    Proxy para obtener códigos hogar/código de acceso único de cuentas Disney del usuario autenticado.
+    Evita llamadas directas del navegador al proveedor externo (CORS/red).
+    """
+    try:
+        data = json.loads(request.body)
+        account_id = data.get('account_id')
+
+        if not account_id:
+            return JsonResponse({
+                'success': False,
+                'message': 'ID de cuenta no proporcionado'
+            }, status=400)
+
+        try:
+            account = Account.objects.select_related('account_name').get(pk=account_id)
+        except Account.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'message': 'Cuenta no encontrada'
+            }, status=404)
+
+        # Validar pertenencia de la cuenta al usuario en una venta activa
+        if not Sale.objects.filter(account=account, customer=request.user, status=True).exists():
+            return JsonResponse({
+                'success': False,
+                'message': 'Esta cuenta no te pertenece o no está activa'
+            }, status=403)
+
+        # Limitar el uso a cuentas Disney
+        service_name = (account.account_name.description or '').lower()
+        if 'disney' not in service_name:
+            return JsonResponse({
+                'success': False,
+                'message': 'Esta función solo está disponible para cuentas Disney'
+            }, status=400)
+
+        email = (account.email or '').strip()
+        if not email:
+            return JsonResponse({
+                'success': False,
+                'message': 'La cuenta no tiene email configurado'
+            }, status=400)
+
+        api_url = f'https://servertools.bdpyc.cl/api/home-codes-public/active/{quote(email)}'
+        try:
+            with urlopen(api_url, timeout=20) as response:
+                payload = json.loads(response.read().decode('utf-8'))
+        except HTTPError as e:
+            return JsonResponse({
+                'success': False,
+                'message': f'Error del proveedor externo ({e.code})'
+            }, status=502)
+        except URLError:
+            return JsonResponse({
+                'success': False,
+                'message': 'No se pudo conectar al proveedor de códigos'
+            }, status=503)
+        except Exception:
+            return JsonResponse({
+                'success': False,
+                'message': 'Respuesta inválida del proveedor de códigos'
+            }, status=502)
+
+        return JsonResponse({
+            'success': True,
+            'email': email,
+            'data': payload.get('data', {})
+        })
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'message': 'Datos inválidos'
+        }, status=400)
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Error del servidor: {str(e)}'
+        }, status=500)
+
+
+def _get_user_active_disney_sale(user, account_id):
+    """
+    Retorna (sale, account, error_response|None) validando:
+    - cuenta existente
+    - pertenece al usuario
+    - venta activa
+    - servicio Disney
+    """
+    if not account_id:
+        return None, None, JsonResponse({
+            'success': False,
+            'message': 'ID de cuenta no proporcionado'
+        }, status=400)
+
+    try:
+        sale = Sale.objects.select_related('account__account_name', 'customer').get(
+            account_id=account_id,
+            customer=user,
+            status=True
+        )
+    except Sale.DoesNotExist:
+        return None, None, JsonResponse({
+            'success': False,
+            'message': 'Esta cuenta no te pertenece o no está activa'
+        }, status=403)
+
+    account = sale.account
+    service_name = (account.account_name.description or '').lower()
+    if 'disney' not in service_name:
+        return None, None, JsonResponse({
+            'success': False,
+            'message': 'Esta función solo está disponible para cuentas Disney'
+        }, status=400)
+
+    return sale, account, None
+
+
+def _can_user_change_disney_account_today(user):
+    today = timezone.localdate()
+    already_changed = AccountChangeHistory.objects.filter(
+        customer=user,
+        source='my_account',
+        changed_at__date=today
+    ).exists()
+    return not already_changed
+
+
+@login_required
+@require_http_methods(["POST"])
+def disney_change_availability(request):
+    """
+    Indica si el usuario puede cambiar la cuenta Disney:
+    - Solo una vez por día en my_account
+    - Debe existir stock del mismo servicio
+    """
+    try:
+        data = json.loads(request.body)
+        account_id = data.get('account_id')
+
+        sale, account, error = _get_user_active_disney_sale(request.user, account_id)
+        if error:
+            return error
+
+        has_stock = Account.objects.filter(
+            account_name=account.account_name,
+            status=True,
+            customer=None,
+            external_status='Disponible'
+        ).exclude(pk=account.id).exists()
+
+        can_change_today = _can_user_change_disney_account_today(request.user)
+        can_change = can_change_today and has_stock
+
+        message = ''
+        if not can_change_today:
+            message = 'Ya realizaste un cambio hoy desde Mi Cuenta. Inténtalo nuevamente mañana.'
+        elif not has_stock:
+            message = 'Por el momento no hay cuentas disponibles para cambio inmediato.'
+
+        return JsonResponse({
+            'success': True,
+            'can_change': can_change,
+            'has_stock': has_stock,
+            'can_change_today': can_change_today,
+            'message': message
+        })
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'message': 'Datos inválidos'
+        }, status=400)
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Error del servidor: {str(e)}'
+        }, status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+def disney_change_account(request):
+    """
+    Cambia la cuenta Disney del usuario:
+    - Conserva la duración (expiration_date)
+    - Mantiene historial (venta vieja inactiva + venta nueva activa)
+    - Libera cuenta vieja para venderse de nuevo
+    - Limita a 1 cambio por día en my_account
+    """
+    try:
+        data = json.loads(request.body)
+        account_id = data.get('account_id')
+
+        with transaction.atomic():
+            sale, old_account, error = _get_user_active_disney_sale(request.user, account_id)
+            if error:
+                return error
+
+            # Lock de la venta original para evitar doble cambio simultáneo
+            sale = Sale.objects.select_for_update().select_related('account__account_name', 'customer').get(pk=sale.pk)
+            old_account = Account.objects.select_for_update().get(pk=sale.account_id)
+
+            if not _can_user_change_disney_account_today(request.user):
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Ya realizaste un cambio hoy desde Mi Cuenta. Inténtalo nuevamente mañana.'
+                }, status=429)
+
+            new_account = Account.objects.select_for_update().filter(
+                account_name=old_account.account_name,
+                status=True,
+                customer=None,
+                external_status='Disponible'
+            ).exclude(pk=old_account.id).order_by('profile', 'id').first()
+
+            if not new_account:
+                return JsonResponse({
+                    'success': False,
+                    'message': 'No hay stock disponible para cambiar esta cuenta en este momento.'
+                }, status=409)
+
+            # Desactivar venta actual y enlazar nueva
+            sale.status = False
+            sale.save(update_fields=['status'])
+
+            payment_method, _ = PaymentMethod.objects.get_or_create(description='Cambio MyAccount')
+
+            new_sale = Sale.objects.create(
+                business=sale.business,
+                user_seller=request.user,
+                customer=sale.customer,
+                account=new_account,
+                status=True,
+                payment_method=payment_method,
+                expiration_date=sale.expiration_date,
+                payment_amount=0,
+                invoice='Cambio MyAccount'
+            )
+
+            sale.old_acc = new_sale.id
+            sale.save(update_fields=['old_acc'])
+
+            # Liberar cuenta vieja para reventa
+            old_account.customer = None
+            old_account.status = True
+            old_account.modified_by = request.user
+            old_account.external_status = 'Disponible'
+            old_account.save(update_fields=['customer', 'status', 'modified_by', 'external_status'])
+
+            # Asignar cuenta nueva al cliente
+            new_account.customer = sale.customer
+            new_account.modified_by = request.user
+            new_account.save(update_fields=['customer', 'modified_by'])
+
+            user_phone = None
+            try:
+                user_phone = sale.customer.userdetail.phone_number
+            except Exception:
+                user_phone = None
+
+            AccountChangeHistory.objects.create(
+                source='my_account',
+                customer=sale.customer,
+                changed_by=request.user,
+                service=old_account.account_name,
+                old_sale=sale,
+                new_sale=new_sale,
+                old_account=old_account,
+                new_account=new_account,
+                customer_username=sale.customer.username,
+                customer_email=sale.customer.email,
+                customer_phone=user_phone,
+                old_account_email=old_account.email,
+                new_account_email=new_account.email,
+                old_account_profile=old_account.profile,
+                new_account_profile=new_account.profile,
+                old_sale_expiration=sale.expiration_date,
+                new_sale_expiration=new_sale.expiration_date,
+                notes='Cambio automático desde Mi Cuenta por timeout en código de acceso único.'
+            )
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Tu cuenta fue cambiada exitosamente. Se mantuvo la misma duración.',
+            'new_account': {
+                'service': new_account.account_name.description,
+                'email': new_account.email,
+                'profile': new_account.profile
+            }
+        })
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'message': 'Datos inválidos'
+        }, status=400)
+    except Exception as e:
         return JsonResponse({
             'success': False,
             'message': f'Error del servidor: {str(e)}'

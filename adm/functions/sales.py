@@ -1,5 +1,5 @@
 from adm.functions.send_whatsapp_notification import Notification
-from adm.models import Account, Service, UserDetail, Bank, PaymentMethod, Sale, Status, Business, Credits
+from adm.models import Account, Service, UserDetail, Bank, PaymentMethod, Sale, Status, Business, Credits, AccountChangeHistory
 from api.functions.notifications import send_push_notification
 from cupon.models import Cupon
 from django.contrib.auth.models import User
@@ -487,6 +487,34 @@ class Sales():
         acc.modified_by = request.user
         acc.save()
 
+        # Registrar historial trazable del cambio desde /adm
+        customer_phone = None
+        try:
+            customer_phone = old_sale.customer.userdetail.phone_number
+        except Exception:
+            customer_phone = None
+
+        AccountChangeHistory.objects.create(
+            source='admin',
+            customer=old_sale.customer,
+            changed_by=request.user,
+            service=old_acc.account_name,
+            old_sale=old_sale,
+            new_sale=new_sale,
+            old_account=old_acc,
+            new_account=acc,
+            customer_username=old_sale.customer.username,
+            customer_email=old_sale.customer.email,
+            customer_phone=customer_phone,
+            old_account_email=old_acc.email,
+            new_account_email=acc.email,
+            old_account_profile=old_acc.profile,
+            new_account_profile=acc.profile,
+            old_sale_expiration=old_sale.expiration_date,
+            new_sale_expiration=new_sale.expiration_date,
+            notes='Cambio ejecutado por operador en /adm/sales_change.'
+        )
+
         try:
             token = UserDetail.objects.get(user=old_sale.customer).token
             title = f"Tu cuenta {acc.account_name.description} ha sido cambiada"
@@ -891,7 +919,6 @@ class Sales():
                 logger.error(f"Error enviando email a {customer.email}: {str(e)}", exc_info=True)
 
         return True, sale
-
 
 
 

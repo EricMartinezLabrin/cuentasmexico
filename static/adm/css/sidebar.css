@@ -48,3 +48,16 @@
     white-space: nowrap;
     -webkit-overflow-scrolling: touch;
   }
+
+  .sidebar-nav-container {
+    width: 150px;
+    height: 100vh;
+    min-height: 100vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 1030;
+  }

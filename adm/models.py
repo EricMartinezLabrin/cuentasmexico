@@ -142,6 +142,59 @@ class UserPhoneHistory(models.Model):
         return f"+{self.new_lada} {self.new_phone_number}"
 
 
+class AccountChangeHistory(models.Model):
+    """
+    Historial rastreable de cambios de cuenta (admin y autoservicio en My Account).
+    """
+    SOURCE_CHOICES = [
+        ('my_account', 'My Account'),
+        ('admin', 'Admin'),
+    ]
+
+    source = models.CharField(max_length=20, choices=SOURCE_CHOICES, default='my_account')
+    changed_at = models.DateTimeField(auto_now_add=True)
+
+    customer = models.ForeignKey(User, on_delete=models.DO_NOTHING, related_name='account_change_history')
+    changed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='account_change_executed')
+
+    service = models.ForeignKey(Service, on_delete=models.DO_NOTHING, related_name='account_change_history')
+
+    old_sale = models.ForeignKey('Sale', on_delete=models.DO_NOTHING, related_name='as_old_sale_changes')
+    new_sale = models.ForeignKey('Sale', on_delete=models.DO_NOTHING, related_name='as_new_sale_changes')
+
+    old_account = models.ForeignKey('Account', on_delete=models.DO_NOTHING, related_name='old_account_changes')
+    new_account = models.ForeignKey('Account', on_delete=models.DO_NOTHING, related_name='new_account_changes')
+
+    # Snapshot para trazabilidad inmutable
+    customer_username = models.CharField(max_length=150, blank=True, null=True)
+    customer_email = models.EmailField(max_length=254, blank=True, null=True)
+    customer_phone = models.CharField(max_length=32, blank=True, null=True)
+
+    old_account_email = models.EmailField(max_length=254, blank=True, null=True)
+    new_account_email = models.EmailField(max_length=254, blank=True, null=True)
+    old_account_profile = models.IntegerField(blank=True, null=True)
+    new_account_profile = models.IntegerField(blank=True, null=True)
+
+    old_sale_expiration = models.DateTimeField(blank=True, null=True)
+    new_sale_expiration = models.DateTimeField(blank=True, null=True)
+
+    notes = models.TextField(blank=True, null=True)
+
+    class Meta:
+        ordering = ['-changed_at']
+        verbose_name = 'Historial de Cambio de Cuenta'
+        verbose_name_plural = 'Historial de Cambios de Cuenta'
+        indexes = [
+            models.Index(fields=['changed_at']),
+            models.Index(fields=['source', 'changed_at']),
+            models.Index(fields=['customer', 'changed_at']),
+            models.Index(fields=['service', 'changed_at']),
+        ]
+
+    def __str__(self):
+        return f'{self.customer_username or self.customer_id} | {self.old_account_email} -> {self.new_account_email} ({self.changed_at:%Y-%m-%d %H:%M})'
+
+
 class Account(models.Model):
     business = models.ForeignKey(Business, on_delete=models.DO_NOTHING)
     supplier = models.ForeignKey(

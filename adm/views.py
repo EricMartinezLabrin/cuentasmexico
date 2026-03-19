@@ -9,7 +9,7 @@ from django.contrib.auth.models import User
 from django.shortcuts import redirect
 from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
 from django.http import JsonResponse
-from django.db.models import Sum, Prefetch, Case, When, IntegerField, Q
+from django.db.models import Sum, Prefetch, Case, When, IntegerField, Q, Count
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.db.models import DateTimeField, ExpressionWrapper, F
@@ -31,7 +31,7 @@ from django.db.models import DurationField
 # Local
 from .models import (
     Business, PaymentMethod, Sale, UserDetail, Service, Account, Bank,
-    Status, Supplier, Credits, Promocion,
+    Status, Supplier, Credits, Promocion, AccountChangeHistory,
     Affiliate, AffiliateCommission, AffiliateWithdrawal, AffiliateSettings, AffiliateSale
 )
 from cupon.models import Cupon
@@ -149,6 +149,76 @@ def index(request):
         'web_sales_monthly': web_sales_monthly,
         'web_sales_yearly': web_sales_yearly,
         'web_sales_chart': web_sales_chart,
+    })
+
+
+@permission_required('is_staff', 'adm:no-permission')
+def account_change_history_view(request):
+    """
+    Historial de cambios de cuenta con filtros y estadísticas para toma de decisiones.
+    """
+    template_name = 'adm/account_change_history.html'
+    queryset = AccountChangeHistory.objects.select_related(
+        'customer', 'changed_by', 'service', 'old_account', 'new_account', 'old_sale', 'new_sale'
+    ).all()
+
+    search = request.GET.get('search', '').strip()
+    service_id = request.GET.get('service_id', '').strip()
+    source = request.GET.get('source', '').strip()
+    date_from = request.GET.get('date_from', '').strip()
+    date_to = request.GET.get('date_to', '').strip()
+
+    if search:
+        queryset = queryset.filter(
+            Q(customer_username__icontains=search) |
+            Q(customer_email__icontains=search) |
+            Q(customer_phone__icontains=search) |
+            Q(old_account_email__icontains=search) |
+            Q(new_account_email__icontains=search)
+        )
+
+    if service_id:
+        queryset = queryset.filter(service_id=service_id)
+
+    if source:
+        queryset = queryset.filter(source=source)
+
+    if date_from:
+        queryset = queryset.filter(changed_at__date__gte=date_from)
+
+    if date_to:
+        queryset = queryset.filter(changed_at__date__lte=date_to)
+
+    total_changes = queryset.count()
+    today = timezone.localdate()
+    today_changes = queryset.filter(changed_at__date=today).count()
+    my_account_changes = queryset.filter(source='my_account').count()
+    admin_changes = queryset.filter(source='admin').count()
+
+    service_stats = queryset.values('service__description').annotate(
+        total=Count('id')
+    ).order_by('-total')[:10]
+
+    paginator = Paginator(queryset, 30)
+    page = request.GET.get('page', 1)
+    try:
+        history_page = paginator.page(page)
+    except (PageNotAnInteger, EmptyPage):
+        history_page = paginator.page(1)
+
+    return render(request, template_name, {
+        'history': history_page,
+        'services': Service.objects.filter(status=True).order_by('description'),
+        'search': search,
+        'service_id': service_id,
+        'source': source,
+        'date_from': date_from,
+        'date_to': date_to,
+        'stats_total': total_changes,
+        'stats_today': today_changes,
+        'stats_my_account': my_account_changes,
+        'stats_admin': admin_changes,
+        'service_stats': service_stats,
     })
 
 # ========== VISTAS DE DETALLE DE ESTADÍSTICAS WEB ==========

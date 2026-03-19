@@ -1,5 +1,5 @@
 {% load static %}
-<div class="d-flex flex-nowrap position-fixed">
+<div class="d-flex flex-nowrap">
     <div class="d-flex flex-column flex-shrink-0 p-3 text-bg-dark">
         <div class="d-flex justify-content-between align-items-center mb-3 mb-md-0 me-md-auto text-white text-decoration-none">
             <a href="{% url 'index' %}" class="d-flex align-items-center text-white text-decoration-none">
@@ -115,6 +115,12 @@
                     <a href="{% url 'adm:sync_logs' %}" class="nav-link text-white">
                         <i class="bi bi-file-text"></i>
                         Logs
+                    </a>
+                </li>
+                <li>
+                    <a href="{% url 'adm:account_change_history' %}" class="nav-link text-white">
+                        <i class="bi bi-clock-history"></i>
+                        Historial de Cambios
                     </a>
                 </li>
             {% endif %}

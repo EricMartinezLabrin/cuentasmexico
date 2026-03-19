@@ -67,6 +67,9 @@ urlpatterns = [
     path('api/send-whatsapp-login-code/', views.send_whatsapp_login_code, name='send_whatsapp_login_code'),
     path('api/whatsapp-login-verify/', views.whatsapp_login_verify_and_auth, name='whatsapp_login_verify_and_auth'),
     path('api/add-gift-days/', views.add_gift_days_to_account, name='add_gift_days_to_account'),
+    path('api/disney-home-code/', views.get_disney_home_code, name='get_disney_home_code'),
+    path('api/disney-change-availability/', views.disney_change_availability, name='disney_change_availability'),
+    path('api/disney-change-account/', views.disney_change_account, name='disney_change_account'),
 
     # PayPal payment routes
     path('paypal/create-order/', views.paypal_create_order, name='paypal_create_order'),

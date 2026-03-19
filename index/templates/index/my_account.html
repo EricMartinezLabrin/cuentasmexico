@@ -160,35 +160,35 @@
 
     .account-card {
         background: white;
-        border-radius: 14px;
-        padding: 16px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-        border: 1px solid #f0f0f0;
+        border-radius: 16px;
+        padding: 18px;
+        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+        border: 2px solid #cfd9e6;
         transition: all 0.3s ease;
         display: flex;
         flex-direction: column;
+        gap: 14px;
     }
 
     .account-card:hover {
-        box-shadow: 0 8px 24px rgba(0,0,0,0.1);
-        transform: translateY(-2px);
+        box-shadow: 0 16px 32px rgba(15, 23, 42, 0.14);
+        border-color: #9fb3cf;
+        transform: translateY(-3px);
     }
 
     .account-card-header {
         display: flex;
-        align-items: center;
+        align-items: flex-start;
         gap: 12px;
-        margin-bottom: 12px;
-        padding-bottom: 12px;
-        border-bottom: 2px solid #f5f5f5;
+        margin-bottom: 2px;
     }
 
     .account-logo {
         width: 52px;
         height: 52px;
-        border-radius: 10px;
+        border-radius: 12px;
         object-fit: cover;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        box-shadow: 0 6px 14px rgba(15, 23, 42, 0.18);
         flex-shrink: 0;
     }
 
@@ -198,65 +198,106 @@
     }
 
     .account-card-header h4 {
-        margin: 0 0 4px 0;
+        margin: 0 0 6px 0;
         font-weight: 700;
-        font-size: 16px;
+        font-size: 17px;
         word-break: break-word;
+    }
+
+    .account-subtitle {
+        margin: 0;
+        font-size: 12px;
+        color: #667085;
+        font-weight: 500;
+    }
+
+    .account-meta {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        flex-wrap: wrap;
+        padding: 10px 12px;
+        background: #f8fafc;
+        border-radius: 10px;
+        border: 1px solid #e9eef5;
+    }
+
+    .account-profile-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        font-weight: 600;
+        color: #344054;
+        background: #eef2f6;
+        border-radius: 999px;
+        padding: 6px 10px;
     }
 
     .account-card-body {
         display: flex;
         flex-direction: column;
-        gap: 8px;
+        gap: 10px;
         flex-grow: 1;
     }
 
     .account-detail {
-        padding: 8px 12px;
-        background: #f8f9fa;
-        border-radius: 8px;
-        border-left: 3px solid #667eea;
+        padding: 10px 12px;
+        background: #f9fbff;
+        border-radius: 10px;
+        border: 1px solid #e7eefc;
     }
 
     .account-detail .detail-label {
-        font-size: 11px;
-        color: #6c757d;
+        font-size: 10px;
+        color: #5f6b7a;
         font-weight: 600;
         text-transform: uppercase;
-        letter-spacing: 0.5px;
-        margin-bottom: 2px;
+        letter-spacing: 0.7px;
+        margin-bottom: 4px;
     }
 
     .account-detail .detail-value {
-        font-size: 13px;
+        font-size: 14px;
         color: #212529;
-        font-weight: 500;
+        font-weight: 600;
         word-break: break-all;
         display: flex;
         align-items: center;
-        gap: 6px;
+        justify-content: space-between;
+        gap: 8px;
+    }
+
+    .account-detail .detail-text {
+        min-width: 0;
+        flex: 1;
     }
 
     .copy-btn {
-        background: none;
-        border: none;
-        color: #667eea;
+        background: #ecf1ff;
+        border: 1px solid #dbe5ff;
+        color: #4a5ac8;
         cursor: pointer;
-        padding: 4px;
-        transition: color 0.2s;
+        padding: 4px 8px;
+        border-radius: 8px;
+        transition: all 0.2s;
+        flex-shrink: 0;
     }
 
     .copy-btn:hover {
-        color: #764ba2;
+        background: #dde7ff;
+        border-color: #ccd9ff;
+        color: #3f4eb1;
     }
 
     .expiration-badge {
         display: inline-flex;
         align-items: center;
         gap: 6px;
-        padding: 8px 12px;
+        padding: 6px 10px;
         border-radius: 8px;
-        font-size: 13px;
+        font-size: 12px;
         font-weight: 600;
     }
 
@@ -313,7 +354,7 @@
     }
 
     .inactive-section .account-card {
-        opacity: 0.85;
+        opacity: 0.92;
         background: #f8f9fa;
     }
 
@@ -347,6 +388,32 @@
         background: #6c757d;
         cursor: not-allowed;
         transform: none;
+    }
+
+    .btn-view-home-code {
+        width: 100%;
+        background: linear-gradient(135deg, #0d6efd 0%, #2563eb 100%);
+        color: #fff;
+        border: none;
+        padding: 10px 16px;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 13px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+    }
+
+    .btn-view-home-code:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(13, 110, 253, 0.35);
+    }
+
+    .btn-view-home-code:active {
+        transform: translateY(0);
     }
 
     .gift-days-guide {
@@ -528,13 +595,21 @@
     <div class="account-card" data-service-name="{{ data.account.account_name.description|lower }}">
         <div class="account-card-header">
             <img src="{{ data.account.account_name.logo.url }}" alt="{{ data.account.account_name.description }}" class="account-logo">
-            <div style="flex: 1;">
-                <h4 style="margin: 0 0 4px 0; font-weight: 700;">{{ data.account.account_name.description }}</h4>
-                <span class="expiration-badge active">
-                    <i class="bi bi-calendar-check"></i>
-                    Vence: {{ data.expiration_date|date:"d/m/Y" }}
-                </span>
+            <div>
+                <h4>{{ data.account.account_name.description }}</h4>
+                <p class="account-subtitle">Cuenta activa para uso inmediato</p>
             </div>
+        </div>
+
+        <div class="account-meta">
+            <span class="expiration-badge active">
+                <i class="bi bi-calendar-check"></i>
+                Vence: {{ data.expiration_date|date:"d/m/Y" }}
+            </span>
+            <span class="account-profile-chip">
+                <i class="bi bi-person-circle"></i>
+                Perfil {{ data.account.profile }}
+            </span>
         </div>
 
         <div class="account-card-body">
@@ -543,8 +618,8 @@
                     <i class="bi bi-envelope-fill"></i> Email
                 </div>
                 <div class="detail-value">
-                    {{ data.account.email }}
-                    <button class="copy-btn" onclick="copyToClipboard('{{ data.account.email }}')" title="Copiar">
+                    <span class="detail-text">{{ data.account.email }}</span>
+                    <button class="copy-btn" onclick="copyToClipboard('{{ data.account.email|escapejs }}')" title="Copiar">
                         <i class="bi bi-clipboard"></i>
                     </button>
                 </div>
@@ -555,18 +630,11 @@
                     <i class="bi bi-key-fill"></i> Contraseña
                 </div>
                 <div class="detail-value">
-                    {{ data.account.password }}
-                    <button class="copy-btn" onclick="copyToClipboard('{{ data.account.password }}')" title="Copiar">
+                    <span class="detail-text">{{ data.account.password }}</span>
+                    <button class="copy-btn" onclick="copyToClipboard('{{ data.account.password|escapejs }}')" title="Copiar">
                         <i class="bi bi-clipboard"></i>
                     </button>
                 </div>
-            </div>
-
-            <div class="account-detail">
-                <div class="detail-label">
-                    <i class="bi bi-person-circle"></i> Perfil
-                </div>
-                <div class="detail-value">{{ data.account.profile }}</div>
             </div>
 
             {% if data.account.pin %}
@@ -575,8 +643,8 @@
                     <i class="bi bi-shield-lock-fill"></i> PIN
                 </div>
                 <div class="detail-value">
-                    {{ data.account.pin }}
-                    <button class="copy-btn" onclick="copyToClipboard('{{ data.account.pin }}')" title="Copiar">
+                    <span class="detail-text">{{ data.account.pin }}</span>
+                    <button class="copy-btn" onclick="copyToClipboard('{{ data.account.pin|escapejs }}')" title="Copiar">
                         <i class="bi bi-clipboard"></i>
                     </button>
                 </div>
@@ -584,9 +652,17 @@
             {% endif %}
 
             {% if free_days > 0 %}
-            <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #f0f0f0;">
-                <button class="btn-add-gift-days" onclick="addGiftDays({{ data.account.id }}, '{{ data.account.account_name.description }}')" title="Agregar días de regalo a esta cuenta">
+            <div style="margin-top: 2px;">
+                <button class="btn-add-gift-days" onclick="addGiftDays({{ data.account.id }}, '{{ data.account.account_name.description|escapejs }}')" title="Agregar días de regalo a esta cuenta">
                     <i class="bi bi-gift-fill"></i> Agregar días de regalo
+                </button>
+            </div>
+            {% endif %}
+
+            {% if 'disney' in data.account.account_name.description|lower %}
+            <div>
+                <button class="btn-view-home-code" onclick="getHomeCode({{ data.account.id }}, '{{ data.account.email|escapejs }}')" title="Ver código de acceso único" type="button">
+                    <i class="bi bi-key-fill"></i> Ver código de acceso único
                 </button>
             </div>
             {% endif %}
@@ -628,16 +704,24 @@
 
     <div class="accounts-grid" id="inactiveAccountsGrid">
         {% for data in inactive %}
-        <div class="account-card" data-service-name="{{ data.account.account_name.description|lower }}" style="opacity: 0.85; background: #f8f9fa;">
+        <div class="account-card" data-service-name="{{ data.account.account_name.description|lower }}">
             <div class="account-card-header">
                 <img src="{{ data.account.account_name.logo.url }}" alt="{{ data.account.account_name.description }}" class="account-logo">
-                <div style="flex: 1;">
-                    <h4 style="margin: 0 0 4px 0; font-weight: 700;">{{ data.account.account_name.description }}</h4>
-                    <span class="expiration-badge inactive">
-                        <i class="bi bi-calendar-x"></i>
-                        Venció: {{ data.account.expiration_date|date:"d/m/Y" }}
-                    </span>
+                <div>
+                    <h4>{{ data.account.account_name.description }}</h4>
+                    <p class="account-subtitle">Cuenta expirada, disponible para renovación</p>
                 </div>
+            </div>
+
+            <div class="account-meta">
+                <span class="expiration-badge inactive">
+                    <i class="bi bi-calendar-x"></i>
+                    Venció: {{ data.account.expiration_date|date:"d/m/Y" }}
+                </span>
+                <span class="account-profile-chip">
+                    <i class="bi bi-person-circle"></i>
+                    Perfil {{ data.account.profile }}
+                </span>
             </div>
 
             <div class="account-card-body">
@@ -645,14 +729,9 @@
                     <div class="detail-label">
                         <i class="bi bi-envelope-fill"></i> Email
                     </div>
-                    <div class="detail-value">{{ data.account.email }}</div>
-                </div>
-
-                <div class="account-detail">
-                    <div class="detail-label">
-                        <i class="bi bi-person-circle"></i> Perfil
+                    <div class="detail-value">
+                        <span class="detail-text">{{ data.account.email }}</span>
                     </div>
-                    <div class="detail-value">{{ data.account.profile }}</div>
                 </div>
 
                 {% if data.account.pin %}
@@ -660,7 +739,9 @@
                     <div class="detail-label">
                         <i class="bi bi-shield-lock-fill"></i> PIN
                     </div>
-                    <div class="detail-value">{{ data.account.pin }}</div>
+                    <div class="detail-value">
+                        <span class="detail-text">{{ data.account.pin }}</span>
+                    </div>
                 </div>
                 {% endif %}
             </div>
@@ -670,7 +751,53 @@
 </div>
 {% endif %}
 
+<div class="modal fade" id="homeCodeModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0">
+            <div class="modal-header bg-light border-bottom">
+                <h5 class="modal-title">
+                    <i class="bi bi-key me-2" style="color: #0d6efd;"></i>
+                    Código de acceso único
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div id="homeCodeContent">
+                    <div class="text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Cargando...</span>
+                        </div>
+                        <p class="mt-3 text-muted">Buscando código de acceso único...</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer bg-light border-top">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" id="copyHomeCodeBtn" class="btn btn-primary" onclick="copyHomeCode()" style="display: none;">
+                    <i class="bi bi-clipboard me-2"></i> Copiar Código
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
+let currentHomeCode = '';
+let homeCodeInterval = null;
+let homeCodeRetries = 0;
+let currentDisneyAccountId = null;
+let homeCodeFallbackShown = false;
+const MAX_RETRIES = 30;
+const RETRY_INTERVAL = 10000;
+
+function setCopyHomeCodeVisible(visible) {
+    const copyBtn = document.getElementById('copyHomeCodeBtn');
+    if (!copyBtn) {
+        return;
+    }
+    copyBtn.style.display = visible ? 'inline-flex' : 'none';
+}
+
 function copyToClipboard(text) {
     if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(text).then(function() {
@@ -901,6 +1028,301 @@ function showNotification(message, type) {
         }, 300);
     }, 3000);
 }
+
+function fetchHomeCode(email) {
+    fetch('{% url "get_disney_home_code" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            account_id: currentDisneyAccountId
+        })
+    })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (!data.success) {
+                throw new Error(data.message || 'No fue posible obtener el código');
+            }
+
+            function formatEmailDate(emailDateString) {
+                if (!emailDateString) return 'Fecha no disponible';
+                const dateMatch = emailDateString.match(/Date:\s*(.+)/);
+                if (!dateMatch) return emailDateString;
+
+                try {
+                    const date = new Date(dateMatch[1]);
+                    const day = String(date.getDate()).padStart(2, '0');
+                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                    const year = date.getFullYear();
+                    const hours = String(date.getHours()).padStart(2, '0');
+                    const minutes = String(date.getMinutes()).padStart(2, '0');
+                    const seconds = String(date.getSeconds()).padStart(2, '0');
+                    return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
+                } catch (e) {
+                    return emailDateString;
+                }
+            }
+
+            let codesData = [];
+            if (data.data && data.data.codes && data.data.codes.length > 0) {
+                codesData = data.data.codes
+                    .map(c => ({
+                        codigo: c.codigo || c.homeCode || c.code,
+                        email_date: c.email_date,
+                        subject: c.subject,
+                        rawDate: c.email_date ? new Date(c.email_date.replace('Date: ', '')) : new Date(0)
+                    }))
+                    .filter(c => c.codigo)
+                    .sort((a, b) => b.rawDate - a.rawDate);
+            }
+
+            if (codesData.length > 0 && codesData[0].codigo !== 'No disponible') {
+                currentHomeCode = codesData[0].codigo;
+                homeCodeFallbackShown = false;
+                setCopyHomeCodeVisible(true);
+
+                const codesHTML = codesData.map((codeData, index) =>
+                    `<div class="mb-3 p-3 border rounded bg-light">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <strong>Código ${index + 1}:</strong>
+                                <code class="bg-white p-2 rounded d-inline-block">${codeData.codigo}</code>
+                            </div>
+                            <div class="col-md-6 text-md-end">
+                                <small class="text-muted">
+                                    <strong>Fecha:</strong> ${formatEmailDate(codeData.email_date)}
+                                </small>
+                            </div>
+                        </div>
+                        ${codeData.subject ? `<div class="mt-2"><small><strong>Asunto:</strong> ${codeData.subject}</small></div>` : ''}
+                    </div>`
+                ).join('');
+
+                document.getElementById('homeCodeContent').innerHTML = `
+                    <div class="alert alert-success">
+                        <strong>Email:</strong> ${email}<br>
+                        <strong>Total de códigos:</strong> ${codesData.length}<br><br>
+                        ${codesHTML}
+                    </div>
+                `;
+
+                if (homeCodeInterval) {
+                    clearInterval(homeCodeInterval);
+                    homeCodeInterval = null;
+                }
+            } else if (homeCodeRetries < MAX_RETRIES) {
+                homeCodeRetries++;
+                if (homeCodeRetries >= 4) {
+                    setCopyHomeCodeVisible(false);
+                    showHomeCodeFallbackOptions();
+                    return;
+                }
+                setCopyHomeCodeVisible(false);
+                document.getElementById('homeCodeContent').innerHTML = `
+                    <div class="text-center">
+                        <div class="spinner-border" role="status">
+                            <span class="visually-hidden">Cargando...</span>
+                        </div>
+                        <p class="mt-2"><small>Buscando código de acceso único... (Intento ${homeCodeRetries}/${MAX_RETRIES})</small></p>
+                    </div>
+                `;
+            } else {
+                setCopyHomeCodeVisible(false);
+                document.getElementById('homeCodeContent').innerHTML = `
+                    <div class="alert alert-warning">
+                        <strong>Código no disponible</strong><br>
+                        <small>Se alcanzó el número máximo de intentos. El código aún no está disponible.</small>
+                    </div>
+                `;
+                if (homeCodeInterval) {
+                    clearInterval(homeCodeInterval);
+                    homeCodeInterval = null;
+                }
+            }
+        })
+        .catch(error => {
+            if (homeCodeRetries < MAX_RETRIES) {
+                homeCodeRetries++;
+                if (homeCodeRetries >= 4) {
+                    setCopyHomeCodeVisible(false);
+                    showHomeCodeFallbackOptions();
+                    return;
+                }
+                setCopyHomeCodeVisible(false);
+                document.getElementById('homeCodeContent').innerHTML = `
+                    <div class="text-center">
+                        <div class="spinner-border text-warning" role="status">
+                            <span class="visually-hidden">Cargando...</span>
+                        </div>
+                        <p class="mt-2"><small class="text-danger">Error de conexión. Reintentando... (Intento ${homeCodeRetries}/${MAX_RETRIES})</small></p>
+                    </div>
+                `;
+            } else {
+                setCopyHomeCodeVisible(false);
+                document.getElementById('homeCodeContent').innerHTML = `
+                    <div class="alert alert-danger">
+                        <strong>Error al obtener el código</strong><br>
+                        <small>${error.message}</small>
+                    </div>
+                `;
+                if (homeCodeInterval) {
+                    clearInterval(homeCodeInterval);
+                    homeCodeInterval = null;
+                }
+            }
+        });
+}
+
+function getHomeCode(accountId, email) {
+    currentHomeCode = '';
+    homeCodeRetries = 0;
+    currentDisneyAccountId = accountId;
+    homeCodeFallbackShown = false;
+    setCopyHomeCodeVisible(false);
+
+    const modal = new bootstrap.Modal(document.getElementById('homeCodeModal'));
+    modal.show();
+
+    document.getElementById('homeCodeContent').innerHTML = `
+        <div class="text-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+            <p class="mt-2"><small>Buscando código de acceso único...</small></p>
+        </div>
+    `;
+
+    fetchHomeCode(email);
+
+    if (!homeCodeInterval) {
+        homeCodeInterval = setInterval(() => {
+            if (homeCodeRetries < MAX_RETRIES && !currentHomeCode) {
+                fetchHomeCode(email);
+            } else if (currentHomeCode || homeCodeRetries >= MAX_RETRIES) {
+                clearInterval(homeCodeInterval);
+                homeCodeInterval = null;
+            }
+        }, RETRY_INTERVAL);
+    }
+
+    document.getElementById('homeCodeModal').addEventListener('hidden.bs.modal', function() {
+        if (homeCodeInterval) {
+            clearInterval(homeCodeInterval);
+            homeCodeInterval = null;
+        }
+        currentDisneyAccountId = null;
+        homeCodeFallbackShown = false;
+        setCopyHomeCodeVisible(false);
+    }, { once: true });
+}
+
+function copyHomeCode() {
+    if (currentHomeCode && currentHomeCode !== 'No disponible') {
+        navigator.clipboard.writeText(currentHomeCode).then(() => {
+            showNotification('Código copiado al portapapeles', 'success');
+        });
+    }
+}
+
+function showHomeCodeFallbackOptions() {
+    if (homeCodeFallbackShown || !currentDisneyAccountId) {
+        return;
+    }
+    homeCodeFallbackShown = true;
+    setCopyHomeCodeVisible(false);
+
+    fetch('{% url "disney_change_availability" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            account_id: currentDisneyAccountId
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        const changeButton = (data.success && data.can_change)
+            ? `<button type="button" class="btn btn-primary" onclick="requestAccountChange()">
+                    <i class="bi bi-arrow-repeat me-2"></i> Cambiar cuenta
+               </button>`
+            : '';
+
+        const reason = (data && data.message) ? `<p class="mt-2 mb-0"><small class="text-muted">${data.message}</small></p>` : '';
+
+        document.getElementById('homeCodeContent').innerHTML = `
+            <div class="alert alert-warning">
+                <strong>El código está tardando más de lo esperado.</strong>
+                <p class="mb-2 mt-2">Puedes contactarnos por WhatsApp o cambiar tu cuenta automáticamente si hay stock disponible.</p>
+                ${reason}
+                <div class="d-flex flex-wrap gap-2 mt-3">
+                    ${changeButton}
+                    <button type="button" class="btn btn-success" onclick="openSupportWhatsApp()">
+                        <i class="bi bi-whatsapp me-2"></i> Hablar por WhatsApp
+                    </button>
+                </div>
+            </div>
+        `;
+    })
+    .catch(() => {
+        document.getElementById('homeCodeContent').innerHTML = `
+            <div class="alert alert-warning">
+                <strong>El código está tardando más de lo esperado.</strong>
+                <p class="mb-2 mt-2">Puedes contactarnos directamente por WhatsApp para atención inmediata.</p>
+                <button type="button" class="btn btn-success" onclick="openSupportWhatsApp()">
+                    <i class="bi bi-whatsapp me-2"></i> Hablar por WhatsApp
+                </button>
+            </div>
+        `;
+    });
+}
+
+function openSupportWhatsApp() {
+    window.open('https://wa.me/5218335355863', '_blank');
+}
+
+function requestAccountChange() {
+    if (!currentDisneyAccountId) {
+        return;
+    }
+
+    if (!confirm('¿Deseas cambiar esta cuenta Disney ahora? Solo podrás hacerlo una vez por día.')) {
+        return;
+    }
+
+    fetch('{% url "disney_change_account" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            account_id: currentDisneyAccountId
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification(data.message, 'success');
+            setTimeout(() => {
+                window.location.reload();
+            }, 1800);
+        } else {
+            showNotification(data.message || 'No fue posible cambiar la cuenta.', 'error');
+        }
+    })
+    .catch(() => {
+        showNotification('Error al cambiar la cuenta. Intenta nuevamente.', 'error');
+    });
+}
 </script>
 
 <style>
@@ -1005,7 +1427,6 @@ function showNotification(message, type) {
         font-size: 18px;
     }
 }
-</media>
 </style>
 
 {% endblock body %}

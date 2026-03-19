@@ -206,4 +206,5 @@ urlpatterns = [
     path('sync-logs/download/', views.sync_logs_download, name='sync_logs_download'),
     path('sync-logs/clear/', views.sync_logs_clear, name='sync_logs_clear'),
     path('sync-logs/execute/', views.sync_google_sheets_execute, name='sync_execute'),
+    path('account-change-history/', login_required(views.account_change_history_view), name='account_change_history'),
 ]
