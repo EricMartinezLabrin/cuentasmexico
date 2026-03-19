@@ -1,0 +1,54 @@
+<style>
+  .cm-whatsapp-float {
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    width: 60px;
+    height: 60px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #25d366 0%, #1ebe5d 100%);
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.24);
+    z-index: 1080;
+    text-decoration: none;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .cm-whatsapp-float i {
+    font-size: 30px;
+    line-height: 1;
+  }
+
+  .cm-whatsapp-float:hover {
+    color: #fff;
+    transform: translateY(-2px) scale(1.03);
+    box-shadow: 0 14px 28px rgba(0, 0, 0, 0.28);
+  }
+
+  @media (max-width: 576px) {
+    .cm-whatsapp-float {
+      right: 14px;
+      bottom: 14px;
+      width: 56px;
+      height: 56px;
+    }
+
+    .cm-whatsapp-float i {
+      font-size: 28px;
+    }
+  }
+</style>
+
+<a
+  href="https://wa.me/5218335355863"
+  class="cm-whatsapp-float"
+  target="_blank"
+  rel="noopener noreferrer"
+  aria-label="Contactar por WhatsApp"
+  title="WhatsApp"
+>
+  <i class="bi bi-whatsapp"></i>
+</a>

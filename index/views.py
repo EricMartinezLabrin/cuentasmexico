@@ -3,6 +3,7 @@ from django.shortcuts import render
 from django.http import HttpResponse, JsonResponse
 from django.contrib.auth.views import LoginView, LogoutView, PasswordResetView, PasswordResetDoneView, PasswordResetConfirmView, PasswordResetCompleteView
 from django.contrib.auth.models import User, Group
+from django.contrib.auth.decorators import login_required
 from django.urls import reverse_lazy, reverse
 from django.shortcuts import redirect
 from django.views.generic import DetailView, CreateView, TemplateView, ListView, UpdateView
@@ -11,6 +12,8 @@ from django.http import HttpResponseRedirect
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
+from django.core.validators import validate_email
+from django.core.exceptions import ValidationError
 from index.models import IndexCart, IndexCartdetail
 from index.payment_methods.MercagoPago import MercadoPago
 from index.payment_methods.PayPal import PayPal
@@ -1263,6 +1266,7 @@ def add_gift_days_to_account(request):
 
 # WhatsApp Verification Views
 from .whatsapp_verification import WhatsAppVerification
+from .email_verification import EmailVerification
 
 
 @require_http_methods(["POST"])
@@ -1501,6 +1505,139 @@ def whatsapp_login_verify_and_auth(request):
         return JsonResponse({
             'success': False,
             'message': 'Datos inválidos'
+        }, status=400)
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Error del servidor: {str(e)}'
+        }, status=500)
+
+
+@require_http_methods(["POST"])
+@csrf_exempt
+@login_required
+def send_email_verification(request):
+    """
+    Send verification code via email for authenticated user.
+    """
+    try:
+        data = json.loads(request.body)
+        email = data.get('email', '').strip().lower()
+
+        if not email:
+            return JsonResponse({
+                'success': False,
+                'message': 'El email es requerido'
+            }, status=400)
+
+        if '@example.com' in email:
+            return JsonResponse({
+                'success': False,
+                'message': 'Ingresa un email valido'
+            }, status=400)
+
+        try:
+            validate_email(email)
+        except ValidationError:
+            return JsonResponse({
+                'success': False,
+                'message': 'Ingresa un email valido'
+            }, status=400)
+
+        existing_user = User.objects.filter(email__iexact=email).exclude(id=request.user.id).first()
+        if existing_user:
+            return JsonResponse({
+                'success': False,
+                'message': 'Este email ya esta registrado por otro usuario'
+            }, status=400)
+
+        code = EmailVerification.generate_verification_code()
+        result = EmailVerification.send_verification_code(request.user.id, email, code)
+        return JsonResponse(result)
+
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'message': 'Datos invalidos'
+        }, status=400)
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Error del servidor: {str(e)}'
+        }, status=500)
+
+
+@require_http_methods(["POST"])
+@csrf_exempt
+@login_required
+def verify_email_code(request):
+    """
+    Verify email code and update authenticated user's email.
+    """
+    try:
+        data = json.loads(request.body)
+        email = data.get('email', '').strip().lower()
+        code = data.get('code', '').strip()
+
+        if not email or not code:
+            return JsonResponse({
+                'success': False,
+                'message': 'Todos los campos son requeridos'
+            }, status=400)
+
+        existing_user = User.objects.filter(email__iexact=email).exclude(id=request.user.id).first()
+        if existing_user:
+            return JsonResponse({
+                'success': False,
+                'message': 'Este email ya esta registrado por otro usuario'
+            }, status=400)
+
+        if '@example.com' in email:
+            return JsonResponse({
+                'success': False,
+                'message': 'Ingresa un email valido'
+            }, status=400)
+
+        try:
+            validate_email(email)
+        except ValidationError:
+            return JsonResponse({
+                'success': False,
+                'message': 'Ingresa un email valido'
+            }, status=400)
+
+        verify_result = EmailVerification.verify_code(request.user.id, email, code)
+        if not verify_result.get('success'):
+            return JsonResponse(verify_result, status=400)
+
+        previous_email = (request.user.email or '').strip().lower()
+        previous_is_placeholder = (not previous_email) or ('@example.com' in previous_email)
+
+        request.user.email = email
+        request.user.save(update_fields=['email'])
+
+        days_added = 0
+        if previous_is_placeholder:
+            user_detail = UserDetail.objects.filter(user=request.user).first()
+            if user_detail:
+                user_detail.free_days = (user_detail.free_days or 0) + 7
+                user_detail.save(update_fields=['free_days'])
+                days_added = 7
+
+        message = 'Email verificado y actualizado correctamente'
+        if days_added:
+            message = f'{message}. Se agregaron {days_added} dias gratis a tu cuenta'
+
+        return JsonResponse({
+            'success': True,
+            'message': message,
+            'days_added': days_added
+        })
+
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'message': 'Datos invalidos'
         }, status=400)
     except Exception as e:
         return JsonResponse({

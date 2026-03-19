@@ -348,6 +348,30 @@
         cursor: not-allowed;
         transform: none;
     }
+
+    .gift-days-guide {
+        background: linear-gradient(135deg, #eef4ff 0%, #f8f2ff 100%);
+        border: 1px solid #dfe6ff;
+        border-radius: 14px;
+        padding: 14px 16px;
+        margin: -10px 0 18px 0;
+    }
+
+    .gift-days-guide-title {
+        margin: 0 0 8px 0;
+        font-size: 15px;
+        font-weight: 700;
+        color: #2d3f8f;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .gift-days-guide p {
+        margin: 0;
+        color: #344054;
+        font-size: 14px;
+    }
 </style>
 
 {% if request.GET.collection_status == 'approved' or request.GET.status == 'approved' %}
@@ -470,6 +494,16 @@
         </div>
     </div>
 </div>
+
+{% if free_days > 0 %}
+<div class="gift-days-guide">
+    <h3 class="gift-days-guide-title">
+        <i class="bi bi-lightbulb-fill"></i>
+        ¿Cómo usar tus días gratis?
+    </h3>
+    <p>En "Mis Cuentas Activas", elige la cuenta que quieras extender y presiona <strong>Agregar días de regalo</strong>. Tus {{ free_days }} día{{ free_days|pluralize }} se aplicarán automáticamente a esa cuenta.</p>
+</div>
+{% endif %}
 
 <div class="section-header">
     <div class="icon">

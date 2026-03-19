@@ -62,6 +62,8 @@ urlpatterns = [
     path('webhook/mercadopago/', views.mp_webhook, name='mp_webhook'),
     path('api/send-whatsapp-verification/', views.send_whatsapp_verification, name='send_whatsapp_verification'),
     path('api/verify-whatsapp-code/', views.verify_whatsapp_code, name='verify_whatsapp_code'),
+    path('api/send-email-verification/', views.send_email_verification, name='send_email_verification'),
+    path('api/verify-email-code/', views.verify_email_code, name='verify_email_code'),
     path('api/send-whatsapp-login-code/', views.send_whatsapp_login_code, name='send_whatsapp_login_code'),
     path('api/whatsapp-login-verify/', views.whatsapp_login_verify_and_auth, name='whatsapp_login_verify_and_auth'),
     path('api/add-gift-days/', views.add_gift_days_to_account, name='add_gift_days_to_account'),
@@ -125,4 +127,3 @@ urlpatterns = [
     path('afiliados/api/stats/', views_affiliates.api_stats, name='afiliados_api_stats'),
     path('afiliados/api/notificaciones-count/', views_affiliates.api_notificaciones_count, name='afiliados_api_notificaciones_count'),
 ]
-

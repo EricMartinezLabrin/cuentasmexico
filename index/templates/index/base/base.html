@@ -12,6 +12,63 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-kenU1KFdBIe4zVF0s0G1M5b4hcpxyD9F7jL+jjXkk+Q2h455rYXK/7HAuoJl+0I4" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0-beta1/dist/js/bootstrap.min.js" integrity="sha384-kjU+l4N0Yf4ZOJErLsIcvOU2qSb74wXpOhqTvwVx3OElZRweTnQ6d31fXEoRD1Jy" crossorigin="anonymous"></script>
     <link rel="stylesheet" href="{% static 'index/css/main.css' %}"> 
+    <style>
+      .promo-email-modal .modal-content {
+        border: 0;
+        border-radius: 18px;
+        overflow: hidden;
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+      }
+      .promo-email-hero {
+        background: linear-gradient(135deg, #b64700 0%, #d45b00 42%, #f57c00 100%);
+        color: #fff;
+        padding: 1rem 1.25rem;
+      }
+      .promo-pill {
+        display: inline-block;
+        background: rgba(255, 255, 255, 0.2);
+        color: #fff;
+        border: 1px solid rgba(255, 255, 255, 0.45);
+        border-radius: 999px;
+        padding: 0.35rem 0.8rem;
+        font-weight: 700;
+        font-size: 0.82rem;
+        margin-bottom: 0.55rem;
+      }
+      .promo-title {
+        font-weight: 800;
+        margin: 0;
+        line-height: 1.15;
+      }
+      .promo-subtitle {
+        margin: 0.35rem 0 0 0;
+        font-size: 0.95rem;
+        color: rgba(255, 255, 255, 0.96);
+      }
+      .promo-benefits {
+        margin: 0.75rem 0 0 0;
+        padding: 0;
+        list-style: none;
+      }
+      .promo-benefits li {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+        margin-bottom: 0.45rem;
+      }
+      .promo-benefits i {
+        color: #0f7b00;
+      }
+      .promo-cta {
+        animation: promoPulse 1.9s ease-in-out infinite;
+        font-weight: 700;
+      }
+      @keyframes promoPulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.03); }
+        100% { transform: scale(1); }
+      }
+    </style>
 </head>
   <body>
     <header>
@@ -207,6 +264,48 @@
     
     <!--Modal-->
     <div class="modal fade" id="edicion" role="dialog"></div>
+
+    {% if request.user.is_authenticated %}
+    {% if not request.user.email or '@example.com' in request.user.email %}
+    <div class="modal fade promo-email-modal" id="emailVerificationModal" tabindex="-1" aria-labelledby="emailVerificationModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="promo-email-hero">
+            <span class="promo-pill">🎁 Oferta exclusiva</span>
+            <h5 class="modal-title promo-title" id="emailVerificationModalLabel">¿Quieres ganar 7 días gratis?</h5>
+            <p class="promo-subtitle">Añade un email a tu cuenta y actívalos ahora.</p>
+          </div>
+          <div class="modal-body">
+            <ul class="promo-benefits">
+              <li><i class="bi bi-check-circle-fill"></i><span>Recibe soporte y avisos importantes por correo</span></li>
+              <li><i class="bi bi-check-circle-fill"></i><span>Recupera tu acceso más rápido si lo necesitas</span></li>
+              <li><i class="bi bi-check-circle-fill"></i><span>Obtén <strong>7 días gratis</strong> para canjear cuando quieras</span></li>
+            </ul>
+
+            <div id="emailStep1">
+              <label for="promoEmailInput" class="form-label mt-2 fw-semibold">Tu mejor email ✉️</label>
+              <input type="email" class="form-control" id="promoEmailInput" placeholder="tucorreo@dominio.com">
+              <div class="d-grid mt-3">
+                <button type="button" class="btn btn-cm promo-cta" id="sendEmailCodeBtn">Quiero mi código de verificación</button>
+              </div>
+            </div>
+
+            <div id="emailStep2" class="d-none mt-3">
+              <label for="promoEmailCodeInput" class="form-label fw-semibold">Código de verificación 🔐</label>
+              <input type="text" class="form-control text-center" id="promoEmailCodeInput" maxlength="6" placeholder="000000" style="letter-spacing: 0.3rem;">
+              <div class="d-grid mt-3">
+                <button type="button" class="btn btn-success" id="verifyEmailCodeBtn">Activar mis 7 días gratis</button>
+              </div>
+            </div>
+
+            <div id="emailVerificationFeedback" class="alert d-none mt-3 mb-0" role="alert"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+    {% endif %}
+
     <footer class="bg-light">
       {% comment %} <div class="border-bottom d-flex justify-content-evenly w-100 align-items-center p-5">
         <div>
@@ -282,6 +381,8 @@
       </div>
     </footer>
 
+    {% include 'index/components/whatsapp_float_button.html' %}
+
     {% block extrajs %}{% endblock extrajs %}
     <script type="text/javascript">
       var $ = jQuery.noConflict();
@@ -329,6 +430,120 @@
           }
           return cookieValue;
       }
+
+      {% if request.user.is_authenticated %}
+      {% if not request.user.email or '@example.com' in request.user.email %}
+      document.addEventListener('DOMContentLoaded', function () {
+          const emailModalEl = document.getElementById('emailVerificationModal');
+          if (!emailModalEl) return;
+
+          const emailModal = new bootstrap.Modal(emailModalEl, {
+              backdrop: 'static',
+              keyboard: false
+          });
+
+          const emailInput = document.getElementById('promoEmailInput');
+          const codeInput = document.getElementById('promoEmailCodeInput');
+          const step2 = document.getElementById('emailStep2');
+          const sendBtn = document.getElementById('sendEmailCodeBtn');
+          const verifyBtn = document.getElementById('verifyEmailCodeBtn');
+          const feedback = document.getElementById('emailVerificationFeedback');
+
+          const showFeedback = function (message, type) {
+              feedback.className = 'alert mt-3 mb-0 alert-' + type;
+              feedback.textContent = message;
+              feedback.classList.remove('d-none');
+          };
+
+          const clearFeedback = function () {
+              feedback.classList.add('d-none');
+              feedback.textContent = '';
+          };
+
+          emailModal.show();
+
+          sendBtn.addEventListener('click', function () {
+              clearFeedback();
+              const email = (emailInput.value || '').trim().toLowerCase();
+
+              if (!email) {
+                  showFeedback('Ingresa un email valido', 'warning');
+                  return;
+              }
+
+              sendBtn.disabled = true;
+              sendBtn.textContent = 'Enviando codigo...';
+
+              fetch('/api/send-email-verification/', {
+                  method: 'POST',
+                  headers: {
+                      'Content-Type': 'application/json',
+                      'X-CSRFToken': getCookie('csrftoken')
+                  },
+                  body: JSON.stringify({ email: email })
+              })
+              .then(response => response.json())
+              .then(data => {
+                  if (data.success) {
+                      step2.classList.remove('d-none');
+                      showFeedback('Listo. Te enviamos un codigo a tu correo. Revisalo y activamos tus 7 dias.', 'success');
+                  } else {
+                      showFeedback(data.message || 'No se pudo enviar el codigo', 'danger');
+                  }
+              })
+              .catch(() => {
+                  showFeedback('Error de conexion al enviar el codigo', 'danger');
+              })
+              .finally(() => {
+                  sendBtn.disabled = false;
+                  sendBtn.textContent = 'Quiero mi código de verificación';
+              });
+          });
+
+          verifyBtn.addEventListener('click', function () {
+              clearFeedback();
+              const email = (emailInput.value || '').trim().toLowerCase();
+              const code = (codeInput.value || '').trim();
+
+              if (!email || !code) {
+                  showFeedback('Ingresa email y codigo', 'warning');
+                  return;
+              }
+
+              verifyBtn.disabled = true;
+              verifyBtn.textContent = 'Activando...';
+
+              fetch('/api/verify-email-code/', {
+                  method: 'POST',
+                  headers: {
+                      'Content-Type': 'application/json',
+                      'X-CSRFToken': getCookie('csrftoken')
+                  },
+                  body: JSON.stringify({ email: email, code: code })
+              })
+              .then(response => response.json())
+              .then(data => {
+                  if (data.success) {
+                      showFeedback(data.message || 'Email verificado correctamente', 'success');
+                      setTimeout(function () {
+                          emailModal.hide();
+                          window.location.reload();
+                      }, 1200);
+                  } else {
+                      showFeedback(data.message || 'Codigo incorrecto', 'danger');
+                  }
+              })
+              .catch(() => {
+                  showFeedback('Error de conexion al validar el codigo', 'danger');
+              })
+              .finally(() => {
+                  verifyBtn.disabled = false;
+                  verifyBtn.textContent = 'Activar mis 7 días gratis';
+              });
+          });
+      });
+      {% endif %}
+      {% endif %}
     </script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-kenU1KFdBIe4zVF0s0G1M5b4hcpxyD9F7jL+jjXkk+Q2h455rYXK/7HAuoJl+0I4" crossorigin="anonymous"></script>
   </body>
