@@ -19,7 +19,7 @@
                             <!-- content -->
                             <h2 class="mb-1 h5 cm">Esta es tu cuenta {{account.account_name}} 
                                 {% if code %}
-                                de {{code.long}} me{{code.long|pluralize:"s,ses"}}
+                                de {{ code.duration_text }}
                                 {% endif %}
                             </h2>
                             <h5>Email: {{account.email}}</h5>

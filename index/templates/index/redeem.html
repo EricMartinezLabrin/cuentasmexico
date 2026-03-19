@@ -80,7 +80,7 @@
                                 <br>
                                 <div>
                                     <!-- badge --> 
-                                    <a href="#!" onclick="abrir_modal_edicion('{% url 'redeem_confirm' %}?name={{code.name}}&service={{data.account.id}}')" class="btn btn-cm">Renovar {{code.long}} me{{code.long|pluralize:"s,ses"}}</a>
+                                    <a href="#!" onclick="abrir_modal_edicion('{% url 'redeem_confirm' %}?name={{code.name}}&service={{data.account.id}}')" class="btn btn-cm">Renovar {{ code.duration_text }}</a>
                             </div>
                         </div>
                     </div>
@@ -98,12 +98,12 @@
                               <h2 class="mb-1 h5 cm">Crea una cuenta nueva</h2>
                               <div class="small text-muted">
                                   <span class="me-2">Cualquier servicio</span>
-                                  <span class="me-2">Duración {{code.long}} me{{code.long|pluralize:"s,ses"}}</span>
+                                  <span class="me-2">Duración {{ code.duration_text }}</span>
                               </div>
                               <br>
                               <div>
                                   <!-- badge --> 
-                                  <a href="{% url 'select_acc' %}?name={{code.name}}" class="btn btn-cm">Crear cuenta de {{code.long}} me{{code.long|pluralize:"s,ses"}}</a>
+                                  <a href="{% url 'select_acc' %}?name={{code.name}}" class="btn btn-cm">Crear cuenta de {{ code.duration_text }}</a>
                           </div>
                       </div>
                   </div>
@@ -126,12 +126,12 @@
                               <h2 class="mb-1 h5 cm">Crea una cuenta nueva</h2>
                               <div class="small text-muted">
                                   <span class="me-2">Cualquier servicio</span>
-                                  <span class="me-2">Duración {{code.long}} me{{code.long|pluralize:"s,ses"}}</span>
+                                  <span class="me-2">Duración {{ code.duration_text }}</span>
                               </div>
                               <br>
                               <div>
                                   <!-- badge --> 
-                                  <a href="{% url 'select_acc' %}?name={{code.name}}" class="btn btn-cm">Crear cuenta de {{code.long}} me{{code.long|pluralize:"s,ses"}}</a>
+                                  <a href="{% url 'select_acc' %}?name={{code.name}}" class="btn btn-cm">Crear cuenta de {{ code.duration_text }}</a>
                           </div>
                       </div>
                   </div>

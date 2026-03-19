@@ -34,7 +34,9 @@ from .models import (
     Status, Supplier, Credits, Promocion, AccountChangeHistory,
     Affiliate, AffiliateCommission, AffiliateWithdrawal, AffiliateSettings, AffiliateSale
 )
-from cupon.models import Cupon
+from cupon.models import Cupon, CouponRedemption
+from cupon.forms import CuponForm
+from cupon.services import CouponRedeemError, normalize_code, validate_coupon_from_code
 from .functions.alerts import Alerts
 from .functions.forms import AccountsForm, BankForm, PaymentMethodForm, ServicesForm, SettingsForm, UserDetailForm, UserForm, FilterAccountForm, StatusForm, SupplierForm, CustomerUpdateForm, UserMainForm
 from .functions.permissions import UserAccessMixin
@@ -1323,15 +1325,11 @@ def SalesSearchView(request):
         data = json.loads(request.body)
         service_id = int(data['data']['service'])
         code_name = data['data']['code']
-        code = Cupon.objects.get(name=code_name)
+        code = Cupon.objects.get(name=normalize_code(code_name))
         service = Service.objects.get(pk=service_id)
-        duration = code.long
         accounts = Account.objects.filter(
             account_name=service, customer=None, status=True, external_status='Disponible').order_by('-expiration_date')
-        if duration == 0.25:
-            better_acc_expiration_date = timezone.now() + timedelta(days=7)
-        else:
-            better_acc_expiration_date = timezone.now() + relativedelta(months=duration)
+        better_acc_expiration_date = code.get_expiration_date(timezone.now())
         better_acc = Sales.search_better_acc(
             service.id, better_acc_expiration_date)
         if better_acc[0] == False:
@@ -1651,37 +1649,167 @@ class SupplierDeleteView(UserAccessMixin, DeleteView):
     template_name = "adm/delete.html"
     success_url = reverse_lazy('adm:supplier')
 
+def _legacy_long_from_duration(duration_unit, duration_quantity):
+    if duration_unit == Cupon.DURATION_UNIT_YEAR:
+        return duration_quantity * 12
+    if duration_unit == Cupon.DURATION_UNIT_MONTH:
+        return duration_quantity
+    # Compatibilidad temporal: para day/week mantenemos 1 mes aproximado en legacy.
+    return 1
+
+
 class CuponView(UserAccessMixin, ListView):
     permission_required = 'is_staff'
     model = Cupon
     template_name = "adm/cupon.html"
-    paginate_by = 15
+    paginate_by = 20
+
+    def get_queryset(self):
+        queryset = Cupon.objects.select_related('customer', 'seller', 'order').order_by('-create_date')
+        search = self.request.GET.get('search', '').strip().lower()
+        status_filter = self.request.GET.get('status', '').strip()
+        duration_filter = self.request.GET.get('duration', '').strip()
+
+        if search:
+            queryset = queryset.filter(name__icontains=search)
+        if status_filter in ('active', 'inactive'):
+            queryset = queryset.filter(status=(status_filter == 'active'))
+        if duration_filter:
+            queryset = queryset.filter(duration_unit=duration_filter)
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['create_form'] = CuponForm()
+        context['search'] = self.request.GET.get('search', '').strip()
+        context['status_filter'] = self.request.GET.get('status', '').strip()
+        context['duration_filter'] = self.request.GET.get('duration', '').strip()
+        context['duration_choices'] = Cupon.DURATION_UNIT_CHOICES
+        return context
+
+
+@permission_required('is_staff', 'adm:no-permission')
+def CuponCreateView(request):
+    if request.method != 'POST':
+        return redirect(reverse('adm:cupon'))
+
+    form = CuponForm(request.POST)
+    if form.is_valid():
+        cupon = form.save(commit=False)
+        cupon.long = _legacy_long_from_duration(cupon.duration_unit, cupon.duration_quantity)
+        cupon.used_count = 0
+        cupon.save()
+        return redirect(reverse('adm:cupon'))
+
+    queryset = Cupon.objects.order_by('-create_date')
+    paginator = Paginator(queryset, 20)
+    venues = paginator.get_page(1)
+    return render(request, "adm/cupon.html", {
+        'object_list': venues,
+        'page_obj': venues,
+        'is_paginated': venues.has_other_pages(),
+        'create_form': form,
+        'duration_choices': Cupon.DURATION_UNIT_CHOICES,
+    })
+
+
+@permission_required('is_staff', 'adm:no-permission')
+def CuponUpdateView(request, pk):
+    cupon = Cupon.objects.get(pk=pk)
+    if request.method == 'POST':
+        form = CuponForm(request.POST, instance=cupon)
+        if form.is_valid():
+            updated = form.save(commit=False)
+            updated.long = _legacy_long_from_duration(updated.duration_unit, updated.duration_quantity)
+            if updated.max_uses > 0 and updated.used_count > updated.max_uses:
+                updated.used_count = updated.max_uses
+            updated.save()
+            return redirect(reverse('adm:cupon'))
+    else:
+        form = CuponForm(instance=cupon)
+
+    return render(request, 'adm/cupon_form.html', {
+        'form': form,
+        'cupon': cupon,
+    })
+
+
+@permission_required('is_staff', 'adm:no-permission')
+def CuponToggleStatusView(request, pk):
+    cupon = Cupon.objects.get(pk=pk)
+    cupon.status = not cupon.status
+    cupon.save(update_fields=['status'])
+    return redirect(reverse('adm:cupon'))
+
+
+class CouponRedemptionLogView(UserAccessMixin, ListView):
+    permission_required = 'is_staff'
+    model = CouponRedemption
+    template_name = "adm/coupon_redemptions.html"
+    paginate_by = 30
+
+    def get_queryset(self):
+        queryset = CouponRedemption.objects.select_related('cupon', 'customer', 'sale').order_by('-redeemed_at')
+        search = self.request.GET.get('search', '').strip()
+        channel = self.request.GET.get('channel', '').strip()
+        date_from = self.request.GET.get('date_from', '').strip()
+        date_to = self.request.GET.get('date_to', '').strip()
+
+        if search:
+            queryset = queryset.filter(
+                Q(cupon__name__icontains=search) |
+                Q(customer__username__icontains=search) |
+                Q(phone_number__icontains=search) |
+                Q(service_name__icontains=search)
+            )
+        if channel in (CouponRedemption.CHANNEL_WEB, CouponRedemption.CHANNEL_ADMIN):
+            queryset = queryset.filter(channel=channel)
+        if date_from:
+            queryset = queryset.filter(redeemed_at__date__gte=date_from)
+        if date_to:
+            queryset = queryset.filter(redeemed_at__date__lte=date_to)
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['search'] = self.request.GET.get('search', '').strip()
+        context['channel'] = self.request.GET.get('channel', '').strip()
+        context['date_from'] = self.request.GET.get('date_from', '').strip()
+        context['date_to'] = self.request.GET.get('date_to', '').strip()
+        context['channel_choices'] = CouponRedemption.CHANNEL_CHOICES
+        return context
 
 @permission_required('is_staff', 'adm:no-permission')
 def CuponRedeemView(request):
     template_name = "adm/cupon_redeem.html"
     error = None
     services = None
+    cupon = None
     if request.method == 'POST':
-        cupon = request.POST.get('code').lower()
+        code_name = normalize_code(request.POST.get('code'))
         customer = request.POST.get('customer')
         service = request.POST.get('service')
+        customer_user = User.objects.get(pk=customer)
         if service:
-            cupon = Cupon.objects.get(name=cupon)
-            return render(request, template_name, {
-                'service': service,
-                'cupon': cupon,
-                'customer': customer,
-                'months': cupon.long
-            })
+            try:
+                cupon = validate_coupon_from_code(code_name, customer_user)
+                return render(request, template_name, {
+                    'service': service,
+                    'cupon': cupon,
+                    'customer': customer,
+                    'duration_label': cupon.get_duration_unit_display(),
+                    'duration_quantity': cupon.duration_quantity,
+                })
+            except (Cupon.DoesNotExist, CouponRedeemError) as exc:
+                return render(request, template_name, {
+                    'error': str(exc),
+                    'customer': customer,
+                })
         try:
-            cupon = Cupon.objects.get(name=cupon)
-            if cupon.customer:
-                error = "El cupón ya fue utilizado"
-            else:
-                services = Service.objects.filter(status=True)
-        except Cupon.DoesNotExist:
-            error = "El cupón no existe"
+            cupon = validate_coupon_from_code(code_name, customer_user)
+            services = Service.objects.filter(status=True)
+        except (Cupon.DoesNotExist, CouponRedeemError) as exc:
+            error = str(exc)
         return render(request, template_name, {
             'error': error,
             'services': services,
@@ -1693,11 +1821,14 @@ def CuponRedeemView(request):
 def CuponRedeemEndView(request):
     if request.method == 'POST':
         customer = request.POST.get('customer')
-        sale = Sales.cupon_sale(request)
-        print(sale)
-        if sale[0] == True:
+        try:
+            sale = Sales.cupon_sale(request)
+            if sale[0] == True:
+                customer = User.objects.get(pk=customer)
+                return Sales.render_view(request, customer)
+        except CouponRedeemError as exc:
             customer = User.objects.get(pk=customer)
-            return Sales.render_view(request, customer)
+            return Sales.render_view(request, customer, message=str(exc))
 
 class ReceivableView(UserAccessMixin, ListView):
     permission_required = 'is_staff'

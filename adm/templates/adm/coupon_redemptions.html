@@ -1,0 +1,73 @@
+{% extends 'adm/base/base.html' %}
+{% block title %}
+    Bitácora de Canjes
+{% endblock title %}
+{% block body %}
+    <h1>Bitácora de Canjes</h1>
+
+    <div class="card p-3 mb-3">
+        <form method="get" class="row g-2">
+            <div class="col-md-4">
+                <input type="text" class="form-control" name="search" value="{{ search }}" placeholder="Código, usuario, teléfono, servicio...">
+            </div>
+            <div class="col-md-2">
+                <select name="channel" class="form-select">
+                    <option value="">Canal</option>
+                    {% for value, label in channel_choices %}
+                        <option value="{{ value }}" {% if channel == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <input type="date" class="form-control" name="date_from" value="{{ date_from }}">
+            </div>
+            <div class="col-md-2">
+                <input type="date" class="form-control" name="date_to" value="{{ date_to }}">
+            </div>
+            <div class="col-md-2 text-end">
+                <button type="submit" class="btn btn-primary">Filtrar</button>
+                <a href="{% url 'adm:coupon_redemptions' %}" class="btn btn-outline-secondary">Limpiar</a>
+            </div>
+        </form>
+    </div>
+
+    <table class="table table-hover">
+        <thead>
+            <tr>
+                <th>Fecha</th>
+                <th>Código</th>
+                <th>Usuario</th>
+                <th>Teléfono</th>
+                <th>Canal</th>
+                <th>Qué compró</th>
+                <th>Monto</th>
+                <th>Duración</th>
+                <th>Venta</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in object_list %}
+                <tr>
+                    <td>{{ item.redeemed_at }}</td>
+                    <td>{{ item.cupon.name }}</td>
+                    <td>{{ item.customer.username }}</td>
+                    <td>{% if item.phone_lada %}+{{ item.phone_lada }} {% endif %}{{ item.phone_number|default:'-' }}</td>
+                    <td>{{ item.get_channel_display }}</td>
+                    <td>
+                        {{ item.service_name|default:'-' }}
+                        {% if item.account_email %}<br><small>{{ item.account_email }} (Perfil {{ item.profile|default:'-' }})</small>{% endif %}
+                    </td>
+                    <td>{{ item.payment_amount|default:'-' }}</td>
+                    <td>{{ item.duration_text }}</td>
+                    <td>{% if item.sale_id %}#{{ item.sale_id }}{% else %}-{% endif %}</td>
+                </tr>
+            {% empty %}
+                <tr>
+                    <td colspan="9" class="text-center text-muted">No hay canjes registrados.</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    {% include 'adm/base/paginator.html' %}
+{% endblock body %}

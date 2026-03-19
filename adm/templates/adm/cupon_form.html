@@ -1,0 +1,15 @@
+{% extends 'adm/base/base.html' %}
+{% block title %}
+    Editar Código
+{% endblock title %}
+{% block body %}
+    <h1>Editar Código {{ cupon.name }}</h1>
+    <form method="post" class="card p-3">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-cm">Guardar</button>
+            <a href="{% url 'adm:cupon' %}" class="btn btn-cm-cancel">Cancelar</a>
+        </div>
+    </form>
+{% endblock body %}

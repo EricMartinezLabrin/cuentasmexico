@@ -1,12 +1,13 @@
 from adm.functions.send_whatsapp_notification import Notification
 from adm.models import Account, Service, UserDetail, Bank, PaymentMethod, Sale, Status, Business, Credits, AccountChangeHistory
 from api.functions.notifications import send_push_notification
-from cupon.models import Cupon
+from cupon.models import Cupon, CouponRedemption
+from cupon.services import consume_coupon, validate_coupon_from_code
 from django.contrib.auth.models import User
 from dateutil.relativedelta import relativedelta
 from django.shortcuts import render, redirect
 from django.urls import reverse, reverse_lazy
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 from django.http import HttpResponseRedirect
 from adm.functions.send_email import Email
 from django.utils import timezone
@@ -253,34 +254,28 @@ class Sales():
         return True
 
     def cupon_sale(request=None, service=None, price=None, duration=None, ticket=None, customer_id=None, bank_name='Web', payment_used="Saldo Distribuidor"):
-        if request:
-            c = request.POST.get('code')
-        else:
-            c = None
+        c = request.POST.get('code') if request else None
 
         if customer_id:
             customer = User.objects.get(pk=customer_id)
-        elif request.POST.get('customer'):
+        elif request and request.POST.get('customer'):
             customer = User.objects.get(pk=request.POST.get('customer'))
         else:
             customer = User.objects.get(pk=request.user.id)
 
+        cupon = None
+        expiration_date = timezone.now() + timedelta(days=30 * int(duration or 1))
+        seller = customer
+
         if c:
-            cupon = Cupon.objects.get(name=request.POST.get('code').lower())
+            cupon = validate_coupon_from_code(c, customer)
             service = Account.objects.get(pk=request.POST.get('serv'))
             price = cupon.price
-            duration = cupon.long
             ticket = cupon.name
             bank_name = 'Shops'
             payment_used = 'Codigo'
-
-            # Update Cupon
-            cupon.used_at = timezone.now()
-            cupon.customer = customer
-            cupon.seller = request.user
-            cupon.status_sale = True
-            cupon.status = False
-            cupon.save()
+            expiration_date = cupon.get_expiration_date(timezone.now())
+            seller = request.user
 
         try:
             bank_selected = Bank.objects.get(bank_name=bank_name)
@@ -295,16 +290,57 @@ class Sales():
         try:
             payment_used = PaymentMethod.objects.get(description=payment_used)
         except PaymentMethod.DoesNotExist:
-            payment_used = PaymentMethod.objects.create(
-                description=payment_used)
+            payment_used = PaymentMethod.objects.create(description=payment_used)
 
-        try:
-            sale = Sale.objects.get(invoice=ticket)
-            if ticket == 'Web':
-                raise Sale.DoesNotExist
-        except Sale.MultipleObjectsReturned:
-            if ticket == 'Web':
-                # create sale
+        if c:
+            with transaction.atomic():
+                sale = Sale.objects.create(
+                    business=Business.objects.get(pk=1),
+                    user_seller=seller,
+                    bank=bank_selected,
+                    customer=customer,
+                    account=service,
+                    status=True,
+                    payment_method=payment_used,
+                    expiration_date=expiration_date,
+                    payment_amount=price,
+                    invoice=ticket
+                )
+                service.customer = customer
+                service.modified_by = request.user
+                service.save()
+                consume_coupon(
+                    code_name=cupon.name,
+                    customer=customer,
+                    seller=request.user,
+                    sale=sale,
+                    channel=CouponRedemption.CHANNEL_ADMIN,
+                    account=service,
+                )
+        else:
+            try:
+                sale = Sale.objects.get(invoice=ticket)
+                if ticket == 'Web':
+                    raise Sale.DoesNotExist
+            except Sale.MultipleObjectsReturned:
+                if ticket == 'Web':
+                    sale = Sale.objects.create(
+                        business=Business.objects.get(pk=1),
+                        user_seller=customer,
+                        bank=bank_selected,
+                        customer=customer,
+                        account=service,
+                        status=True,
+                        payment_method=payment_used,
+                        expiration_date=expiration_date,
+                        payment_amount=price,
+                        invoice=ticket
+                    )
+                    service.customer = customer
+                    service.modified_by = customer
+                    service.save()
+                return True, sale
+            except Sale.DoesNotExist:
                 sale = Sale.objects.create(
                     business=Business.objects.get(pk=1),
                     user_seller=customer,
@@ -313,67 +349,27 @@ class Sales():
                     account=service,
                     status=True,
                     payment_method=payment_used,
-                    expiration_date=timezone.now() + timedelta(days=30*duration),
+                    expiration_date=expiration_date,
                     payment_amount=price,
                     invoice=ticket
                 )
-                # update account
                 service.customer = customer
-                service.modified_by = customer
+                service.modified_by = request.user
                 service.save()
 
-                try:
-                    token = UserDetail.objects.get(user=customer).token
-                    title = f"Muchas Gracias por tu compra"
-                    body = f"Visita la sección Mi Cuenta para ver las nuevas claves"
-                    url = "MyAccount"
+        try:
+            token = UserDetail.objects.get(user=customer).token
+            title = "Muchas Gracias por tu compra"
+            body = "Visita la sección Mi Cuenta para ver las nuevas claves"
+            url = "MyAccount"
+            send_push_notification(token, title, body, url)
+        except Exception:
+            pass
 
-                    notification = send_push_notification(
-                        token, title, body, url)
-                except:
-                    pass
-
-                if customer.email != 'example@example.com':
-                    Email.email_passwords(request, customer.email, (sale,))
-
-            return True, sale
-        except Sale.DoesNotExist:
-            # create sale
-            sale = Sale.objects.create(
-                business=Business.objects.get(pk=1),
-                user_seller=customer,
-                bank=bank_selected,
-                customer=customer,
-                account=service,
-                status=True,
-                payment_method=payment_used,
-                expiration_date=timezone.now() + timedelta(days=30*duration),
-                payment_amount=price,
-                invoice=ticket
-            )
-            # update account
-            service.customer = customer
-            service.modified_by = request.user
-            service.save()
-
-            cupon.order = sale
-            cupon.save()
-
-            try:
-                token = UserDetail.objects.get(user=customer).token
-                title = f"Muchas Gracias por tu compra"
-                body = f"Visita la sección Mi Cuenta para ver las nuevas claves"
-                url = "MyAccount"
-
-                notification = send_push_notification(token, title, body, url)
-            except:
-                pass
-
-            if customer.email != 'example@example.com':
-                Email.email_passwords(request, customer.email, (sale,))
+        if customer.email != 'example@example.com':
+            Email.email_passwords(request, customer.email, (sale,))
 
         return True, sale
-
     def renew_sale(request, old):
         service = request.POST.get('serv')
         price = request.POST.get('price')
@@ -598,15 +594,6 @@ class Sales():
             (True, Account) si encuentra cuenta
             (False, mensaje_error) si no encuentra o hay error
         """
-        # Si hay código y ya está usado, retornar error
-        if code:
-            try:
-                cupon = Cupon.objects.get(name=code)
-                if cupon.customer:
-                    return False, "El código ya fue utilizado, si no lo canjeó usted contacte a su vendedor y pidale uno nuevo."
-            except Cupon.DoesNotExist:
-                pass
-
         # Calcular cuántos meses se están pidiendo basado en la fecha de expiración
         now = timezone.now()
         dias_diferencia = (exp - now).days
@@ -693,12 +680,11 @@ class Sales():
             return False, "El código ya fue utilizado, si no lo canjeó usted contacte a su vendedor y pidale uno nuevo."
 
     def redeem(request, acc, code, customer_id):
-        cupon = Cupon.objects.get(name=code)
+        customer = User.objects.get(pk=customer_id)
+        cupon = validate_coupon_from_code(code, customer)
         service = acc
         price = cupon.price
-        duration = cupon.long
         ticket = cupon.name
-        customer = User.objects.get(pk=customer_id)
         try:
             bank_selected = Bank.objects.get(bank_name='Shops')
         except Bank.DoesNotExist:
@@ -714,10 +700,7 @@ class Sales():
         except PaymentMethod.DoesNotExist:
             payment_used = PaymentMethod.objects.create(description='Codigo')
 
-        try:
-            sale = Sale.objects.get(invoice=ticket)
-        except Sale.DoesNotExist:
-            # create sale
+        with transaction.atomic():
             sale = Sale.objects.create(
                 business=Business.objects.get(pk=1),
                 user_seller=User.objects.get(pk=1),
@@ -726,69 +709,63 @@ class Sales():
                 account=service,
                 status=True,
                 payment_method=payment_used,
-                expiration_date=datetime.now() + relativedelta(months=duration),
+                expiration_date=cupon.get_expiration_date(timezone.now()),
                 payment_amount=price,
                 invoice=ticket
             )
-            # update account
             service.customer = customer
             service.modified_by = User.objects.get(pk=1)
             service.save()
+            consume_coupon(
+                code_name=cupon.name,
+                customer=customer,
+                seller=User.objects.get(pk=1),
+                sale=sale,
+                channel=CouponRedemption.CHANNEL_WEB,
+                account=service,
+            )
 
-            # Update Cupon
-            cupon.used_at = datetime.now()
-            cupon.customer = customer
-            cupon.seller = User.objects.get(pk=1)
-            cupon.order = sale
-            cupon.status_sale = True
-            cupon.status = False
-            cupon.save()
+        try:
+            token = UserDetail.objects.get(user=customer).token
+            title = "Muchas Gracias por tu compra"
+            body = "Visita la sección Mi Cuenta para ver las nuevas claves"
+            url = "MyAccount"
+            send_push_notification(token, title, body, url)
+        except Exception:
+            pass
 
-            try:
-                token = UserDetail.objects.get(user=customer).token
-                title = f"Muchas Gracias por tu compra"
-                body = f"Visita la sección Mi Cuenta para ver las nuevas claves"
-                url = "MyAccount"
-
-                notification = send_push_notification(token, title, body, url)
-            except:
-                pass
-
-            if customer.email != 'example@example.com':
-                Email.email_passwords(request, customer.email, (sale,))
+        if customer.email != 'example@example.com':
+            Email.email_passwords(request, customer.email, (sale,))
 
         return True
 
     def redeem_renew(request, acc, code, customer_id):
-        cupon = Cupon.objects.get(name=code)
-        if cupon.status == True:
-            price = cupon.price
-            duration = cupon.long
-            ticket = code
-            try:
-                bank_selected = Bank.objects.get(bank_name='Shops')
-            except Bank.DoesNotExist:
-                bank_selected = Bank.objects.create(
-                    business=Business.objects.get(pk=1),
-                    bank_name='Shops',
-                    headline='Cuentas Mexico',
-                    card_number='0',
-                    clabe='0',
-                )
-            try:
-                payment_used = PaymentMethod.objects.get(description='Codigo')
-            except PaymentMethod.DoesNotExist:
-                payment_used = PaymentMethod.objects.create(
-                    description='Codigo')
-            customer = User.objects.get(pk=customer_id)
-            old_sale = Sale.objects.get(account_id=acc, status=True)
-            old_acc = Account.objects.get(pk=old_sale.account.id)
-            if old_sale.expiration_date.date() >= datetime.now().date():
-                exp_date = old_sale.expiration_date.date() + relativedelta(months=duration)
-            else:
-                exp_date = datetime.now() + relativedelta(months=duration)
+        customer = User.objects.get(pk=customer_id)
+        cupon = validate_coupon_from_code(code, customer)
+        price = cupon.price
+        ticket = cupon.name
+        try:
+            bank_selected = Bank.objects.get(bank_name='Shops')
+        except Bank.DoesNotExist:
+            bank_selected = Bank.objects.create(
+                business=Business.objects.get(pk=1),
+                bank_name='Shops',
+                headline='Cuentas Mexico',
+                card_number='0',
+                clabe='0',
+            )
+        try:
+            payment_used = PaymentMethod.objects.get(description='Codigo')
+        except PaymentMethod.DoesNotExist:
+            payment_used = PaymentMethod.objects.create(description='Codigo')
+        old_sale = Sale.objects.get(account_id=acc, status=True)
+        old_acc = Account.objects.get(pk=old_sale.account.id)
+        if old_sale.expiration_date.date() >= timezone.now().date():
+            exp_date = cupon.get_expiration_date(old_sale.expiration_date)
+        else:
+            exp_date = cupon.get_expiration_date(timezone.now())
 
-            # create sale
+        with transaction.atomic():
             new_sale = Sale.objects.create(
                 business=Business.objects.get(pk=1),
                 user_seller=User.objects.get(pk=1),
@@ -802,42 +779,36 @@ class Sales():
                 invoice=ticket,
                 old_acc=old_acc.id
             )
-            # update account
             acc.modified_by = User.objects.get(pk=1)
             acc.save()
 
             new_sale_id = new_sale.id
-
-            # deprecate old sale
             old_sale.status = False
             old_sale.old_sale = new_sale_id
             old_sale.save()
 
-            # Update Cupon
-            cupon.used_at = datetime.now()
-            cupon.customer = customer
-            cupon.seller = User.objects.get(pk=1)
-            cupon.order = new_sale
-            cupon.status_sale = True
-            cupon.status = False
-            cupon.save()
+            consume_coupon(
+                code_name=cupon.name,
+                customer=customer,
+                seller=User.objects.get(pk=1),
+                sale=new_sale,
+                channel=CouponRedemption.CHANNEL_WEB,
+                account=acc,
+            )
 
-            try:
-                token = UserDetail.objects.get(user=customer).token
-                title = f"Muchas Gracias por tu compra"
-                body = f"Visita la sección Mi Cuenta para ver las nuevas claves"
-                url = "MyAccount"
+        try:
+            token = UserDetail.objects.get(user=customer).token
+            title = "Muchas Gracias por tu compra"
+            body = "Visita la sección Mi Cuenta para ver las nuevas claves"
+            url = "MyAccount"
+            send_push_notification(token, title, body, url)
+        except Exception:
+            pass
 
-                notification = send_push_notification(token, title, body, url)
-            except:
-                pass
+        if customer.email != 'example@example.com':
+            Email.email_passwords(request, customer.email, (new_sale,))
 
-            if customer.email != 'example@example.com':
-                Email.email_passwords(request, customer.email, (new_sale,))
-
-            return True, acc
-        else:
-            return False, "El código ya fue utilizado, si no lo canjeó usted contacte a su vendedor y pidale uno nuevo."
+        return True, acc
 
     def credits_modify(customer, credits, comments):
         Credits.objects.create(
@@ -919,11 +890,4 @@ class Sales():
                 logger.error(f"Error enviando email a {customer.email}: {str(e)}", exc_info=True)
 
         return True, sale
-
-
-
-
-
-
-
 

@@ -5,14 +5,13 @@
 {% endblock title %}
 {% block body %}
     <h1>Canjear Cupon {{ cupon.name }}</h1>
-    <input type="hidden" name="long" id="long" value="{{ months }}">
     {% if error %}
         <div class="alert alert-danger" role="alert">
             <i class="bi bi-exclamation-triangle-fill"></i> {{ error }}
         </div>
     {% endif %}
     {% if services %}
-        <h5>Duración {{ cupon.long }} me{{ cupon.long|pluralize:"s,ses" }}</h5>
+        <h5>Duración {{ duration_quantity|default:cupon.duration_quantity }} {{ duration_label|default:cupon.get_duration_unit_display }}</h5>
         <h3>Selecciona un servicio</h3>
         <div class="d-flex flex-wrap">
             {% for service in services %}

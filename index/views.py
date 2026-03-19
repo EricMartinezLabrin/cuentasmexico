@@ -34,7 +34,12 @@ from .forms import RegisterUserForm, RedeemForm, WhatsAppLoginForm
 from adm.models import Level, UserDetail, Service, Sale, Account, Credits, PaymentMethod, AccountChangeHistory
 from adm.functions.business import BusinessInfo
 from .cart import CartProcessor, CartDb
-from cupon.models import Shop, Cupon
+from cupon.models import Shop
+from cupon.services import (
+    CouponRedeemError,
+    get_coupon_by_name_or_raise,
+    validate_coupon_for_customer,
+)
 from adm.functions.permissions import UserAccessMixin
 from adm.functions.sales import Sales
 from adm.functions.send_email import Email
@@ -281,8 +286,10 @@ class RedeemView(UserAccessMixin, FormView):
     def get_code(self):
         if self.request.GET.get('name'):
             code = self.request.GET.get('name')
-            code = Cupon.objects.get(name=code)
-            return code
+            try:
+                return get_coupon_by_name_or_raise(code)
+            except CouponRedeemError:
+                return None
         else:
             code = None
 
@@ -293,12 +300,14 @@ class RedeemView(UserAccessMixin, FormView):
             return active_acc
 
     def get_error(self):
-        error = None
-        if self.get_code():
-            if self.get_code().customer:
-                error = "El código ya fue utilizado, si no lo canjeó usted, porfavor, contacte a su vendedor y pidale uno nuevo."
-
-        return error
+        code = self.get_code()
+        if not code:
+            return None
+        try:
+            validate_coupon_for_customer(code, self.request.user)
+        except CouponRedeemError as exc:
+            return str(exc)
+        return None
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -319,8 +328,10 @@ class SelectAccView(TemplateView):
     def get_code(self):
         if self.request.GET.get('name'):
             code = self.request.GET.get('name')
-            code = Cupon.objects.get(name=code)
-            return code
+            try:
+                return get_coupon_by_name_or_raise(code)
+            except CouponRedeemError:
+                return None
 
     def get_availables(self):
         available = Service.objects.filter(status=True)
@@ -345,8 +356,10 @@ class RedeemConfirmView(TemplateView):
     def get_code(self):
         if self.request.GET.get('name'):
             code = self.request.GET.get('name')
-            code = Cupon.objects.get(name=code)
-            return code
+            try:
+                return get_coupon_by_name_or_raise(code)
+            except CouponRedeemError:
+                return None
 
     def account(self):
         if self.request.GET.get('service'):
@@ -359,13 +372,18 @@ class RedeemConfirmView(TemplateView):
             return account
 
     def get_error(self):
-        if self.get_code().customer:
-            if self.get_code().status == False:
-                return "Error. El código ya fue utilizado, si no lo canjeó usted contacte a su vendedor y pidale uno nuevo."
+        code = self.get_code()
+        if not code:
+            return "El código no existe."
+        try:
+            validate_coupon_for_customer(code, self.request.user)
+        except CouponRedeemError as exc:
+            return f"Error. {str(exc)}"
+        return None
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["error"] = self.get_error
+        context["error"] = self.get_error()
         context["code"] = self.get_code()
         context["account"] = self.account()
         context["business"] = BusinessInfo.data()
@@ -383,18 +401,19 @@ class RedeemRenewDoneView(TemplateView):
         service = Account.objects.get(pk=service_id)
         customer = self.request.user.id
 
-        renew = Sales.redeem_renew(self.request, service, code, customer)
-
-        return renew
+        try:
+            renew = Sales.redeem_renew(self.request, service, code, customer)
+            return renew
+        except CouponRedeemError as exc:
+            return False, str(exc)
 
     def get_code(self):
         if self.request.GET.get('name'):
             code = self.request.GET.get('name')
             try:
-                code = Cupon.objects.get(name=code)
-            except Cupon.DoesNotExist:
-                code = None
-            return code
+                return get_coupon_by_name_or_raise(code)
+            except CouponRedeemError:
+                return None
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -413,31 +432,26 @@ class RedeemDoneView(TemplateView):
         code = self.request.GET.get('name')
         service_id = self.request.GET.get('service')
         try:
-            cupon = Cupon.objects.get(name=code)
-            start_date = timezone.now()
-            end_date = start_date + timedelta(days=cupon.long*31)
+            cupon = get_coupon_by_name_or_raise(code)
+            validate_coupon_for_customer(cupon, self.request.user)
+            end_date = cupon.get_expiration_date(timezone.now())
             customer = self.request.user.id
 
-            if not cupon.customer:
-                account = Sales.search_better_acc(service_id, end_date, code)
-            else:
-                account = (
-                    False, "Error. El código ya fue utilizado, si no lo canjeó usted contacte a su vendedor y pidale uno nuevo.")
+            account = Sales.search_better_acc(service_id, end_date, code)
 
             if account[0] == True:
                 Sales.redeem(self.request, account[1], code, customer)
             return account
-        except Cupon.DoesNotExist:
-            return False, "El código no existe, porfavor contacte a su vendedor y pidale uno nuevo."
+        except CouponRedeemError as exc:
+            return False, str(exc)
 
     def get_code(self):
         if self.request.GET.get('name'):
             code = self.request.GET.get('name')
             try:
-                code = Cupon.objects.get(name=code)
-            except Cupon.DoesNotExist:
-                code = None
-            return code
+                return get_coupon_by_name_or_raise(code)
+            except CouponRedeemError:
+                return None
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1492,9 +1506,19 @@ def disney_change_account(request):
                     'message': 'No hay stock disponible para cambiar esta cuenta en este momento.'
                 }, status=409)
 
-            # Desactivar venta actual y enlazar nueva
-            sale.status = False
-            sale.save(update_fields=['status'])
+            # Desactivar de forma robusta cualquier venta activa ligada a la cuenta vieja
+            # (incluye el caso esperado de una sola venta activa).
+            deactivated_count = Sale.objects.filter(
+                customer=sale.customer,
+                account=old_account,
+                status=True
+            ).update(status=False)
+
+            if deactivated_count == 0:
+                return JsonResponse({
+                    'success': False,
+                    'message': 'No se pudo desactivar la venta anterior. Intenta nuevamente.'
+                }, status=409)
 
             payment_method, _ = PaymentMethod.objects.get_or_create(description='Cambio MyAccount')
 

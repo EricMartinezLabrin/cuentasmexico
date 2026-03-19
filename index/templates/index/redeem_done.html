@@ -3,56 +3,226 @@
 {% block body %}
 
     {% if account.0 == True %}
-        <h1>Ya terminaste</h1>
-        <p>A cotinuación encontraras los datos de acceso a tu cuenta:</p>
-        
-        <div class="row row-cols-lg-2 row-cols-md-3 g-2 g-lg-2">
-            
-            {% for account in account %}
-                {% if forloop.counter0 != 0 %}
-                    <div class="col">
-                        <!-- card -->
-                        <div class="d-flex p-3 card-product">
-                            <div> 
-                            <!-- img -->
-                                {% if account.account_name.logo %}<img src="{{ account.account_name.logo.url }}" alt="{{account.account_name}}" loading="lazy" class="rounded-circle icon-shape icon-xl">{% endif %}
-                            </div>
-                            <div class="m-4">
-                                <!-- content -->
-                                <h2 class="mb-1 h5 cm">Esta es tu cuenta {{account.account_name}} 
-                                    {% if code %}
-                                    de {{code.long}} me{{code.long|pluralize:"s,ses"}}
-                                    {% endif %}
-                                </h2>
-                                <h5>Email: {{account.email}}</h5>
-                                <h5>Password: {{account.password}}</h5>
-                                <h5>Perfil: {{account.profile}}</h5>
-                                {% if account.pin %}
-                                    <h5>PIN: {{account.pin}}</h5>
-                                {% endif %}
-                                <h5>Vencimiento: {{account.expiration_date}}</h5>
-                                <br>
-                            </div>
-                        </div>
-                    </div>
-                {% endif %}
-            {% endfor %}
-            <div>
-                <h3><i class="bi bi-exclamation-triangle-fill"></i>LEER LAS NORMAS DE USO <i class="bi bi-exclamation-triangle-fill"></i></h3>
-                <p> ➡️ Usar solo el perfil con su nombre en un solo y único dispositivo.</p>
-                <p>🚫 No debe iniciar el perfil en distintos dispositivos.</p>
-                <p>🚫 Está prohibido compartir el perfil con familiares o amigos, los perfiles son personales. </p>
-                <p>🚫 Esta prohibido modificar o eliminar los perfiles, cambiar los pines o las contraseñas.</p>
-                <p>No cumplir con las normas pautadas trae como consecuencia el bloqueo permanente de la cuenta sin derecho a reclamo ni garantía.</p>
-                <p>Que disfrute de su servicio</p>
+        <style>
+            .redeem-done-wrap {
+                max-width: 980px;
+                margin: 0 auto 2.5rem;
+            }
+            .redeem-done-hero {
+                background: radial-gradient(circle at top right, #fef9c3 0%, #ecfdf3 45%, #ffffff 100%);
+                border: 1px solid #d1fae5;
+                border-radius: 18px;
+                padding: 1.6rem 1.3rem;
+                margin-bottom: 1.2rem;
+                box-shadow: 0 10px 24px rgba(6, 95, 70, 0.08);
+            }
+            .redeem-done-title {
+                display: flex;
+                align-items: center;
+                gap: 0.7rem;
+                margin: 0 0 0.5rem 0;
+            }
+            .redeem-done-title i {
+                color: #059669;
+                font-size: 2rem;
+            }
+            .redeem-done-title h1 {
+                font-size: 1.8rem;
+                margin: 0;
+                font-weight: 800;
+            }
+            .redeem-done-subtitle {
+                font-size: 1rem;
+                color: #334155;
+                margin: 0;
+            }
+            .redeem-done-grid {
+                display: grid;
+                gap: 1rem;
+                grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            }
+            .redeem-account-card {
+                background: #ffffff;
+                border: 1px solid #e2e8f0;
+                border-radius: 16px;
+                padding: 1rem;
+                box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
+                height: 100%;
+            }
+            .redeem-account-top {
+                display: flex;
+                align-items: center;
+                gap: 0.9rem;
+                margin-bottom: 0.85rem;
+            }
+            .redeem-account-icon {
+                width: 54px;
+                height: 54px;
+                border-radius: 12px;
+                overflow: hidden;
+                background: #f8fafc;
+                border: 1px solid #e2e8f0;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                flex-shrink: 0;
+            }
+            .redeem-account-icon img {
+                width: 100%;
+                height: 100%;
+                object-fit: contain;
+                padding: 0.35rem;
+            }
+            .redeem-account-name {
+                margin: 0;
+                font-size: 1.05rem;
+                font-weight: 700;
+                color: #0f172a;
+            }
+            .redeem-account-time {
+                margin: 0.2rem 0 0 0;
+                font-size: 0.87rem;
+                color: #475569;
+            }
+            .redeem-credentials {
+                margin: 0;
+                padding: 0;
+                list-style: none;
+            }
+            .redeem-credentials li {
+                display: flex;
+                justify-content: space-between;
+                gap: 0.6rem;
+                padding: 0.45rem 0;
+                border-bottom: 1px dashed #e2e8f0;
+                font-size: 0.94rem;
+            }
+            .redeem-credentials li:last-child {
+                border-bottom: 0;
+            }
+            .redeem-credentials strong {
+                color: #334155;
+                font-weight: 600;
+                min-width: 92px;
+            }
+            .redeem-credentials span {
+                text-align: right;
+                color: #0f172a;
+                word-break: break-word;
+            }
+            .redeem-rules {
+                margin-top: 1.1rem;
+                border: 1px solid #fde68a;
+                background: #fffbeb;
+                border-radius: 16px;
+                padding: 1.1rem;
+            }
+            .redeem-rules h3 {
+                font-size: 1.08rem;
+                font-weight: 800;
+                margin-bottom: 0.7rem;
+                color: #78350f;
+            }
+            .redeem-rules ul {
+                margin: 0;
+                padding-left: 1.2rem;
+            }
+            .redeem-rules li {
+                margin-bottom: 0.45rem;
+                color: #78350f;
+            }
+            .redeem-rules p {
+                margin: 0.4rem 0 0 0;
+                color: #78350f;
+            }
+            .redeem-actions {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.65rem;
+                margin-top: 1rem;
+            }
+            .redeem-actions .btn {
+                border-radius: 10px;
+                font-weight: 600;
+            }
+            @media (max-width: 767px) {
+                .redeem-done-title h1 {
+                    font-size: 1.45rem;
+                }
+                .redeem-done-hero {
+                    padding: 1.2rem 0.9rem;
+                    border-radius: 14px;
+                }
+                .redeem-account-card {
+                    border-radius: 14px;
+                }
+            }
+        </style>
+
+        <div class="redeem-done-wrap">
+            <div class="redeem-done-hero">
+                <div class="redeem-done-title">
+                    <i class="bi bi-check-circle-fill" aria-hidden="true"></i>
+                    <h1>Canje completado</h1>
+                </div>
+                <p class="redeem-done-subtitle">Aqui tienes los datos de acceso de tu cuenta. Guardalos en un lugar seguro.</p>
             </div>
+
+            <div class="redeem-done-grid">
+                {% for acc in account %}
+                    {% if forloop.counter0 != 0 %}
+                        <article class="redeem-account-card">
+                            <div class="redeem-account-top">
+                                <div class="redeem-account-icon">
+                                    {% if acc.account_name.logo %}
+                                        <img src="{{ acc.account_name.logo.url }}" alt="{{ acc.account_name }}" loading="lazy">
+                                    {% else %}
+                                        <i class="bi bi-play-btn fs-3 cm" aria-hidden="true"></i>
+                                    {% endif %}
+                                </div>
+                                <div>
+                                    <h2 class="redeem-account-name">{{ acc.account_name }}</h2>
+                                    <p class="redeem-account-time">
+                                        {% if code %}Duracion: {{ code.duration_text }} | {% endif %}Vence: {{ acc.expiration_date }}
+                                    </p>
+                                </div>
+                            </div>
+                            <ul class="redeem-credentials">
+                                <li><strong>Email</strong><span>{{ acc.email }}</span></li>
+                                <li><strong>Password</strong><span>{{ acc.password }}</span></li>
+                                <li><strong>Perfil</strong><span>{{ acc.profile }}</span></li>
+                                {% if acc.pin %}
+                                    <li><strong>PIN</strong><span>{{ acc.pin }}</span></li>
+                                {% endif %}
+                            </ul>
+                        </article>
+                    {% endif %}
+                {% endfor %}
+            </div>
+
+            <section class="redeem-rules">
+                <h3><i class="bi bi-exclamation-triangle-fill me-1"></i>Normas de uso importantes</h3>
+                <ul>
+                    <li>Usa solo el perfil con tu nombre en un unico dispositivo.</li>
+                    <li>No inicies el mismo perfil en distintos dispositivos.</li>
+                    <li>No compartas el perfil con familiares o amigos.</li>
+                    <li>No modifiques ni elimines perfiles, PIN o contrasenas.</li>
+                </ul>
+                <p>No cumplir estas normas puede causar el bloqueo permanente de la cuenta sin derecho a reclamo o garantia.</p>
+                <div class="redeem-actions">
+                    <a href="{% url 'my_account' %}" class="btn btn-cm"><i class="bi bi-bag-check me-1"></i>Ver mis pedidos</a>
+                    <a href="{% url 'redeem' %}" class="btn btn-outline-secondary"><i class="bi bi-gift me-1"></i>Canjear otro cupon</a>
+                </div>
+            </section>
         </div>
     {% else %}
-        <h1>Tuvimos un error</h1>
-        <div class="alert alert-danger" role="alert">
-            <p><i class="bi bi-exclamation-triangle-fill"></i> {{account.1}}</p>    
+        <div class="mx-auto" style="max-width: 760px;">
+            <div class="alert alert-danger shadow-sm border-0 rounded-4 p-4" role="alert">
+                <h1 class="h3 fw-bold mb-2"><i class="bi bi-exclamation-triangle-fill me-2"></i>Tuvimos un error</h1>
+                <p class="mb-3">{{ account.1 }}</p>
+                <a href="{% url 'redeem' %}" class="btn btn-outline-danger"><i class="bi bi-arrow-left me-1"></i>Volver a canjear</a>
+            </div>
         </div>
-        
     {% endif %}
     
 {% endblock body %}

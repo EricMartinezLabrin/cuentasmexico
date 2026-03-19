@@ -7,7 +7,7 @@
           {% if not error %}
             {% if account.description %}
               <div class="modal-body">
-                <p>¿Estás seguro que deseas canjear el código "{{code.name}}"" por <b>{{code.long}} me{{code.long|pluralize:"s,ses"}} de {{account.description}}</b>?</p>
+                <p>¿Estás seguro que deseas canjear el código "{{code.name}}"" por <b>{{ code.duration_text }} de {{account.description}}</b>?</p>
               </div>
               <div class="modal-footer">
                 <button type="button" class="btn btn-cm-cancel" data-bs-dismiss="modal">Cancelar</button>
@@ -15,7 +15,7 @@
               </div>
             {% else %}
               <div class="modal-body">
-                <p>¿Estás seguro que deseas canjear el código "{{code.name}}"" por <b>{{code.long}} me{{code.long|pluralize:"s,ses"}} del {{account.account_name.description}} {{account.email}}</b>?</p>
+                <p>¿Estás seguro que deseas canjear el código "{{code.name}}"" por <b>{{ code.duration_text }} del {{account.account_name.description}} {{account.email}}</b>?</p>
               </div>
               <div class="modal-footer">
                 <button type="button" class="btn btn-cm-cancel" data-bs-dismiss="modal">Cancelar</button>
