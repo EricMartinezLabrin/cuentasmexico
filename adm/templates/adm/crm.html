@@ -1,0 +1,695 @@
+{% extends 'adm/base/base.html' %}
+{% load humanize %}
+
+{% block title %}
+CRM 360
+{% endblock title %}
+
+{% block body %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="mb-1">CRM 360</h1>
+            <p class="text-muted mb-0">Análisis de clientes, productos y churn para decisiones de negocio.</p>
+        </div>
+        <div>
+            <a href="{% url 'adm:crm_dashboard' %}" class="btn btn-outline-secondary">Limpiar filtros</a>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-2">
+                    <label class="form-label">Preset</label>
+                    <select class="form-select" name="preset">
+                        <option value="today" {% if filters.preset == 'today' %}selected{% endif %}>Hoy</option>
+                        <option value="last_7_days" {% if filters.preset == 'last_7_days' %}selected{% endif %}>Últimos 7 días</option>
+                        <option value="last_30_days" {% if filters.preset == 'last_30_days' %}selected{% endif %}>Últimos 30 días</option>
+                        <option value="last_90_days" {% if filters.preset == 'last_90_days' %}selected{% endif %}>Últimos 90 días</option>
+                        <option value="this_month" {% if filters.preset == 'this_month' %}selected{% endif %}>Este mes</option>
+                        <option value="custom" {% if filters.preset == 'custom' %}selected{% endif %}>Custom</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Fecha inicio</label>
+                    <input type="date" class="form-control" name="date_from" value="{{ filters.date_from|date:'Y-m-d' }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Fecha fin</label>
+                    <input type="date" class="form-control" name="date_to" value="{{ filters.date_to|date:'Y-m-d' }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">País</label>
+                    <select class="form-select" name="country">
+                        <option value="">Todos</option>
+                        {% for country in options.countries %}
+                            <option value="{{ country }}" {% if filters.country == country %}selected{% endif %}>{{ country }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Servicio</label>
+                    <select class="form-select" name="service_id">
+                        <option value="">Todos</option>
+                        {% for service in options.services %}
+                            <option value="{{ service.id }}" {% if filters.service_id == service.id %}selected{% endif %}>{{ service.description }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Vendedor</label>
+                    <select class="form-select" name="seller_id">
+                        <option value="">Todos</option>
+                        {% for seller in options.sellers %}
+                            <option value="{{ seller.id }}" {% if filters.seller_id == seller.id %}selected{% endif %}>{{ seller.username }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Método pago</label>
+                    <select class="form-select" name="payment_method_id">
+                        <option value="">Todos</option>
+                        {% for method in options.payment_methods %}
+                            <option value="{{ method.id }}" {% if filters.payment_method_id == method.id %}selected{% endif %}>{{ method.description }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Estado</label>
+                    <select class="form-select" name="sale_status">
+                        <option value="" {% if not filters.sale_status %}selected{% endif %}>Todos</option>
+                        <option value="active" {% if filters.sale_status == 'active' %}selected{% endif %}>Activas</option>
+                        <option value="inactive" {% if filters.sale_status == 'inactive' %}selected{% endif %}>Inactivas</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Tipo cliente</label>
+                    <select class="form-select" name="customer_type">
+                        <option value="" {% if not filters.customer_type %}selected{% endif %}>Todos</option>
+                        <option value="new" {% if filters.customer_type == 'new' %}selected{% endif %}>Nuevo</option>
+                        <option value="recurrent" {% if filters.customer_type == 'recurrent' %}selected{% endif %}>Recurrente</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Monto min</label>
+                    <input type="number" min="0" step="1" class="form-control" name="amount_min" value="{{ filters.amount_min|default:'' }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Monto max</label>
+                    <input type="number" min="0" step="1" class="form-control" name="amount_max" value="{{ filters.amount_max|default:'' }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Cliente</label>
+                    <input type="text" class="form-control" name="customer_q" value="{{ filters.customer_q }}" placeholder="Email, teléfono, username">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Orden churn</label>
+                    <select class="form-select" name="churn_sort">
+                        <option value="desc" {% if filters.churn_sort == 'desc' %}selected{% endif %}>Más días inactivo</option>
+                        <option value="asc" {% if filters.churn_sort == 'asc' %}selected{% endif %}>Menos días inactivo</option>
+                    </select>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">Aplicar filtros</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-2">
+            <div class="card h-100">
+                <div class="card-body">
+                    <small class="text-muted">Ingresos MXN</small>
+                    <h4 class="mb-0">${{ kpis.revenue_mxn|intcomma }}</h4>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card h-100">
+                <div class="card-body">
+                    <small class="text-muted">Ingresos CLP</small>
+                    <h4 class="mb-0">${{ kpis.revenue_clp|intcomma }}</h4>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card h-100">
+                <div class="card-body">
+                    <small class="text-muted">Ticket prom. MXN</small>
+                    <h4 class="mb-0">${{ kpis.avg_ticket_mxn|floatformat:2|intcomma }}</h4>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card h-100">
+                <div class="card-body">
+                    <small class="text-muted">Ticket prom. CLP</small>
+                    <h4 class="mb-0">${{ kpis.avg_ticket_clp|floatformat:2|intcomma }}</h4>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card h-100">
+                <div class="card-body">
+                    <small class="text-muted">Ventas</small>
+                    <h4 class="mb-0">{{ kpis.total_sales|intcomma }}</h4>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card h-100">
+                <div class="card-body">
+                    <small class="text-muted">Clientes únicos</small>
+                    <h4 class="mb-0">{{ kpis.unique_customers|intcomma }}</h4>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card h-100">
+                <div class="card-body">
+                    <small class="text-muted">Clientes recurrentes</small>
+                    <h4 class="mb-0">{{ kpis.repeat_customers|intcomma }}</h4>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card h-100">
+                <div class="card-body">
+                    <small class="text-muted">% Recompra</small>
+                    <h4 class="mb-0">{{ kpis.repeat_rate }}%</h4>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card h-100">
+                <div class="card-body">
+                    <small class="text-muted">Recuperados</small>
+                    <h4 class="mb-0">{{ recovered_stats.count|intcomma }}</h4>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card h-100">
+                <div class="card-body">
+                    <small class="text-muted">Ingresos recuperados MXN</small>
+                    <h4 class="mb-0">${{ recovered_stats.revenue_mxn|intcomma }}</h4>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card h-100">
+                <div class="card-body">
+                    <small class="text-muted">Ingresos recuperados CLP</small>
+                    <h4 class="mb-0">${{ recovered_stats.revenue_clp|intcomma }}</h4>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4 mb-4">
+        <div class="col-lg-8">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="mb-3">Tendencia de ingresos y ventas</h5>
+                    <canvas id="salesTrendChart" height="120"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="mb-3">Mix de productos (Top 10)</h5>
+                    <canvas id="topProductsChart" height="120"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4 mb-4">
+        <div class="col-lg-6">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="mb-3">Cohorte simple de recompra</h5>
+                    <canvas id="cohortChart" height="120"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="mb-3">Productos históricos de clientes churn</h5>
+                    <canvas id="churnProductsChart" height="120"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <div>
+                <h5 class="mb-0">Top clientes (por ingresos)</h5>
+                <small class="text-muted">Periodo: {{ period_label }}</small>
+            </div>
+            <a href="{% url 'adm:crm_export_top_customers' %}{% if base_query_string %}?{{ base_query_string }}{% endif %}" class="btn btn-sm btn-outline-success">Exportar CSV</a>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-striped mb-0">
+                <thead>
+                    <tr>
+                        <th>Cliente</th>
+                        <th>Email</th>
+                        <th>Teléfono</th>
+                        <th>País</th>
+                        <th>Moneda</th>
+                        <th>Ingresos</th>
+                        <th>Compras</th>
+                        <th>Ticket prom.</th>
+                        <th>Última compra</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in top_customers %}
+                        <tr>
+                            <td>{{ row.username }}</td>
+                            <td>{{ row.email }}</td>
+                            <td>{{ row.phone }}</td>
+                            <td>{{ row.country }}</td>
+                            <td>{{ row.currency }}</td>
+                            <td>${{ row.total_revenue|intcomma }}</td>
+                            <td>{{ row.total_orders }}</td>
+                            <td>${{ row.avg_ticket|floatformat:2|intcomma }}</td>
+                            <td>{{ row.last_purchase|date:'d/m/Y H:i' }}</td>
+                        </tr>
+                    {% empty %}
+                        <tr><td colspan="9" class="text-center text-muted">Sin datos para los filtros seleccionados.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if top_customers.has_other_pages %}
+            <div class="card-footer">
+                <nav>
+                    <ul class="pagination pagination-sm mb-0 justify-content-end">
+                        {% if top_customers.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?{% if base_query_string %}{{ base_query_string }}&{% endif %}customers_page={{ top_customers.previous_page_number }}">Anterior</a>
+                            </li>
+                        {% endif %}
+                        <li class="page-item disabled"><span class="page-link">Página {{ top_customers.number }} de {{ top_customers.paginator.num_pages }}</span></li>
+                        {% if top_customers.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?{% if base_query_string %}{{ base_query_string }}&{% endif %}customers_page={{ top_customers.next_page_number }}">Siguiente</a>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            </div>
+        {% endif %}
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <div>
+                <h5 class="mb-0">Clientes recuperados (volvieron tras 45+ días)</h5>
+                <small class="text-muted">Periodo de recuperación: {{ period_label }}</small>
+            </div>
+            <a href="{% url 'adm:crm_export_recovered_customers' %}{% if base_query_string %}?{{ base_query_string }}{% endif %}" class="btn btn-sm btn-outline-success">Exportar CSV</a>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-striped mb-0">
+                <thead>
+                    <tr>
+                        <th>Cliente</th>
+                        <th>Email</th>
+                        <th>Teléfono</th>
+                        <th>País</th>
+                        <th>Moneda</th>
+                        <th>Fecha recuperación</th>
+                        <th>Días inactivo previos</th>
+                        <th>Servicio recuperación</th>
+                        <th>Monto recuperación</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in recovered_customers %}
+                        <tr>
+                            <td>{{ row.username }}</td>
+                            <td>{{ row.email }}</td>
+                            <td>{{ row.phone }}</td>
+                            <td>{{ row.country }}</td>
+                            <td>{{ row.currency }}</td>
+                            <td>{{ row.recovery_date|date:'d/m/Y H:i' }}</td>
+                            <td>{{ row.days_inactive_before_recovery }}</td>
+                            <td>{{ row.service }}</td>
+                            <td>${{ row.amount|intcomma }}</td>
+                        </tr>
+                    {% empty %}
+                        <tr><td colspan="9" class="text-center text-muted">Sin recuperados para los filtros seleccionados.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if recovered_customers.has_other_pages %}
+            <div class="card-footer">
+                <nav>
+                    <ul class="pagination pagination-sm mb-0 justify-content-end">
+                        {% if recovered_customers.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?{% if base_query_string %}{{ base_query_string }}&{% endif %}recovered_page={{ recovered_customers.previous_page_number }}">Anterior</a>
+                            </li>
+                        {% endif %}
+                        <li class="page-item disabled"><span class="page-link">Página {{ recovered_customers.number }} de {{ recovered_customers.paginator.num_pages }}</span></li>
+                        {% if recovered_customers.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?{% if base_query_string %}{{ base_query_string }}&{% endif %}recovered_page={{ recovered_customers.next_page_number }}">Siguiente</a>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            </div>
+        {% endif %}
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <div>
+                <h5 class="mb-0">Top productos</h5>
+                <small class="text-muted">Periodo: {{ period_label }}</small>
+            </div>
+            <a href="{% url 'adm:crm_export_top_products' %}{% if base_query_string %}?{{ base_query_string }}{% endif %}" class="btn btn-sm btn-outline-success">Exportar CSV</a>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-striped mb-0">
+                <thead>
+                    <tr>
+                        <th>Servicio</th>
+                        <th>Moneda</th>
+                        <th>Ingresos</th>
+                        <th>Compras</th>
+                        <th>Participación</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in top_products %}
+                        <tr>
+                            <td>{{ row.service }}</td>
+                            <td>{{ row.currency }}</td>
+                            <td>${{ row.total_revenue|intcomma }}</td>
+                            <td>{{ row.total_orders }}</td>
+                            <td>{{ row.share }}%</td>
+                        </tr>
+                    {% empty %}
+                        <tr><td colspan="5" class="text-center text-muted">Sin datos para los filtros seleccionados.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if top_products.has_other_pages %}
+            <div class="card-footer">
+                <nav>
+                    <ul class="pagination pagination-sm mb-0 justify-content-end">
+                        {% if top_products.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?{% if base_query_string %}{{ base_query_string }}&{% endif %}products_page={{ top_products.previous_page_number }}">Anterior</a>
+                            </li>
+                        {% endif %}
+                        <li class="page-item disabled"><span class="page-link">Página {{ top_products.number }} de {{ top_products.paginator.num_pages }}</span></li>
+                        {% if top_products.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?{% if base_query_string %}{{ base_query_string }}&{% endif %}products_page={{ top_products.next_page_number }}">Siguiente</a>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            </div>
+        {% endif %}
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <div>
+                <h5 class="mb-0">Clientes que dejaron de comprar (45+ días)</h5>
+                <small class="text-muted">Periodo de filtro: {{ period_label }}</small>
+            </div>
+            <a href="{% url 'adm:crm_export_churn_customers' %}{% if base_query_string %}?{{ base_query_string }}{% endif %}" class="btn btn-sm btn-outline-success">Exportar CSV</a>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-striped mb-0">
+                <thead>
+                    <tr>
+                        <th>Cliente</th>
+                        <th>Email</th>
+                        <th>Teléfono</th>
+                        <th>País</th>
+                        <th>Moneda</th>
+                        <th>Días inactivo</th>
+                        <th>Último servicio</th>
+                        <th>Última compra</th>
+                        <th>Histórico compras</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in churn_customers %}
+                        <tr>
+                            <td>{{ row.username }}</td>
+                            <td>{{ row.email }}</td>
+                            <td>{{ row.phone }}</td>
+                            <td>{{ row.country }}</td>
+                            <td>{{ row.currency }}</td>
+                            <td>{{ row.days_inactive }}</td>
+                            <td>{{ row.last_service }}</td>
+                            <td>{{ row.last_purchase|date:'d/m/Y H:i' }}</td>
+                            <td>{{ row.total_orders }}</td>
+                        </tr>
+                    {% empty %}
+                        <tr><td colspan="9" class="text-center text-muted">No hay clientes churn para los filtros seleccionados.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if churn_customers.has_other_pages %}
+            <div class="card-footer">
+                <nav>
+                    <ul class="pagination pagination-sm mb-0 justify-content-end">
+                        {% if churn_customers.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?{% if base_query_string %}{{ base_query_string }}&{% endif %}churn_page={{ churn_customers.previous_page_number }}">Anterior</a>
+                            </li>
+                        {% endif %}
+                        <li class="page-item disabled"><span class="page-link">Página {{ churn_customers.number }} de {{ churn_customers.paginator.num_pages }}</span></li>
+                        {% if churn_customers.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?{% if base_query_string %}{{ base_query_string }}&{% endif %}churn_page={{ churn_customers.next_page_number }}">Siguiente</a>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            </div>
+        {% endif %}
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <div>
+                <h5 class="mb-0">¿Qué compraban los clientes churn? (agregado)</h5>
+                <small class="text-muted">Periodo de filtro: {{ period_label }}</small>
+            </div>
+            <a href="{% url 'adm:crm_export_churn_products' %}{% if base_query_string %}?{{ base_query_string }}{% endif %}" class="btn btn-sm btn-outline-success">Exportar CSV</a>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-striped mb-0">
+                <thead>
+                    <tr>
+                        <th>Servicio</th>
+                        <th>Moneda</th>
+                        <th>Compras</th>
+                        <th>Ingresos</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in churn_products %}
+                        <tr>
+                            <td>{{ row.service }}</td>
+                            <td>{{ row.currency }}</td>
+                            <td>{{ row.total_orders }}</td>
+                            <td>${{ row.total_revenue|intcomma }}</td>
+                        </tr>
+                    {% empty %}
+                        <tr><td colspan="4" class="text-center text-muted">Sin datos de churn para el periodo.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">Detalle: qué compraba cada cliente churn</h5>
+            <small class="text-muted">Periodo de filtro: {{ period_label }}</small>
+        </div>
+        <div class="card-body">
+            {% for block in churn_breakdown|slice:':50' %}
+                <div class="border rounded p-3 mb-3">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <strong>{{ block.customer.username }}</strong>
+                        <span class="badge bg-secondary">{{ block.customer.days_inactive }} días inactivo</span>
+                    </div>
+                    <p class="mb-2 text-muted">Último servicio: {{ block.customer.last_service }}</p>
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Servicio</th>
+                                    <th>Moneda</th>
+                                    <th>Compras</th>
+                                    <th>Ingresos</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for p in block.products %}
+                                    <tr>
+                                        <td>{{ p.service }}</td>
+                                        <td>{{ p.currency }}</td>
+                                        <td>{{ p.total_orders }}</td>
+                                        <td>${{ p.total_revenue|intcomma }}</td>
+                                    </tr>
+                                {% empty %}
+                                    <tr><td colspan="4" class="text-muted">Sin histórico</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            {% empty %}
+                <p class="text-muted mb-0">No hay clientes churn para mostrar detalle.</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+{{ sales_trend|json_script:"sales-trend-data" }}
+{{ top_products_chart|json_script:"top-products-data" }}
+{{ cohort_summary|json_script:"cohort-data" }}
+{{ churn_products|json_script:"churn-products-data" }}
+{% endblock body %}
+
+{% block extrajs %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+(function () {
+    const trendData = JSON.parse(document.getElementById('sales-trend-data').textContent || '[]');
+    const topProducts = JSON.parse(document.getElementById('top-products-data').textContent || '[]');
+    const cohortData = JSON.parse(document.getElementById('cohort-data').textContent || '[]');
+    const churnProducts = JSON.parse(document.getElementById('churn-products-data').textContent || '[]');
+
+    const trendCtx = document.getElementById('salesTrendChart');
+    if (trendCtx) {
+        new Chart(trendCtx, {
+            type: 'line',
+            data: {
+                labels: trendData.map(item => item.date),
+                datasets: [
+                    {
+                        label: 'Ingresos MXN',
+                        data: trendData.map(item => item.revenue_mxn),
+                        borderColor: '#0d6efd',
+                        yAxisID: 'y',
+                        tension: 0.2,
+                    },
+                    {
+                        label: 'Ingresos CLP',
+                        data: trendData.map(item => item.revenue_clp),
+                        borderColor: '#dc3545',
+                        yAxisID: 'y',
+                        tension: 0.2,
+                    },
+                    {
+                        label: 'Ventas',
+                        data: trendData.map(item => item.total_orders),
+                        borderColor: '#198754',
+                        yAxisID: 'y1',
+                        tension: 0.2,
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {beginAtZero: true, position: 'left'},
+                    y1: {beginAtZero: true, position: 'right', grid: {drawOnChartArea: false}}
+                }
+            }
+        });
+    }
+
+    const topProductsCtx = document.getElementById('topProductsChart');
+    if (topProductsCtx) {
+        const topTen = topProducts.slice(0, 10);
+        new Chart(topProductsCtx, {
+            type: 'doughnut',
+            data: {
+                labels: topTen.map(item => `${item.service} (${item.currency})`),
+                datasets: [{
+                    data: topTen.map(item => item.total_revenue),
+                    backgroundColor: ['#0d6efd', '#198754', '#ffc107', '#dc3545', '#6f42c1', '#fd7e14', '#20c997', '#6c757d', '#6610f2', '#0dcaf0']
+                }]
+            },
+            options: {responsive: true}
+        });
+    }
+
+    const cohortCtx = document.getElementById('cohortChart');
+    if (cohortCtx) {
+        new Chart(cohortCtx, {
+            type: 'bar',
+            data: {
+                labels: cohortData.map(item => item.period),
+                datasets: [
+                    {
+                        label: 'Clientes periodo',
+                        data: cohortData.map(item => item.customers),
+                        backgroundColor: '#0d6efd'
+                    },
+                    {
+                        label: 'Clientes recurrentes',
+                        data: cohortData.map(item => item.repeat_customers),
+                        backgroundColor: '#198754'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                scales: {y: {beginAtZero: true}}
+            }
+        });
+    }
+
+    const churnProductsCtx = document.getElementById('churnProductsChart');
+    if (churnProductsCtx) {
+        const topTenChurn = churnProducts.slice(0, 10);
+        new Chart(churnProductsCtx, {
+            type: 'bar',
+            data: {
+                labels: topTenChurn.map(item => `${item.service} (${item.currency})`),
+                datasets: [{
+                    label: 'Compras históricas',
+                    data: topTenChurn.map(item => item.total_orders),
+                    backgroundColor: '#dc3545'
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                scales: {x: {beginAtZero: true}}
+            }
+        });
+    }
+})();
+</script>
+{% endblock extrajs %}

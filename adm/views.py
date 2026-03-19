@@ -1,4 +1,5 @@
 # Django
+import csv
 import json
 from django.shortcuts import render
 from django.http import HttpResponse, HttpRequest
@@ -45,6 +46,7 @@ from .functions.active_inactive import Active_Inactive
 from .functions.dashboard import Dashboard
 from adm.functions.duplicated import NoDuplicate
 from adm.functions.sales import Sales
+from adm.functions.crm import CRMAnalytics
 # from adm.functions.import_data import ImportData
 from adm.db.constants import URL
 import os
@@ -302,6 +304,173 @@ def web_sales_yearly_detail(request):
         'period_date': str(year),
     }
     return render(request, 'adm/web_sales_detail.html', context)
+
+
+def _crm_csv_response(filename, headers, rows):
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = f'attachment; filename=\"{filename}\"'
+    writer = csv.writer(response)
+    writer.writerow(headers)
+    for row in rows:
+        writer.writerow(row)
+    return response
+
+
+@permission_required('is_superuser', 'adm:no-permission')
+def crm_dashboard_view(request):
+    """
+    CRM 360: tablero analítico para decisiones de negocio.
+    """
+    data = CRMAnalytics.build_dashboard_data(request.GET)
+    period_label = f"{data['filters']['date_from'].strftime('%d/%m/%Y')} - {data['filters']['date_to'].strftime('%d/%m/%Y')}"
+
+    query_params = request.GET.copy()
+    if 'page' in query_params:
+        query_params.pop('page')
+    if 'customers_page' in query_params:
+        query_params.pop('customers_page')
+    if 'products_page' in query_params:
+        query_params.pop('products_page')
+    if 'churn_page' in query_params:
+        query_params.pop('churn_page')
+    if 'recovered_page' in query_params:
+        query_params.pop('recovered_page')
+    base_query_string = query_params.urlencode()
+
+    top_customers_paginator = Paginator(data['top_customers'], 25)
+    top_products_paginator = Paginator(data['top_products'], 25)
+    churn_customers_paginator = Paginator(data['churn_customers'], 25)
+    recovered_customers_paginator = Paginator(data['recovered_customers'], 25)
+
+    top_customers_page = top_customers_paginator.get_page(request.GET.get('customers_page', 1))
+    top_products_page = top_products_paginator.get_page(request.GET.get('products_page', 1))
+    churn_customers_page = churn_customers_paginator.get_page(request.GET.get('churn_page', 1))
+    recovered_customers_page = recovered_customers_paginator.get_page(request.GET.get('recovered_page', 1))
+
+    return render(request, 'adm/crm.html', {
+        'kpis': data['kpis'],
+        'filters': data['filters'],
+        'options': data['options'],
+        'top_customers': top_customers_page,
+        'top_products': top_products_page,
+        'top_products_chart': data['top_products'],
+        'sales_trend': data['sales_trend'],
+        'cohort_summary': data['cohort_summary'],
+        'churn_customers': churn_customers_page,
+        'churn_products': data['churn_products'],
+        'churn_breakdown': data['churn_breakdown'],
+        'recovered_customers': recovered_customers_page,
+        'recovered_stats': data['recovered_stats'],
+        'base_query_string': base_query_string,
+        'period_label': period_label,
+    })
+
+
+@permission_required('is_superuser', 'adm:no-permission')
+def crm_export_top_customers(request):
+    sales_qs, _ = CRMAnalytics.get_filtered_sales(request.GET)
+    rows = CRMAnalytics.get_top_customers(sales_qs, limit=1000)
+    csv_rows = [
+        [
+            row['customer_id'],
+            row['username'],
+            row['email'],
+            row['phone'],
+            row['country'],
+            row['currency'],
+            row['total_revenue'],
+            row['total_orders'],
+            row['avg_ticket'],
+            timezone.localtime(row['last_purchase']).strftime('%Y-%m-%d %H:%M:%S') if row['last_purchase'] else '',
+        ]
+        for row in rows
+    ]
+    return _crm_csv_response(
+        'crm_top_customers.csv',
+        ['customer_id', 'username', 'email', 'phone', 'country', 'currency', 'total_revenue', 'total_orders', 'avg_ticket', 'last_purchase'],
+        csv_rows,
+    )
+
+
+@permission_required('is_superuser', 'adm:no-permission')
+def crm_export_top_products(request):
+    sales_qs, _ = CRMAnalytics.get_filtered_sales(request.GET)
+    rows = CRMAnalytics.get_top_products(sales_qs, limit=1000)
+    csv_rows = [
+        [row['service_id'], row['service'], row['currency'], row['total_revenue'], row['total_orders'], row['share']]
+        for row in rows
+    ]
+    return _crm_csv_response(
+        'crm_top_products.csv',
+        ['service_id', 'service', 'currency', 'total_revenue', 'total_orders', 'share'],
+        csv_rows,
+    )
+
+
+@permission_required('is_superuser', 'adm:no-permission')
+def crm_export_churn_customers(request):
+    filters = CRMAnalytics.parse_filters(request.GET)
+    rows = CRMAnalytics.get_churn_customers(filters, limit=5000)
+    csv_rows = [
+        [
+            row['customer_id'],
+            row['username'],
+            row['email'],
+            row['phone'],
+            row['country'],
+            row['currency'],
+            timezone.localtime(row['last_purchase']).strftime('%Y-%m-%d %H:%M:%S') if row['last_purchase'] else '',
+            row['days_inactive'],
+            row['last_service'],
+            row['total_revenue'],
+            row['total_orders'],
+        ]
+        for row in rows
+    ]
+    return _crm_csv_response(
+        'crm_churn_customers.csv',
+        ['customer_id', 'username', 'email', 'phone', 'country', 'currency', 'last_purchase', 'days_inactive', 'last_service', 'total_revenue', 'total_orders'],
+        csv_rows,
+    )
+
+
+@permission_required('is_superuser', 'adm:no-permission')
+def crm_export_churn_products(request):
+    filters = CRMAnalytics.parse_filters(request.GET)
+    churn_customers = CRMAnalytics.get_churn_customers(filters, limit=5000)
+    rows = CRMAnalytics.get_churn_products(churn_customers)
+    csv_rows = [[row['service'], row['currency'], row['total_orders'], row['total_revenue']] for row in rows]
+    return _crm_csv_response(
+        'crm_churn_products.csv',
+        ['service', 'currency', 'total_orders', 'total_revenue'],
+        csv_rows,
+    )
+
+
+@permission_required('is_superuser', 'adm:no-permission')
+def crm_export_recovered_customers(request):
+    filters = CRMAnalytics.parse_filters(request.GET)
+    rows = CRMAnalytics.get_recovered_customers(filters, limit=5000)
+    csv_rows = [
+        [
+            row['customer_id'],
+            row['username'],
+            row['email'],
+            row['phone'],
+            row['country'],
+            row['currency'],
+            timezone.localtime(row['recovery_date']).strftime('%Y-%m-%d %H:%M:%S') if row['recovery_date'] else '',
+            row['days_inactive_before_recovery'],
+            row['service'],
+            row['amount'],
+        ]
+        for row in rows
+    ]
+    return _crm_csv_response(
+        'crm_recovered_customers.csv',
+        ['customer_id', 'username', 'email', 'phone', 'country', 'currency', 'recovery_date', 'days_inactive_before_recovery', 'service', 'amount'],
+        csv_rows,
+    )
 
 class NoPermissionView(TemplateView):
     """
