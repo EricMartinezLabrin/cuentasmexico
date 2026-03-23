@@ -1,0 +1,90 @@
+{% extends 'adm/base/base.html' %}
+{% load static %}
+{% block title %}Nueva Campaña IA{% endblock title %}
+{% block body %}
+<div class="container-fluid py-3">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+      <h1 class="h4 mb-0">Nueva campaña con IA</h1>
+      <small class="text-muted">Dale una idea y la IA la convertirá en campaña completa.</small>
+    </div>
+    <a href="{% url 'adm:marketing_campaigns' %}" class="btn btn-cm-cancel">Volver</a>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-12 col-lg-8">
+      <form method="post" class="card border-0 shadow-sm" id="marketing-campaign-form">
+        {% csrf_token %}
+        <div class="card-body">
+          <div class="mb-3">
+            <label class="form-label" for="{{ form.name.id_for_label }}">Nombre de campaña</label>
+            {{ form.name }}
+            <div class="form-text">Opcional. Si lo dejas vacío, la IA lo completa automáticamente.</div>
+          </div>
+          <div class="row g-2">
+            <div class="col-12 col-md-6">
+              <label class="form-label" for="{{ form.channel.id_for_label }}">Canal</label>
+              {{ form.channel }}
+            </div>
+            <div class="col-12 col-md-6">
+              <label class="form-label" for="{{ form.objective.id_for_label }}">Objetivo</label>
+              {{ form.objective }}
+            </div>
+          </div>
+          <div class="mt-3 mb-3">
+            <label class="form-label" for="{{ form.idea_input.id_for_label }}">Idea base</label>
+            {{ form.idea_input }}
+            <div class="form-text">Opcional. Puedes dejarla vacía y usar “Crear desde cero” para que la IA construya la promoción solo con estadísticas.</div>
+          </div>
+          <div class="d-flex gap-2">
+            <button class="btn btn-cm" name="action" value="generate" data-action="generate">
+              <i class="bi bi-stars me-1"></i>Generar desde idea
+            </button>
+            <button class="btn btn-outline-primary" name="action" value="generate_stats" data-action="generate_stats">
+              <i class="bi bi-graph-up-arrow me-1"></i>Crear desde cero (stats)
+            </button>
+            <button class="btn btn-outline-secondary" name="action" value="save">Guardar borrador</button>
+          </div>
+          <div id="marketing-generate-status" class="alert alert-info mt-3 d-none" role="alert"></div>
+        </div>
+      </form>
+    </div>
+
+    <div class="col-12 col-lg-4">
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white">
+          <strong>Base estadística (90 días)</strong>
+        </div>
+        <div class="card-body">
+          <div class="mb-2">Ventas: <strong>{{ preview_stats.total_sales }}</strong></div>
+          <div class="mb-2">Ingreso: <strong>${{ preview_stats.total_revenue }}</strong></div>
+          <div class="mb-2">Ticket prom.: <strong>${{ preview_stats.avg_ticket }}</strong></div>
+          <hr>
+          <div class="small text-muted mb-1">Top servicios:</div>
+          <ul class="small">
+            {% for s in preview_stats.top_services %}
+            <li>{{ s.account__account_name__description }} ({{ s.total_sales }})</li>
+            {% empty %}
+            <li>Sin datos.</li>
+            {% endfor %}
+          </ul>
+          <hr>
+          <div class="small text-muted mb-1">Top países:</div>
+          <ul class="small mb-0">
+            {% for p in preview_stats.top_countries %}
+            <li>{{ p.customer__userdetail__country|default:'Sin país' }} ({{ p.total_sales }})</li>
+            {% empty %}
+            <li>Sin datos.</li>
+            {% endfor %}
+          </ul>
+          <hr>
+          <div class="small text-muted">
+            Recomendación: usa “Crear desde cero (stats)” para campañas de precisión con segmentación específica y enfoque a conversión.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="{% static 'adm/js/marketing_campaign.js' %}"></script>
+{% endblock body %}

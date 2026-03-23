@@ -1,0 +1,270 @@
+{% extends 'adm/base/base.html' %}
+{% load static %}
+{% block title %}Campaña {{ campaign.id }}{% endblock title %}
+{% block body %}
+<div class="container-fluid py-3">
+  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <div>
+      <h1 class="h4 mb-0">{{ campaign.name }}</h1>
+      <small class="text-muted">
+        {{ campaign.get_channel_display }} · {{ campaign.get_status_display }} · #{{ campaign.id }}
+      </small>
+    </div>
+    <div class="d-flex gap-2">
+      <a class="btn btn-cm-cancel" href="{% url 'adm:marketing_campaigns' %}">
+        <i class="bi bi-arrow-left me-1"></i>Volver
+      </a>
+      <a class="btn btn-outline-secondary" href="{% url 'adm:marketing_campaigns' %}">Listado</a>
+      <a class="btn btn-outline-primary" href="{% url 'adm:marketing_campaign_regenerate' campaign.id %}">
+        <i class="bi bi-arrow-repeat me-1"></i>Regenerar IA
+      </a>
+      <form method="post" action="{% url 'adm:marketing_campaign_send' campaign.id %}">
+        {% csrf_token %}
+        <input type="hidden" name="send_now" value="false">
+        <button class="btn btn-cm"><i class="bi bi-journal-check me-1"></i>Registrar envío</button>
+      </form>
+      <form method="post" action="{% url 'adm:marketing_campaign_send' campaign.id %}">
+        {% csrf_token %}
+        <input type="hidden" name="send_now" value="true">
+        <button class="btn btn-outline-success"><i class="bi bi-send me-1"></i>Intentar envío real</button>
+      </form>
+    </div>
+  </div>
+  <div class="small text-muted mb-3">
+    Nota: el envío real solo se ejecuta si `AI_MARKETING_ACTUAL_SEND=true`; en caso contrario se registra en histórico.
+  </div>
+
+  <div class="row g-3">
+    <div class="col-12 col-lg-7">
+      <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header bg-white"><strong>Creativo y Mensaje</strong></div>
+        <div class="card-body">
+          <div class="mb-2"><strong>Objetivo:</strong> {{ campaign.objective|default:'-' }}</div>
+          <div class="mb-2"><strong>Canal:</strong> {{ campaign.get_channel_display }}</div>
+          {% if campaign.audience_filters.generation_mode %}
+          <div class="mb-2">
+            <strong>Modo de generación:</strong>
+            {% if campaign.audience_filters.generation_mode == 'from_stats_only' %}
+              <span class="badge text-bg-primary">Desde cero (solo estadísticas)</span>
+            {% else %}
+              <span class="badge text-bg-secondary">Desde idea base</span>
+            {% endif %}
+          </div>
+          {% endif %}
+          <div class="mb-2"><strong>Tags:</strong>
+            {% for t in campaign.tags %}
+              <span class="badge {% cycle 'text-bg-primary' 'text-bg-success' 'text-bg-warning' 'text-bg-danger' 'text-bg-info' 'text-bg-secondary' %} me-1">{{ t }}</span>
+            {% empty %}-{% endfor %}
+          </div>
+          {% if campaign.audience_filters.targeting_notes %}
+          <div class="mb-2">
+            <strong>Notas de segmentación IA:</strong>
+            <div class="small text-muted">{{ campaign.audience_filters.targeting_notes }}</div>
+          </div>
+          {% endif %}
+          {% if campaign.audience_filters.cta %}
+          <div class="mb-2">
+            <strong>CTA sugerido:</strong>
+            <span class="badge text-bg-warning">{{ campaign.audience_filters.cta }}</span>
+          </div>
+          {% endif %}
+          {% if campaign.audience_filters.growth_hypothesis %}
+          <div class="mb-2">
+            <strong>Hipótesis de growth:</strong>
+            <div class="small text-muted">{{ campaign.audience_filters.growth_hypothesis }}</div>
+          </div>
+          {% endif %}
+          {% if campaign.audience_filters.kpi_focus %}
+          <div class="mb-2">
+            <strong>KPI foco:</strong>
+            <span class="badge text-bg-info">{{ campaign.audience_filters.kpi_focus }}</span>
+          </div>
+          {% endif %}
+          <hr>
+          <div class="mb-2"><strong>Texto WhatsApp:</strong></div>
+          <div class="p-2 border rounded-2 bg-light">{{ campaign.message_text|linebreaksbr }}</div>
+          <div class="mt-3 mb-2"><strong>Texto SMS:</strong></div>
+          <div class="p-2 border rounded-2 bg-light">{{ campaign.sms_text|linebreaksbr }}</div>
+          <div class="mt-3 mb-2"><strong>Prompt imagen:</strong></div>
+          <form id="marketing-image-regenerate-form" method="post" action="{% url 'adm:marketing_campaign_regenerate_image' campaign.id %}">
+            {% csrf_token %}
+            <textarea class="form-control mb-2" name="image_prompt" rows="3" placeholder="Mejora aquí el prompt para regenerar la imagen">{{ campaign.image_prompt|default:'' }}</textarea>
+            <button class="btn btn-outline-primary btn-sm" type="submit">
+              <i class="bi bi-image me-1"></i>Regenerar imagen IA
+            </button>
+          </form>
+          <div id="marketing-image-regenerate-status" class="alert alert-info mt-2 d-none"></div>
+          {% if campaign.audience_filters.image_generation_response %}
+          <div class="mt-2 small">
+            <strong>Respuesta generación imagen:</strong>
+            <div id="marketing-image-meta" class="text-muted">
+              Proveedor: {{ campaign.audience_filters.image_generation_response.provider|default:'-' }} |
+              Modelo: {{ campaign.audience_filters.image_generation_response.model|default:'-' }} |
+              Estado: {{ campaign.audience_filters.image_generation_response.status|default:'-' }}
+            </div>
+            <div id="marketing-image-meta-message" class="text-muted">{{ campaign.audience_filters.image_generation_response.message|default:'' }}</div>
+          </div>
+          {% endif %}
+          {% if campaign.creative_image %}
+          <div class="mt-3">
+            <img id="marketing-image-preview" src="{{ campaign.creative_image.url }}" class="img-fluid rounded border" alt="Creativo IA">
+          </div>
+          {% else %}
+          <div class="mt-3 small text-muted" id="marketing-image-empty-note">Aún no hay imagen generada.</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white d-flex justify-content-between">
+          <strong>Clientes recomendados ({{ recommendations|length }})</strong>
+          <div class="d-flex gap-2">
+            <a href="{% url 'adm:marketing_campaign_recommendations_csv' campaign.id %}" class="btn btn-sm btn-outline-success">
+              <i class="bi bi-file-earmark-spreadsheet me-1"></i>Exportar CSV
+            </a>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Cliente</th>
+                <th>País</th>
+                <th>Teléfono</th>
+                <th>Órdenes</th>
+                <th>Ingreso</th>
+                <th>Score</th>
+                <th>Motivo</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for r in recommendations %}
+              <tr>
+                <td>{{ r.customer.username }}<br><small class="text-muted">{{ r.customer.email }}</small></td>
+                <td>{{ r.country|default:'-' }}</td>
+                <td>{% if r.lada and r.phone_number %}+{{ r.lada }} {{ r.phone_number }}{% else %}-{% endif %}</td>
+                <td>{{ r.total_orders }}</td>
+                <td>${{ r.total_revenue }}</td>
+                <td><strong>{{ r.score }}</strong></td>
+                <td class="small">{{ r.reason }}</td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="7" class="text-center text-muted py-3">Sin recomendaciones aún.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-lg-5">
+      <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header bg-white"><strong>Estadísticas usadas por IA</strong></div>
+        <div class="card-body">
+          <div class="small text-muted mb-2">
+            Ventana: últimos {{ stats.window_days|default:'90' }} días
+          </div>
+          <div class="mb-1">Ventas: <strong>{{ stats.total_sales|default:'0' }}</strong></div>
+          <div class="mb-1">Ingreso: <strong>${{ stats.total_revenue|default:'0' }}</strong></div>
+          <div class="mb-2">Ticket prom.: <strong>${{ stats.avg_ticket|default:'0' }}</strong></div>
+          <hr>
+          <div class="small text-muted">Top países:</div>
+          <ul class="small">
+            {% for p in stats.top_countries %}
+            <li>{{ p.customer__userdetail__country|default:'Sin país' }} ({{ p.total_sales }})</li>
+            {% empty %}
+            <li>Sin datos.</li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+
+      <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header bg-white"><strong>Criterios de Audiencia Aplicados</strong></div>
+        <div class="card-body small">
+          {% if audience_strategy %}
+            <div><strong>Tipo de segmento:</strong> {{ audience_strategy.segment_type|default:'general' }}</div>
+            <div><strong>Días inactividad:</strong> {{ audience_strategy.min_days_inactive|default:'0' }} - {{ audience_strategy.max_days_inactive|default:'3650' }}</div>
+            <div><strong>Órdenes:</strong> {{ audience_strategy.min_total_orders|default:'0' }} - {{ audience_strategy.max_total_orders|default:'9999' }}</div>
+            <div><strong>Ingreso mínimo:</strong> ${{ audience_strategy.min_total_revenue|default:'0' }}</div>
+            <div><strong>Activas máximas ahora:</strong> {{ audience_strategy.max_active_sales_now|default:'999' }}</div>
+            <div><strong>Sin activas:</strong> {{ audience_strategy.require_no_active_sales|default:'False' }}</div>
+            <div><strong>Historial servicio:</strong> {{ audience_strategy.require_service_history|default:'False' }}</div>
+            <div><strong>Servicio objetivo inactivo:</strong> {{ audience_strategy.require_target_service_inactive|default:'False' }}</div>
+            <div><strong>Excluir recompra reciente:</strong> {{ audience_strategy.exclude_recent_same_service_days|default:'0' }} días</div>
+            <div class="mt-2"><strong>Países incluidos:</strong>
+              {% for c in audience_strategy.countries_include %}<span class="badge text-bg-light border me-1">{{ c }}</span>{% empty %}-{% endfor %}
+            </div>
+            <div class="mt-1"><strong>Países excluidos:</strong>
+              {% for c in audience_strategy.countries_exclude %}<span class="badge text-bg-light border me-1">{{ c }}</span>{% empty %}-{% endfor %}
+            </div>
+            <div class="mt-1"><strong>Keywords servicio:</strong>
+              {% for k in audience_strategy.service_keywords %}<span class="badge text-bg-light border me-1">{{ k }}</span>{% empty %}-{% endfor %}
+            </div>
+            <div class="mt-2 text-muted"><strong>Notas:</strong> {{ audience_strategy.notes|default:'-' }}</div>
+            <div class="text-muted"><strong>Fuente:</strong> {{ audience_strategy.source|default:'heuristic' }}</div>
+          {% else %}
+            <div class="text-muted">La estrategia se mostrará después de generar recomendaciones.</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white"><strong>Histórico de envíos</strong></div>
+        <div class="table-responsive">
+          <table class="table table-sm mb-0 align-middle">
+            <thead class="table-light">
+              <tr>
+                <th>Fecha</th>
+                <th>Canal</th>
+                <th>Destino</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for d in deliveries %}
+              <tr>
+                <td>{{ d.created_at|date:'d/m/Y H:i' }}</td>
+                <td>{{ d.get_channel_display }}</td>
+                <td class="small">{{ d.destination }}</td>
+                <td><span class="badge text-bg-secondary">{{ d.get_status_display }}</span></td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="4" class="text-center text-muted py-3">Sin envíos registrados.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card border-0 shadow-sm mt-3">
+        <div class="card-header bg-white"><strong>Preguntas de la IA para Afinar la Campaña</strong></div>
+        <div class="card-body">
+          {% if campaign.audience_filters.generation_status == 'needs_input' and campaign.audience_filters.clarification_questions %}
+            <div class="alert alert-warning">
+              La IA necesita estas respuestas para generar una campaña más precisa.
+            </div>
+            <form id="marketing-clarifications-form" method="post" action="{% url 'adm:marketing_campaign_answer_clarifications' campaign.id %}">
+              {% csrf_token %}
+              {% for q in campaign.audience_filters.clarification_questions %}
+                <div class="mb-2">
+                  <label class="form-label"><strong>{{ forloop.counter }}.</strong> {{ q }}</label>
+                  <textarea class="form-control" name="answer_{{ forloop.counter0 }}" rows="2" placeholder="Tu respuesta"></textarea>
+                </div>
+              {% endfor %}
+              <button class="btn btn-primary" type="submit">
+                <i class="bi bi-magic me-1"></i>Responder y continuar generación
+              </button>
+            </form>
+            <div id="marketing-clarifications-status" class="alert alert-info mt-3 d-none"></div>
+          {% else %}
+            <div class="text-muted small">No hay preguntas pendientes de la IA.</div>
+          {% endif %}
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+<script src="{% static 'adm/js/marketing_campaign.js' %}"></script>
+{% endblock body %}

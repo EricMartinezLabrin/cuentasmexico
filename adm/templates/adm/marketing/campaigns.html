@@ -1,0 +1,76 @@
+{% extends 'adm/base/base.html' %}
+{% block title %}Marketing IA{% endblock title %}
+{% block body %}
+<div class="container-fluid py-3">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+      <h1 class="h4 mb-0">Marketing IA</h1>
+      <small class="text-muted">Campañas WhatsApp + SMS basadas en estadísticas.</small>
+    </div>
+    <a href="{% url 'adm:marketing_campaign_create' %}" class="btn btn-cm">
+      <i class="bi bi-magic me-1"></i>Nueva campaña IA
+    </a>
+  </div>
+
+  <form method="get" class="card border-0 shadow-sm mb-3">
+    <div class="card-body row g-2">
+      <div class="col-12 col-md-4"><input class="form-control" name="q" value="{{ q }}" placeholder="Buscar por nombre/objetivo"></div>
+      <div class="col-6 col-md-3">
+        <select class="form-select" name="status">
+          <option value="">Todos los estados</option>
+          <option value="draft" {% if status == 'draft' %}selected{% endif %}>Borrador</option>
+          <option value="ready" {% if status == 'ready' %}selected{% endif %}>Lista</option>
+          <option value="sent" {% if status == 'sent' %}selected{% endif %}>Enviada</option>
+          <option value="archived" {% if status == 'archived' %}selected{% endif %}>Archivada</option>
+        </select>
+      </div>
+      <div class="col-6 col-md-3">
+        <select class="form-select" name="channel">
+          <option value="">Todos los canales</option>
+          <option value="whatsapp" {% if channel == 'whatsapp' %}selected{% endif %}>WhatsApp</option>
+          <option value="sms" {% if channel == 'sms' %}selected{% endif %}>SMS</option>
+        </select>
+      </div>
+      <div class="col-12 col-md-2 d-grid"><button class="btn btn-outline-secondary">Filtrar</button></div>
+    </div>
+  </form>
+
+  <div class="card border-0 shadow-sm">
+    <div class="table-responsive">
+      <table class="table align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>ID</th>
+            <th>Campaña</th>
+            <th>Canal</th>
+            <th>Estado</th>
+            <th>Creada</th>
+            <th>Enviada</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for c in campaigns %}
+          <tr>
+            <td>#{{ c.id }}</td>
+            <td>
+              <div class="fw-semibold">{{ c.name }}</div>
+              <small class="text-muted">{{ c.objective|default:'Sin objetivo' }}</small>
+            </td>
+            <td><span class="badge text-bg-secondary">{{ c.get_channel_display }}</span></td>
+            <td><span class="badge text-bg-info">{{ c.get_status_display }}</span></td>
+            <td>{{ c.created_at|date:'d/m/Y H:i' }}</td>
+            <td>{% if c.sent_at %}{{ c.sent_at|date:'d/m/Y H:i' }}{% else %}-{% endif %}</td>
+            <td class="text-end">
+              <a href="{% url 'adm:marketing_campaign_detail' c.id %}" class="btn btn-sm btn-outline-primary">Abrir</a>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="7" class="text-center text-muted py-4">No hay campañas aún.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock body %}

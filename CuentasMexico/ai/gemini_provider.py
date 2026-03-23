@@ -30,7 +30,7 @@ class GeminiProvider(BaseAIProvider):
         self.timeout = timeout
 
     def _endpoint(self, model: str, action: str = "generateContent") -> str:
-        return f"{self.base_url}/models/{model}:{action}?key={self.api_key}"
+        return f"{self.base_url}/models/{model}:{action}"
 
     def _raise_for_error(self, response: requests.Response) -> None:
         if response.ok:
@@ -93,7 +93,10 @@ class GeminiProvider(BaseAIProvider):
 
         response = requests.post(
             self._endpoint(model),
-            headers={"Content-Type": "application/json"},
+            headers={
+                "Content-Type": "application/json",
+                "x-goog-api-key": self.api_key,
+            },
             data=json.dumps(payload),
             timeout=self.timeout,
         )
@@ -135,7 +138,9 @@ class GeminiProvider(BaseAIProvider):
     ) -> ImageResult:
         payload_extra: Dict[str, Any] = {
             "generationConfig": {
-                "responseModalities": ["IMAGE"],
+                # Según documentación Gemini image generation:
+                # incluir TEXT+IMAGE para recibir respuesta multimodal estable.
+                "responseModalities": ["TEXT", "IMAGE"],
             }
         }
         if size:

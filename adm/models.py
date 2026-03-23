@@ -1108,3 +1108,112 @@ class AffiliateNotification(models.Model):
     def marcar_leida(self):
         self.leida = True
         self.save()
+
+
+# ============================================
+# MARKETING IA (WhatsApp / SMS)
+# ============================================
+
+class MarketingCampaign(models.Model):
+    CHANNEL_CHOICES = [
+        ('whatsapp', 'WhatsApp (imagen + texto)'),
+        ('sms', 'SMS (solo texto)'),
+    ]
+
+    STATUS_CHOICES = [
+        ('draft', 'Borrador'),
+        ('ready', 'Lista para enviar'),
+        ('sent', 'Enviada'),
+        ('archived', 'Archivada'),
+    ]
+
+    name = models.CharField(max_length=180)
+    channel = models.CharField(max_length=20, choices=CHANNEL_CHOICES, default='whatsapp')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
+    objective = models.CharField(max_length=180, blank=True, null=True)
+    idea_input = models.TextField(blank=True, null=True)
+    ai_prompt_used = models.TextField(blank=True, null=True)
+    message_text = models.TextField(blank=True, null=True)
+    sms_text = models.TextField(blank=True, null=True)
+    creative_image = models.ImageField(upload_to='marketing/campaigns/', blank=True, null=True)
+    image_prompt = models.TextField(blank=True, null=True)
+    tags = models.JSONField(default=list, blank=True)
+    stats_snapshot = models.JSONField(default=dict, blank=True)
+    audience_filters = models.JSONField(default=dict, blank=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='marketing_campaigns_created')
+    sent_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Campaña de Marketing"
+        verbose_name_plural = "Campañas de Marketing"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.name} ({self.get_channel_display()})"
+
+
+class MarketingCampaignRecommendation(models.Model):
+    campaign = models.ForeignKey(MarketingCampaign, on_delete=models.CASCADE, related_name='recommendations')
+    customer = models.ForeignKey(User, on_delete=models.CASCADE, related_name='marketing_recommendations')
+    country = models.CharField(max_length=80, blank=True, null=True)
+    lada = models.CharField(max_length=10, blank=True, null=True)
+    phone_number = models.CharField(max_length=20, blank=True, null=True)
+    total_orders = models.IntegerField(default=0)
+    total_revenue = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    last_purchase = models.DateTimeField(blank=True, null=True)
+    score = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    reason = models.TextField(blank=True, null=True)
+    selected = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Recomendación de Campaña"
+        verbose_name_plural = "Recomendaciones de Campaña"
+        ordering = ['-score', 'id']
+        unique_together = ['campaign', 'customer']
+        indexes = [
+            models.Index(fields=['campaign', 'selected']),
+            models.Index(fields=['country']),
+        ]
+
+    def __str__(self):
+        return f"{self.customer.username} -> {self.campaign.name}"
+
+
+class MarketingCampaignDelivery(models.Model):
+    CHANNEL_CHOICES = [
+        ('whatsapp', 'WhatsApp'),
+        ('sms', 'SMS'),
+    ]
+
+    STATUS_CHOICES = [
+        ('queued', 'En cola'),
+        ('sent', 'Enviado'),
+        ('failed', 'Fallido'),
+        ('skipped', 'Omitido'),
+    ]
+
+    campaign = models.ForeignKey(MarketingCampaign, on_delete=models.CASCADE, related_name='deliveries')
+    recommendation = models.ForeignKey(MarketingCampaignRecommendation, on_delete=models.SET_NULL, null=True, blank=True, related_name='deliveries')
+    channel = models.CharField(max_length=20, choices=CHANNEL_CHOICES)
+    destination = models.CharField(max_length=120)
+    payload_text = models.TextField(blank=True, null=True)
+    payload_image_url = models.CharField(max_length=500, blank=True, null=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='queued')
+    provider_response = models.TextField(blank=True, null=True)
+    sent_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Envío de Campaña"
+        verbose_name_plural = "Envíos de Campaña"
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['campaign', 'status']),
+            models.Index(fields=['channel', 'status']),
+        ]
+
+    def __str__(self):
+        return f"{self.campaign.name} -> {self.destination} ({self.status})"

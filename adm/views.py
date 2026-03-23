@@ -1,16 +1,22 @@
 # Django
 import csv
 import json
+import base64
+import re
+from io import BytesIO
 from django.shortcuts import render
 from django.http import HttpResponse, HttpRequest
+from django.core.files.base import ContentFile
 from django.views.generic import DetailView, CreateView, UpdateView, TemplateView, ListView, DeleteView
 from django.urls import reverse, reverse_lazy
 from django.contrib.auth.decorators import permission_required, login_required
+from django.contrib import messages
 from django.contrib.auth.models import User
 from django.shortcuts import redirect
 from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
 from django.http import JsonResponse
 from django.db.models import Sum, Prefetch, Case, When, IntegerField, Q, Count
+from django.db.models import Max
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.db.models import DateTimeField, ExpressionWrapper, F
@@ -33,7 +39,8 @@ from django.db.models import DurationField
 from .models import (
     Business, PaymentMethod, Sale, UserDetail, Service, Account, Bank,
     Status, Supplier, Credits, Promocion, AccountChangeHistory,
-    Affiliate, AffiliateCommission, AffiliateWithdrawal, AffiliateSettings, AffiliateSale, AISettings
+    Affiliate, AffiliateCommission, AffiliateWithdrawal, AffiliateSettings, AffiliateSale, AISettings,
+    MarketingCampaign, MarketingCampaignRecommendation, MarketingCampaignDelivery
 )
 from cupon.models import Cupon, CouponRedemption
 from cupon.forms import CuponForm
@@ -54,6 +61,7 @@ from .functions.forms import (
     CustomerUpdateForm,
     UserMainForm,
 )
+from .functions.forms_marketing import MarketingCampaignForm
 from .functions.permissions import UserAccessMixin
 from .functions.country import Country
 from .functions.active_inactive import Active_Inactive
@@ -61,9 +69,16 @@ from .functions.dashboard import Dashboard
 from adm.functions.duplicated import NoDuplicate
 from adm.functions.sales import Sales
 from adm.functions.crm import CRMAnalytics
+from CuentasMexico.ai import AIClient
+from CuentasMexico.ai.config import get_active_provider, get_model_for_task, get_db_mcp_config
+from CuentasMexico.ai.mcp_readonly_db import ReadOnlyDatabaseMCP
 # from adm.functions.import_data import ImportData
 from adm.db.constants import URL
 import os
+try:
+    from PIL import Image
+except Exception:  # pragma: no cover
+    Image = None
 
 def is_ajax(request):
     return request.META.get('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest'
@@ -3388,3 +3403,1210 @@ def sync_google_sheets_execute(request):
             'status': 'error',
             'message': f'Error en sincronización: {str(e)}'
         }, status=500)
+
+
+# ============================================================================
+# MARKETING IA
+# ============================================================================
+
+def _marketing_stats_snapshot(user):
+    now = timezone.now()
+    last_90 = now - timedelta(days=90)
+    qs = Sale.objects.filter(created_at__gte=last_90, status=True)
+    if not user.is_superuser:
+        qs = qs.filter(user_seller=user)
+
+    totals = qs.aggregate(total_sales=Count('id'), total_revenue=Sum('payment_amount'))
+    avg_ticket = 0
+    if totals['total_sales']:
+        avg_ticket = float(totals['total_revenue'] or 0) / float(totals['total_sales'])
+
+    top_services = (
+        qs.values('account__account_name__description')
+        .annotate(total_revenue=Sum('payment_amount'), total_sales=Count('id'))
+        .order_by('-total_revenue')[:5]
+    )
+    top_countries = (
+        qs.values('customer__userdetail__country')
+        .annotate(total_sales=Count('id'), total_revenue=Sum('payment_amount'))
+        .order_by('-total_revenue')[:8]
+    )
+    return {
+        'window_days': 90,
+        'total_sales': int(totals['total_sales'] or 0),
+        'total_revenue': float(totals['total_revenue'] or 0),
+        'avg_ticket': round(avg_ticket, 2),
+        'top_services': list(top_services),
+        'top_countries': list(top_countries),
+        'generated_at': timezone.now().isoformat(),
+    }
+
+
+def _marketing_parse_json(text):
+    raw = (text or '').strip()
+    raw = re.sub(r'^```(?:json)?\s*', '', raw)
+    raw = re.sub(r'\s*```$', '', raw)
+    try:
+        obj = json.loads(raw)
+        return obj if isinstance(obj, dict) else {}
+    except Exception:
+        pass
+    start = raw.find('{')
+    end = raw.rfind('}')
+    if start >= 0 and end > start:
+        try:
+            obj = json.loads(raw[start:end + 1])
+            return obj if isinstance(obj, dict) else {}
+        except Exception:
+            return {}
+    return {}
+
+
+def _mysql_safe_text(value):
+    """
+    Evita errores 'Incorrect string value' en MySQL utf8 (3 bytes),
+    removiendo caracteres fuera de BMP (ej: muchos emojis).
+    """
+    if value is None:
+        return ''
+    raw = str(value)
+    cleaned = []
+    for ch in raw:
+        code = ord(ch)
+        if code <= 0xFFFF:
+            cleaned.append(ch)
+    return ''.join(cleaned)
+
+
+def _error_to_text(exc):
+    base = _mysql_safe_text(str(exc))
+    details = getattr(exc, 'details', None)
+    if details:
+        try:
+            details_text = _mysql_safe_text(json.dumps(details, ensure_ascii=False, default=str))
+            return f"{base} | details={details_text}"
+        except Exception:
+            pass
+    return base
+
+
+def _force_square_image_bytes(raw_bytes):
+    """
+    Garantiza salida 1:1 (cuadrada), recortando al centro.
+    """
+    if not raw_bytes or Image is None:
+        return raw_bytes
+    try:
+        source = BytesIO(raw_bytes)
+        with Image.open(source) as img:
+            width, height = img.size
+            side = min(width, height)
+            left = (width - side) // 2
+            top = (height - side) // 2
+            cropped = img.crop((left, top, left + side, top + side))
+            output = BytesIO()
+            cropped.save(output, format='PNG')
+            return output.getvalue()
+    except Exception:
+        return raw_bytes
+
+
+def _marketing_db_context(user):
+    """
+    Contexto SQL (solo lectura) para decisiones de marketing:
+    servicios activos, precios, ventas recientes, promociones y cupones.
+    """
+    cfg = get_db_mcp_config()
+    mcp = ReadOnlyDatabaseMCP(
+        allowed_tables=cfg["allowed_tables"] or None,
+        max_rows=min(int(cfg["max_rows"]), 300),
+        include_schema=False,
+    )
+    now = timezone.now()
+    since_90 = now - timedelta(days=90)
+
+    query_specs = []
+
+    # Servicios activos + tracción últimos 90 días
+    if user and not user.is_superuser:
+        query_specs.append(
+            (
+                """
+                SELECT
+                  s.id,
+                  s.description,
+                  s.price,
+                  s.regular_price,
+                  COUNT(sa.id) AS sales_90d,
+                  COALESCE(SUM(sa.payment_amount), 0) AS revenue_90d
+                FROM adm_service s
+                LEFT JOIN adm_account a ON a.account_name_id = s.id
+                LEFT JOIN adm_sale sa
+                  ON sa.account_id = a.id
+                 AND sa.status = 1
+                 AND sa.created_at >= %s
+                 AND sa.user_seller_id = %s
+                WHERE s.status = 1
+                GROUP BY s.id, s.description, s.price, s.regular_price
+                ORDER BY sales_90d DESC, revenue_90d DESC
+                """,
+                [since_90, user.id],
+            )
+        )
+    else:
+        query_specs.append(
+            (
+                """
+                SELECT
+                  s.id,
+                  s.description,
+                  s.price,
+                  s.regular_price,
+                  COUNT(sa.id) AS sales_90d,
+                  COALESCE(SUM(sa.payment_amount), 0) AS revenue_90d
+                FROM adm_service s
+                LEFT JOIN adm_account a ON a.account_name_id = s.id
+                LEFT JOIN adm_sale sa
+                  ON sa.account_id = a.id
+                 AND sa.status = 1
+                 AND sa.created_at >= %s
+                WHERE s.status = 1
+                GROUP BY s.id, s.description, s.price, s.regular_price
+                ORDER BY sales_90d DESC, revenue_90d DESC
+                """,
+                [since_90],
+            )
+        )
+
+    # Promociones activas/programadas
+    query_specs.append(
+        (
+            """
+            SELECT
+              id, nombre, tipo_descuento, porcentaje_descuento, monto_descuento,
+              tipo_nxm, cantidad_llevar, cantidad_pagar, aplicacion, status,
+              fecha_inicio, fecha_fin
+            FROM adm_promocion
+            WHERE status IN ('activa', 'programada')
+            ORDER BY updated_at DESC
+            """,
+            [],
+        )
+    )
+
+    # Cupones disponibles (potenciales "días de regalo")
+    query_specs.append(
+        (
+            """
+            SELECT
+              id, name, status, duration_unit, duration_quantity, price,
+              max_uses, used_count, (max_uses - used_count) AS remaining_uses,
+              status_sale, status_payment
+            FROM cupon_cupon
+            WHERE status = 1
+            ORDER BY remaining_uses DESC, id DESC
+            """,
+            [],
+        )
+    )
+
+    # Rendimiento por país últimos 90 días
+    if user and not user.is_superuser:
+        query_specs.append(
+            (
+                """
+                SELECT
+                  COALESCE(ud.country, 'Sin país') AS country,
+                  COUNT(sa.id) AS sales_90d,
+                  COALESCE(SUM(sa.payment_amount), 0) AS revenue_90d
+                FROM adm_sale sa
+                JOIN auth_user u ON u.id = sa.customer_id
+                LEFT JOIN adm_userdetail ud ON ud.user_id = u.id
+                WHERE sa.status = 1
+                  AND sa.created_at >= %s
+                  AND sa.user_seller_id = %s
+                GROUP BY COALESCE(ud.country, 'Sin país')
+                ORDER BY revenue_90d DESC
+                """,
+                [since_90, user.id],
+            )
+        )
+    else:
+        query_specs.append(
+            (
+                """
+                SELECT
+                  COALESCE(ud.country, 'Sin país') AS country,
+                  COUNT(sa.id) AS sales_90d,
+                  COALESCE(SUM(sa.payment_amount), 0) AS revenue_90d
+                FROM adm_sale sa
+                JOIN auth_user u ON u.id = sa.customer_id
+                LEFT JOIN adm_userdetail ud ON ud.user_id = u.id
+                WHERE sa.status = 1
+                  AND sa.created_at >= %s
+                GROUP BY COALESCE(ud.country, 'Sin país')
+                ORDER BY revenue_90d DESC
+                """,
+                [since_90],
+            )
+        )
+
+    results = []
+    errors = []
+    for sql, params in query_specs:
+        try:
+            q = mcp.query(sql, params=params, limit=200)
+            results.append(
+                {
+                    'sql': _mysql_safe_text(q.sql),
+                    'row_count': q.row_count,
+                    'rows': q.rows,
+                }
+            )
+        except Exception as exc:
+            errors.append(_mysql_safe_text(str(exc)))
+
+    payload = {
+        'generated_at': timezone.now().isoformat(),
+        'query_results': results,
+        'errors': errors,
+    }
+    if mcp.include_schema:
+        try:
+            payload['schema'] = mcp.get_schema_context()
+        except Exception as exc:
+            payload['schema_error'] = _mysql_safe_text(str(exc))
+    return payload
+
+
+def _extract_inactivity_days_threshold(*texts):
+    merged = " ".join(str(t or "") for t in texts).lower()
+    # Ejemplos: "45 días", "45dias", "mas de 45 dias"
+    m = re.search(r"(\d{1,3})\s*d[ií]as", merged)
+    if not m:
+        m = re.search(r"(\d{1,3})dias", merged)
+    if not m:
+        return 45
+    days = int(m.group(1))
+    return max(7, min(days, 365))
+
+
+def _campaign_text_blob(campaign):
+    return " ".join(
+        [
+            str(campaign.name or ""),
+            str(campaign.objective or ""),
+            str(campaign.idea_input or ""),
+            str(campaign.message_text or ""),
+            str(campaign.sms_text or ""),
+            " ".join(str(t or "") for t in (campaign.tags or [])),
+        ]
+    ).lower()
+
+
+def _default_audience_strategy(campaign):
+    blob = _campaign_text_blob(campaign)
+    strategy = {
+        'segment_type': 'general',
+        'min_days_inactive': 0,
+        'max_days_inactive': 3650,
+        'require_no_active_sales': False,
+        'require_target_service_inactive': False,
+        'require_service_history': False,
+        'exclude_recent_same_service_days': 2,
+        'min_total_orders': 0,
+        'max_total_orders': 9999,
+        'min_total_revenue': 0,
+        'max_active_sales_now': 999,
+        'countries_include': [],
+        'countries_exclude': [],
+        'service_keywords': [],
+        'notes': 'Estrategia base.',
+        'source': 'heuristic',
+    }
+    if any(k in blob for k in ['reactiv', 'winback', 'volver', 'inactivo', 'sin comprar', 'recuper']):
+        strategy.update(
+            {
+                'segment_type': 'reactivation',
+                'min_days_inactive': _extract_inactivity_days_threshold(blob),
+                'require_no_active_sales': True,
+                'require_target_service_inactive': True,
+                'require_service_history': True,
+                'max_active_sales_now': 0,
+                'notes': 'Reactivación: clientes inactivos con historial del servicio.',
+            }
+        )
+    elif any(k in blob for k in ['upsell', 'upgrade', 'subir plan', 'ticket mayor']):
+        strategy.update(
+            {
+                'segment_type': 'upsell',
+                'min_days_inactive': 0,
+                'max_days_inactive': 90,
+                'min_total_orders': 1,
+                'notes': 'Upsell: clientes activos o recientes con mayor propensión.',
+            }
+        )
+    elif any(k in blob for k in ['cross', 'cruzada', 'complement', 'bundle']):
+        strategy.update(
+            {
+                'segment_type': 'cross_sell',
+                'min_days_inactive': 0,
+                'max_days_inactive': 180,
+                'min_total_orders': 1,
+                'notes': 'Cross-sell: clientes compradores con potencial de servicios complementarios.',
+            }
+        )
+    elif any(k in blob for k in ['premium', 'alto valor', 'vip']):
+        strategy.update(
+            {
+                'segment_type': 'premium',
+                'min_total_orders': 2,
+                'min_total_revenue': 250,
+                'max_days_inactive': 180,
+                'notes': 'Premium: clientes de alto valor.',
+            }
+        )
+    elif any(k in blob for k in ['retención', 'retencion', 'renov', 'evitar churn', 'churn']):
+        strategy.update(
+            {
+                'segment_type': 'retention',
+                'min_days_inactive': 0,
+                'max_days_inactive': 45,
+                'min_total_orders': 1,
+                'notes': 'Retención: clientes recientes con riesgo de enfriarse.',
+            }
+        )
+    return strategy
+
+
+def _normalize_country_list(values):
+    if not isinstance(values, list):
+        return []
+    cleaned = []
+    for item in values:
+        val = _mysql_safe_text(item).strip().lower()
+        if val and val not in cleaned:
+            cleaned.append(val)
+    return cleaned[:20]
+
+
+def _infer_audience_strategy(campaign):
+    strategy = _default_audience_strategy(campaign)
+    provider = get_active_provider()
+    text_model = get_model_for_task('text', provider=provider)
+    if not text_model:
+        return strategy
+    try:
+        client = AIClient.from_settings(timeout=35)
+        prompt = (
+            "Eres estratega de segmentación de audiencias.\n"
+            "Devuelve SOLO JSON con criterios para filtrar clientes congruentes al objetivo de campaña.\n"
+            "JSON:\n"
+            "{"
+            "\"segment_type\":\"reactivation|upsell|cross_sell|retention|premium|acquisition|churn_risk|general\","
+            "\"min_days_inactive\":0,"
+            "\"max_days_inactive\":3650,"
+            "\"require_no_active_sales\":false,"
+            "\"require_target_service_inactive\":false,"
+            "\"require_service_history\":false,"
+            "\"exclude_recent_same_service_days\":2,"
+            "\"min_total_orders\":0,"
+            "\"max_total_orders\":9999,"
+            "\"min_total_revenue\":0,"
+            "\"max_active_sales_now\":999,"
+            "\"countries_include\":[],"
+            "\"countries_exclude\":[],"
+            "\"service_keywords\":[],"
+            "\"notes\":\"...\""
+            "}\n\n"
+            f"Campaña: {json.dumps({'name': campaign.name, 'objective': campaign.objective, 'idea_input': campaign.idea_input, 'message_text': campaign.message_text, 'sms_text': campaign.sms_text, 'tags': campaign.tags}, ensure_ascii=False, default=str)}\n"
+            f"Estadísticas: {json.dumps(campaign.stats_snapshot or {}, ensure_ascii=False, default=str)}"
+        )
+        result = client.generate(
+            model=text_model,
+            prompt=prompt,
+            system_prompt="Responde solo JSON válido.",
+            temperature=0.15,
+            max_output_tokens=500,
+        )
+        payload = _marketing_parse_json(result.text)
+        if isinstance(payload, dict) and payload:
+            strategy.update(
+                {
+                    'segment_type': _mysql_safe_text(payload.get('segment_type') or strategy['segment_type']).strip().lower(),
+                    'min_days_inactive': int(payload.get('min_days_inactive', strategy['min_days_inactive'])),
+                    'max_days_inactive': int(payload.get('max_days_inactive', strategy['max_days_inactive'])),
+                    'require_no_active_sales': bool(payload.get('require_no_active_sales', strategy['require_no_active_sales'])),
+                    'require_target_service_inactive': bool(payload.get('require_target_service_inactive', strategy['require_target_service_inactive'])),
+                    'require_service_history': bool(payload.get('require_service_history', strategy['require_service_history'])),
+                    'exclude_recent_same_service_days': int(payload.get('exclude_recent_same_service_days', strategy['exclude_recent_same_service_days'])),
+                    'min_total_orders': int(payload.get('min_total_orders', strategy['min_total_orders'])),
+                    'max_total_orders': int(payload.get('max_total_orders', strategy['max_total_orders'])),
+                    'min_total_revenue': float(payload.get('min_total_revenue', strategy['min_total_revenue'])),
+                    'max_active_sales_now': int(payload.get('max_active_sales_now', strategy['max_active_sales_now'])),
+                    'countries_include': _normalize_country_list(payload.get('countries_include', [])),
+                    'countries_exclude': _normalize_country_list(payload.get('countries_exclude', [])),
+                    'service_keywords': [
+                        _mysql_safe_text(v).strip().lower()
+                        for v in (payload.get('service_keywords') or [])
+                        if _mysql_safe_text(v).strip()
+                    ][:20],
+                    'notes': _mysql_safe_text(payload.get('notes', strategy['notes'])),
+                    'source': 'ai',
+                }
+            )
+    except Exception:
+        pass
+    strategy['min_days_inactive'] = max(0, min(int(strategy.get('min_days_inactive', 0)), 3650))
+    strategy['max_days_inactive'] = max(strategy['min_days_inactive'], min(int(strategy.get('max_days_inactive', 3650)), 3650))
+    strategy['exclude_recent_same_service_days'] = max(0, min(int(strategy.get('exclude_recent_same_service_days', 2)), 30))
+    strategy['min_total_orders'] = max(0, min(int(strategy.get('min_total_orders', 0)), 10000))
+    strategy['max_total_orders'] = max(strategy['min_total_orders'], min(int(strategy.get('max_total_orders', 9999)), 10000))
+    strategy['min_total_revenue'] = max(0.0, float(strategy.get('min_total_revenue', 0.0)))
+    strategy['max_active_sales_now'] = max(0, min(int(strategy.get('max_active_sales_now', 999)), 999))
+    return strategy
+
+
+def _build_audience_recommendations(campaign, limit=250):
+    campaign.recommendations.all().delete()
+    now = timezone.now()
+    base_qs = Sale.objects.filter(status=True, created_at__gte=now - timedelta(days=365))
+    if campaign.created_by and not campaign.created_by.is_superuser:
+        base_qs = base_qs.filter(user_seller=campaign.created_by)
+
+    catalog_rows = list(
+        base_qs.values('account_id', 'account__account_name__description')
+        .annotate(total_sales=Count('id'))
+        .order_by('-total_sales')[:50]
+    )
+    target_service_ids = set()
+    search_text = f"{campaign.name or ''} {campaign.objective or ''} {campaign.idea_input or ''} {campaign.message_text or ''}".lower()
+    for item in catalog_rows:
+        desc = str(item.get('account__account_name__description') or '').strip().lower()
+        if desc and desc in search_text:
+            target_service_ids.add(item['account_id'])
+    if not target_service_ids and catalog_rows:
+        target_service_ids.add(catalog_rows[0]['account_id'])
+    strategy = _infer_audience_strategy(campaign)
+    for keyword in strategy.get('service_keywords', []):
+        for item in catalog_rows:
+            desc = str(item.get('account__account_name__description') or '').strip().lower()
+            if keyword and keyword in desc:
+                target_service_ids.add(item['account_id'])
+    countries_include = set(strategy.get('countries_include', []))
+    countries_exclude = set(strategy.get('countries_exclude', []))
+
+    rows = (
+        base_qs.values(
+            'customer_id',
+            'customer__username',
+            'customer__email',
+            'customer__userdetail__country',
+            'customer__userdetail__lada',
+            'customer__userdetail__phone_number',
+        )
+        .annotate(
+            total_orders=Count('id'),
+            total_revenue=Sum('payment_amount'),
+            last_purchase=Max('created_at'),
+        )
+        .order_by('-total_revenue')[:800]
+    )
+
+    objective = (campaign.objective or '').lower()
+    for row in rows:
+        total_revenue = float(row.get('total_revenue') or 0)
+        total_orders = int(row.get('total_orders') or 0)
+        last_purchase = row.get('last_purchase')
+        days_inactive = (now - last_purchase).days if last_purchase else 999
+        recency_score = max(0, 180 - days_inactive)
+        score = (total_revenue * 0.03) + (total_orders * 3) + recency_score
+        if 'reactiv' in objective:
+            score = (total_revenue * 0.02) + (total_orders * 2) + (days_inactive * 1.1)
+        if 'alto valor' in objective or 'premium' in objective:
+            score = (total_revenue * 0.06) + (total_orders * 2) + recency_score
+
+        recent_same_service = False
+        service_history = 0
+        target_last_purchase = None
+        target_days_inactive = 999
+        target_active_now = False
+        active_sales_now = Sale.objects.filter(
+            customer_id=row['customer_id'],
+            status=True,
+            expiration_date__gte=now,
+        ).count()
+        if target_service_ids:
+            recent_same_service = Sale.objects.filter(
+                customer_id=row['customer_id'],
+                account_id__in=target_service_ids,
+                status=True,
+                created_at__gte=now - timedelta(days=2),
+            ).exists()
+            service_history = Sale.objects.filter(
+                customer_id=row['customer_id'],
+                account_id__in=target_service_ids,
+                status=True,
+                created_at__lt=now - timedelta(days=2),
+            ).count()
+            target_last_purchase = Sale.objects.filter(
+                customer_id=row['customer_id'],
+                account_id__in=target_service_ids,
+            ).aggregate(last=Max('created_at')).get('last')
+            if target_last_purchase:
+                target_days_inactive = (now - target_last_purchase).days
+            target_active_now = Sale.objects.filter(
+                customer_id=row['customer_id'],
+                account_id__in=target_service_ids,
+                status=True,
+                expiration_date__gte=now,
+            ).exists()
+            score += min(service_history * 4, 32)
+
+        eligible = True
+        country_value = _mysql_safe_text(row.get('customer__userdetail__country') or '').strip().lower()
+        if countries_include and country_value not in countries_include:
+            eligible = False
+        if country_value and country_value in countries_exclude:
+            eligible = False
+        if days_inactive < strategy.get('min_days_inactive', 0) or days_inactive > strategy.get('max_days_inactive', 3650):
+            eligible = False
+        if total_orders < strategy.get('min_total_orders', 0) or total_orders > strategy.get('max_total_orders', 9999):
+            eligible = False
+        if total_revenue < strategy.get('min_total_revenue', 0):
+            eligible = False
+        if strategy.get('require_no_active_sales') and active_sales_now > 0:
+            eligible = False
+        if active_sales_now > strategy.get('max_active_sales_now', 999):
+            eligible = False
+        if strategy.get('require_service_history') and service_history <= 0 and not target_last_purchase:
+            eligible = False
+        if strategy.get('require_target_service_inactive') and target_active_now:
+            eligible = False
+        if recent_same_service and strategy.get('exclude_recent_same_service_days', 0) > 0:
+            eligible = False
+
+        has_phone = bool(row.get('customer__userdetail__lada')) and bool(row.get('customer__userdetail__phone_number'))
+        if campaign.channel in ('whatsapp', 'sms') and not has_phone:
+            eligible = False
+
+        segment_type = strategy.get('segment_type', 'general')
+        if segment_type == 'reactivation':
+            score = (total_revenue * 0.02) + (service_history * 4) + min(target_days_inactive * 0.9, 160)
+        elif segment_type == 'upsell':
+            score = (total_revenue * 0.05) + (total_orders * 4) + max(0, 90 - days_inactive)
+        elif segment_type == 'cross_sell':
+            score = (total_revenue * 0.04) + (total_orders * 3) + max(0, 120 - days_inactive)
+        elif segment_type == 'retention':
+            score = (total_revenue * 0.03) + (total_orders * 3.5) + max(0, 45 - days_inactive) * 2
+        elif segment_type == 'premium':
+            score = (total_revenue * 0.08) + (total_orders * 4) + max(0, 120 - days_inactive)
+        elif segment_type == 'acquisition':
+            score = (total_orders * 2) + max(0, days_inactive - 30)
+        elif segment_type == 'churn_risk':
+            score = (total_revenue * 0.03) + (total_orders * 2) + min(max(days_inactive - 20, 0), 140)
+        if not eligible:
+            score = 0
+
+        reason = (
+            f"Ordenes={total_orders}, Ingreso={round(total_revenue, 2)}, "
+            f"Dias sin compra={days_inactive}, Historial servicio={service_history}, "
+            f"Dias sin compra objetivo={target_days_inactive}, Activas ahora={active_sales_now}, "
+            f"Segmento={strategy.get('segment_type', 'general')}, Elegible={eligible}"
+        )
+        MarketingCampaignRecommendation.objects.create(
+            campaign=campaign,
+            customer_id=row['customer_id'],
+            country=row.get('customer__userdetail__country') or '',
+            lada=str(row.get('customer__userdetail__lada') or ''),
+            phone_number=str(row.get('customer__userdetail__phone_number') or ''),
+            total_orders=total_orders,
+            total_revenue=round(total_revenue, 2),
+            last_purchase=last_purchase,
+            score=round(score, 2),
+            reason=reason,
+            selected=eligible and score > 0,
+        )
+
+    keep_ids = list(
+        campaign.recommendations.filter(selected=True).order_by('-score').values_list('id', flat=True)[:limit]
+    )
+    campaign.recommendations.exclude(id__in=keep_ids).delete()
+    campaign.audience_filters = campaign.audience_filters or {}
+    campaign.audience_filters['audience_strategy'] = strategy
+    campaign.save(update_fields=['audience_filters', 'updated_at'])
+
+
+def _generate_clarification_questions(campaign, from_scratch=False):
+    provider = get_active_provider()
+    text_model = get_model_for_task('text', provider=provider)
+    client = AIClient.from_settings(timeout=45)
+    stats = _marketing_stats_snapshot(campaign.created_by or User.objects.filter(is_superuser=True).first() or User.objects.first())
+    db_context = _marketing_db_context(campaign.created_by)
+    objective = (campaign.objective or '').strip() or 'Maximizar conversión con segmentación específica'
+    idea_input = (campaign.idea_input or '').strip()
+    if from_scratch:
+        idea_input = "Generación desde cero basada exclusivamente en estadísticas."
+
+    prompt = (
+        "Eres estratega de growth marketing.\n"
+        "Debes decidir si necesitas preguntar algo antes de generar una campaña excelente.\n"
+        "Si hay incertidumbre relevante (margen, límites de descuento, tono de marca, inventario, restricción legal), haz hasta 3 preguntas concretas.\n"
+        "Si no hace falta preguntar, devuelve lista vacía.\n"
+        "Devuelve SOLO JSON: {\"questions\":[\"...\",\"...\"]}\n\n"
+        f"Canal: {campaign.channel}\n"
+        f"Objetivo: {objective}\n"
+        f"Idea inicial: {idea_input}\n"
+        f"Estadísticas: {json.dumps(stats, ensure_ascii=False, default=str)}\n"
+        f"Contexto SQL: {json.dumps(db_context, ensure_ascii=False, default=str)}"
+    )
+    result = client.generate(
+        model=text_model,
+        prompt=prompt,
+        system_prompt="Responde solo JSON válido.",
+        temperature=0.2,
+        max_output_tokens=400,
+    )
+    payload = _marketing_parse_json(result.text)
+    questions = payload.get('questions') if isinstance(payload.get('questions'), list) else []
+    cleaned = []
+    for q in questions[:3]:
+        value = _mysql_safe_text(q).strip()
+        if value:
+            cleaned.append(value)
+    return cleaned
+
+
+def _generate_campaign_ai_content(campaign, from_scratch=False):
+    stats = _marketing_stats_snapshot(campaign.created_by or User.objects.filter(is_superuser=True).first() or User.objects.first())
+    db_context = _marketing_db_context(campaign.created_by)
+    campaign.stats_snapshot = stats
+    meta = campaign.audience_filters or {}
+    clarification_answers = meta.get('clarification_answers') if isinstance(meta.get('clarification_answers'), list) else []
+
+    provider = get_active_provider()
+    text_model = get_model_for_task('text', provider=provider)
+    client = AIClient.from_settings(timeout=70)
+    objective = (campaign.objective or '').strip() or 'Maximizar conversión con segmentación específica'
+    idea_input = (campaign.idea_input or '').strip()
+    if from_scratch:
+        idea_input = (
+            "Generar desde cero con base exclusiva en estadísticas. "
+            "Diseñar campaña hiper-específica, accionable y medible."
+        )
+    prompt = (
+        "Eres estratega senior de growth marketing y marketing digital orientado a conversion.\n"
+        "Diseña una campaña solo para WhatsApp (imagen+texto) o SMS (solo texto).\n"
+        "Debe ser hiper-específica, concreta, con microsegmento y accionable, nunca general.\n"
+        "Debe basarse 100% en estadísticas y aplicar principios de growth: segmentación, hipótesis, oferta, urgencia, CTA y medición.\n"
+        "Evita mensajes amplios, vagos o de branding genérico.\n"
+        "NO menciones estadísticas internas, porcentajes, ni frases como 'vimos que' o 'últimos 90 días' en el copy final.\n"
+        "El mensaje final debe sonar comercial, directo, emocional y con urgencia real.\n"
+        "WhatsApp: usar formato visual atractivo con emojis y markdown breve (negritas/listas cortas), estilo anuncio listo para enviar.\n"
+        "SMS: texto corto, claro, sin markdown complejo, con CTA único.\n"
+        "Devuelve SOLO JSON con:\n"
+        "{"
+        "\"campaign_name\":\"...\","
+        "\"whatsapp_text\":\"...\","
+        "\"sms_text\":\"...\","
+        "\"image_prompt\":\"...\","
+        "\"tags\":[\"...\"],"
+        "\"targeting_notes\":\"...\","
+        "\"cta\":\"...\","
+        "\"growth_hypothesis\":\"...\","
+        "\"kpi_focus\":\"...\""
+        "}\n\n"
+        f"Canal: {campaign.channel}\n"
+        f"Objetivo: {objective}\n"
+        f"Idea inicial: {idea_input}\n"
+        f"Respuestas de aclaración del usuario: {json.dumps(clarification_answers, ensure_ascii=False, default=str)}\n"
+        f"Estadísticas: {json.dumps(stats, ensure_ascii=False)}\n"
+        f"Contexto SQL solo lectura: {json.dumps(db_context, ensure_ascii=False, default=str)}"
+    )
+
+    result = client.generate(
+        model=text_model,
+        prompt=prompt,
+        system_prompt="Responde solo JSON válido sin markdown.",
+        max_output_tokens=1100,
+        temperature=0.4,
+    )
+    payload = _marketing_parse_json(result.text)
+    campaign.ai_prompt_used = _mysql_safe_text(prompt)
+    campaign.name = _mysql_safe_text(payload.get('campaign_name') or campaign.name)
+    campaign.message_text = _mysql_safe_text(
+        payload.get('whatsapp_text') or campaign.message_text or campaign.idea_input
+    )
+    campaign.sms_text = _mysql_safe_text(payload.get('sms_text') or campaign.sms_text or campaign.message_text)
+    campaign.image_prompt = _mysql_safe_text(
+        payload.get('image_prompt') or campaign.image_prompt or f"Promocion marketing para {campaign.objective}"
+    )
+    if isinstance(payload.get('tags'), list):
+        campaign.tags = [_mysql_safe_text(t) for t in payload.get('tags')[:20]]
+    else:
+        campaign.tags = ['marketing', campaign.channel, 'ia']
+    campaign.audience_filters = {
+        'targeting_notes': _mysql_safe_text(payload.get('targeting_notes', '')),
+        'cta': _mysql_safe_text(payload.get('cta', '')),
+        'growth_hypothesis': _mysql_safe_text(payload.get('growth_hypothesis', '')),
+        'kpi_focus': _mysql_safe_text(payload.get('kpi_focus', '')),
+        'generation_mode': 'from_stats_only' if from_scratch else 'from_idea',
+        'db_context_errors': db_context.get('errors', []),
+    }
+
+    image_generation_response = {'status': 'not_requested', 'provider': '', 'model': '', 'message': ''}
+    if campaign.channel == 'whatsapp':
+        image_generation_response = _generate_campaign_image(campaign)
+
+    campaign.status = 'ready'
+    campaign.audience_filters = campaign.audience_filters or {}
+    campaign.audience_filters['image_generation_response'] = image_generation_response
+    campaign.save()
+    _build_audience_recommendations(campaign, limit=300)
+
+
+def _generate_campaign_image(campaign):
+    image_generation_response = {'status': 'not_requested', 'provider': '', 'model': '', 'message': ''}
+    if campaign.channel == 'whatsapp':
+        requested_model = os.getenv('AI_MARKETING_GEMINI_IMAGE_MODEL', 'nano-banana2').strip() or 'nano-banana2'
+        model_alias = {
+            'nano-banana2': 'gemini-3.1-flash-image-preview',
+            'nano banana 2': 'gemini-3.1-flash-image-preview',
+            'nano-banana': 'gemini-2.5-flash-image',
+            'nano-banana-pro': 'gemini-3-pro-image-preview',
+        }
+        requested_model = model_alias.get(requested_model.lower(), requested_model)
+        fallback_model = get_model_for_task('image', provider='gemini') or 'gemini-2.5-flash-image'
+        candidate_models = []
+        for m in [
+            requested_model,
+            'gemini-3.1-flash-image-preview',
+            fallback_model,
+            'gemini-3-pro-image-preview',
+            'gemini-2.5-flash-image',
+            'gemini-2.0-flash-preview-image-generation',
+        ]:
+            m = str(m or '').strip()
+            if m and m not in candidate_models:
+                candidate_models.append(m)
+        try:
+            gemini_client = AIClient.from_provider_name('gemini', timeout=90)
+            errors = []
+            image_result = None
+            used_model = ''
+            for model_name in candidate_models:
+                try:
+                    image_result = gemini_client.generate_image(prompt=campaign.image_prompt, model=model_name)
+                    if image_result.images_base64:
+                        used_model = model_name
+                        break
+                    errors.append(f'{model_name}: sin imagen en respuesta')
+                except Exception as exc:
+                    errors.append(f'{model_name}: {_error_to_text(exc)}')
+
+            if image_result and image_result.images_base64:
+                img = base64.b64decode(image_result.images_base64[0])
+                img = _force_square_image_bytes(img)
+                filename = f"campaign_{campaign.id}_{timezone.now().strftime('%Y%m%d%H%M%S')}.png"
+                campaign.creative_image.save(filename, ContentFile(img), save=False)
+                image_generation_response = {
+                    'status': 'ok',
+                    'provider': 'gemini',
+                    'model': used_model,
+                    'message': _mysql_safe_text(
+                        'Imagen generada correctamente. Intentos: ' + ', '.join(candidate_models)
+                    ),
+                }
+            else:
+                image_generation_response = {
+                    'status': 'failed',
+                    'provider': 'gemini',
+                    'model': requested_model,
+                    'message': _mysql_safe_text('No se pudo generar imagen. Detalle: ' + ' | '.join(errors)),
+                }
+        except Exception as exc:
+            image_generation_response = {
+                'status': 'failed',
+                'provider': 'gemini',
+                'model': requested_model,
+                'message': _error_to_text(exc),
+            }
+    campaign.audience_filters = campaign.audience_filters or {}
+    campaign.audience_filters['image_generation_response'] = image_generation_response
+    campaign.save(update_fields=['creative_image', 'audience_filters', 'updated_at'])
+    return image_generation_response
+
+
+def _run_marketing_generation_job(campaign_id, from_scratch, allow_questions=True):
+    try:
+        campaign = MarketingCampaign.objects.get(pk=campaign_id)
+        if allow_questions:
+            questions = _generate_clarification_questions(campaign, from_scratch=from_scratch)
+            if questions:
+                campaign.audience_filters = campaign.audience_filters or {}
+                campaign.audience_filters['generation_status'] = 'needs_input'
+                campaign.audience_filters['clarification_questions'] = questions
+                campaign.audience_filters['clarification_answers'] = []
+                campaign.save(update_fields=['audience_filters', 'updated_at'])
+                return
+        _generate_campaign_ai_content(campaign, from_scratch=from_scratch)
+        campaign.audience_filters = campaign.audience_filters or {}
+        campaign.audience_filters['generation_status'] = 'done'
+        campaign.save(update_fields=['audience_filters', 'updated_at'])
+    except Exception as exc:
+        try:
+            campaign = MarketingCampaign.objects.get(pk=campaign_id)
+            campaign.audience_filters = campaign.audience_filters or {}
+            campaign.audience_filters['generation_status'] = 'error'
+            campaign.audience_filters['generation_error'] = str(exc)
+            campaign.save(update_fields=['audience_filters', 'updated_at'])
+        except Exception:
+            pass
+
+
+@permission_required('is_superuser', 'adm:no-permission')
+def marketing_campaigns(request):
+    qs = MarketingCampaign.objects.all().order_by('-created_at')
+    status = request.GET.get('status', '').strip()
+    channel = request.GET.get('channel', '').strip()
+    q = request.GET.get('q', '').strip()
+    if status:
+        qs = qs.filter(status=status)
+    if channel:
+        qs = qs.filter(channel=channel)
+    if q:
+        qs = qs.filter(Q(name__icontains=q) | Q(objective__icontains=q) | Q(idea_input__icontains=q))
+    campaigns = Paginator(qs, 30).get_page(request.GET.get('page', 1))
+    return render(
+        request,
+        'adm/marketing/campaigns.html',
+        {'campaigns': campaigns, 'status': status, 'channel': channel, 'q': q},
+    )
+
+
+@permission_required('is_superuser', 'adm:no-permission')
+def marketing_campaign_create(request):
+    if request.method == 'POST':
+        form = MarketingCampaignForm(request.POST)
+        if form.is_valid():
+            campaign = form.save(commit=False)
+            campaign.created_by = request.user
+            campaign.status = 'draft'
+            campaign.save()
+            action = request.POST.get('action', 'generate')
+            if action in ('generate', 'generate_stats') and request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                campaign.audience_filters = campaign.audience_filters or {}
+                campaign.audience_filters['generation_status'] = 'processing'
+                campaign.audience_filters['generation_error'] = ''
+                campaign.save(update_fields=['audience_filters', 'updated_at'])
+                from_scratch = action == 'generate_stats'
+                Thread(
+                    target=_run_marketing_generation_job,
+                    args=(campaign.id, from_scratch, True),
+                    daemon=True,
+                ).start()
+                return JsonResponse(
+                    {
+                        'success': True,
+                        'queued': True,
+                        'campaign_id': campaign.id,
+                        'detail_url': reverse('adm:marketing_campaign_detail', kwargs={'pk': campaign.id}),
+                        'status_url': reverse('adm:marketing_campaign_generation_status', kwargs={'pk': campaign.id}),
+                    }
+                )
+
+            if action == 'generate':
+                try:
+                    _generate_campaign_ai_content(campaign)
+                    messages.success(request, 'Campaña generada con IA correctamente.')
+                except Exception as exc:
+                    messages.warning(
+                        request,
+                        f'La campaña se guardó en borrador, pero falló la generación IA: {exc}'
+                    )
+            elif action == 'generate_stats':
+                try:
+                    _generate_campaign_ai_content(campaign, from_scratch=True)
+                    messages.success(
+                        request,
+                        'Campaña creada desde cero con IA, basada solo en estadísticas.'
+                    )
+                except Exception as exc:
+                    messages.warning(
+                        request,
+                        f'La campaña se guardó en borrador, pero falló la generación desde estadísticas: {exc}'
+                    )
+            else:
+                messages.success(request, 'Campaña guardada en borrador.')
+            return redirect('adm:marketing_campaign_detail', campaign.id)
+    else:
+        form = MarketingCampaignForm()
+    return render(
+        request,
+        'adm/marketing/campaign_create.html',
+        {'form': form, 'preview_stats': _marketing_stats_snapshot(request.user)},
+    )
+
+
+@permission_required('is_superuser', 'adm:no-permission')
+def marketing_campaign_detail(request, pk):
+    campaign = MarketingCampaign.objects.get(pk=pk)
+    meta = campaign.audience_filters or {}
+    return render(
+        request,
+        'adm/marketing/campaign_detail.html',
+        {
+            'campaign': campaign,
+            'recommendations': campaign.recommendations.filter(selected=True).order_by('-score')[:350],
+            'deliveries': campaign.deliveries.order_by('-created_at')[:350],
+            'stats': campaign.stats_snapshot or {},
+            'audience_strategy': meta.get('audience_strategy', {}),
+        },
+    )
+
+
+@permission_required('is_superuser', 'adm:no-permission')
+def marketing_campaign_generation_status(request, pk):
+    campaign = MarketingCampaign.objects.get(pk=pk)
+    meta = campaign.audience_filters or {}
+    status_value = meta.get('generation_status', '')
+    error = meta.get('generation_error', '')
+    done = status_value in ('done', 'error') or campaign.status == 'ready'
+    return JsonResponse(
+        {
+            'success': True,
+            'campaign_id': campaign.id,
+            'generation_status': status_value or ('done' if campaign.status == 'ready' else 'processing'),
+            'error': error,
+            'done': done,
+            'questions': meta.get('clarification_questions', []),
+            'detail_url': reverse('adm:marketing_campaign_detail', kwargs={'pk': campaign.id}),
+        }
+    )
+
+
+@permission_required('is_superuser', 'adm:no-permission')
+def marketing_campaign_answer_clarifications(request, pk):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
+    campaign = MarketingCampaign.objects.get(pk=pk)
+    meta = campaign.audience_filters or {}
+    questions = meta.get('clarification_questions') if isinstance(meta.get('clarification_questions'), list) else []
+    answers = []
+    for idx, _ in enumerate(questions):
+        val = _mysql_safe_text(request.POST.get(f'answer_{idx}', '')).strip()
+        answers.append(val)
+    if not any(answers):
+        return JsonResponse({'success': False, 'error': 'Responde al menos una pregunta'}, status=400)
+    meta['clarification_answers'] = answers
+    meta['generation_status'] = 'processing'
+    campaign.audience_filters = meta
+    campaign.save(update_fields=['audience_filters', 'updated_at'])
+    Thread(
+        target=_run_marketing_generation_job,
+        args=(campaign.id, meta.get('generation_mode') == 'from_stats_only', False),
+        daemon=True,
+    ).start()
+    return JsonResponse(
+        {
+            'success': True,
+            'campaign_id': campaign.id,
+            'status_url': reverse('adm:marketing_campaign_generation_status', kwargs={'pk': campaign.id}),
+            'detail_url': reverse('adm:marketing_campaign_detail', kwargs={'pk': campaign.id}),
+        }
+    )
+
+
+@permission_required('is_superuser', 'adm:no-permission')
+def marketing_campaign_feedback(request, pk):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
+    campaign = MarketingCampaign.objects.get(pk=pk)
+    question = (request.POST.get('question') or '').strip()
+    extra_sql = (request.POST.get('extra_sql') or '').strip()
+    if not question:
+        return JsonResponse({'success': False, 'error': 'Pregunta requerida'}, status=400)
+
+    db_context = _marketing_db_context(campaign.created_by)
+    sql_extra_result = None
+    if extra_sql:
+        cfg = get_db_mcp_config()
+        mcp = ReadOnlyDatabaseMCP(
+            allowed_tables=cfg["allowed_tables"] or None,
+            max_rows=min(int(cfg["max_rows"]), 300),
+            include_schema=False,
+        )
+        try:
+            qr = mcp.query(extra_sql, params=[], limit=200)
+            sql_extra_result = {
+                'sql': _mysql_safe_text(qr.sql),
+                'row_count': qr.row_count,
+                'rows': qr.rows,
+            }
+        except Exception as exc:
+            return JsonResponse({'success': False, 'error': f'SQL inválido o no permitido: {exc}'}, status=400)
+
+    provider = get_active_provider()
+    text_model = get_model_for_task('text', provider=provider)
+    client = AIClient.from_settings(timeout=70)
+    prompt = (
+        "Eres consultor senior de growth marketing y pricing.\n"
+        "Analiza la pregunta de retroalimentación de campaña usando SOLO evidencia del contexto.\n"
+        "Puedes recomendar ajustes de precio, cupón o mensaje, sin romper rentabilidad.\n"
+        "Responde en markdown claro con: conclusión, razonamiento breve, recomendación accionable.\n"
+        "Si faltan datos para validar margen/utilidad, dilo explícitamente y sugiere siguiente consulta SQL de solo lectura.\n\n"
+        f"Campaña actual: {json.dumps({'id': campaign.id, 'name': campaign.name, 'channel': campaign.channel, 'objective': campaign.objective, 'message_text': campaign.message_text, 'sms_text': campaign.sms_text, 'tags': campaign.tags}, ensure_ascii=False, default=str)}\n"
+        f"Contexto SQL marketing: {json.dumps(db_context, ensure_ascii=False, default=str)}\n"
+        f"SQL adicional del usuario: {json.dumps(sql_extra_result, ensure_ascii=False, default=str)}\n"
+        f"Pregunta del usuario: {question}"
+    )
+    try:
+        result = client.generate(
+            model=text_model,
+            prompt=prompt,
+            system_prompt="Responde en español. No inventes datos no presentes.",
+            max_output_tokens=1200,
+            temperature=0.35,
+        )
+        answer = _mysql_safe_text(result.text or '')
+    except Exception as exc:
+        return JsonResponse({'success': False, 'error': f'No se pudo generar respuesta IA: {exc}'}, status=500)
+
+    meta = campaign.audience_filters or {}
+    history = meta.get('feedback_history') or []
+    history.append(
+        {
+            'at': timezone.now().isoformat(),
+            'question': _mysql_safe_text(question),
+            'extra_sql': _mysql_safe_text(extra_sql),
+            'answer': answer,
+        }
+    )
+    meta['feedback_history'] = history[-40:]
+    campaign.audience_filters = meta
+    campaign.save(update_fields=['audience_filters', 'updated_at'])
+    return JsonResponse({'success': True, 'answer': answer, 'history_count': len(meta['feedback_history'])})
+
+
+@permission_required('is_superuser', 'adm:no-permission')
+def marketing_campaign_regenerate_image(request, pk):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
+    campaign = MarketingCampaign.objects.get(pk=pk)
+    if campaign.channel != 'whatsapp':
+        return JsonResponse({'success': False, 'error': 'Solo aplica para campañas de WhatsApp'}, status=400)
+    new_prompt = _mysql_safe_text((request.POST.get('image_prompt') or '').strip())
+    if new_prompt:
+        campaign.image_prompt = new_prompt
+        campaign.save(update_fields=['image_prompt', 'updated_at'])
+    try:
+        image_meta = _generate_campaign_image(campaign)
+    except Exception as exc:
+        return JsonResponse({'success': False, 'error': _error_to_text(exc)}, status=500)
+    return JsonResponse(
+        {
+            'success': image_meta.get('status') == 'ok',
+            'image_response': image_meta,
+            'image_url': campaign.creative_image.url if campaign.creative_image else '',
+            'message': image_meta.get('message', ''),
+        }
+    )
+
+
+@permission_required('is_superuser', 'adm:no-permission')
+def marketing_campaign_regenerate(request, pk):
+    campaign = MarketingCampaign.objects.get(pk=pk)
+    try:
+        _generate_campaign_ai_content(campaign)
+        messages.success(request, 'Campaña regenerada con IA correctamente.')
+    except Exception as exc:
+        messages.warning(request, f'No se pudo regenerar la campaña con IA: {exc}')
+    return redirect('adm:marketing_campaign_detail', campaign.id)
+
+
+@permission_required('is_superuser', 'adm:no-permission')
+def marketing_campaign_send(request, pk):
+    campaign = MarketingCampaign.objects.get(pk=pk)
+    selected = campaign.recommendations.filter(selected=True).order_by('-score')[:350]
+    actual_send_enabled = os.getenv('AI_MARKETING_ACTUAL_SEND', 'false').lower() in ('1', 'true', 'yes', 'on')
+    send_now = request.POST.get('send_now', 'false') == 'true'
+    sent_count = 0
+    failed_count = 0
+
+    for rec in selected:
+        if campaign.channel == 'whatsapp':
+            destination = f"+{rec.lada}{rec.phone_number}" if rec.lada and rec.phone_number else rec.customer.email
+            status_value = 'queued'
+            response_message = 'Registrado en histórico'
+            if send_now and actual_send_enabled and rec.lada and rec.phone_number and campaign.message_text:
+                try:
+                    Notification.send_whatsapp_notification(campaign.message_text, rec.lada, rec.phone_number)
+                    status_value = 'sent'
+                    response_message = 'WhatsApp enviado'
+                    sent_count += 1
+                except Exception as exc:
+                    status_value = 'failed'
+                    response_message = str(exc)
+                    failed_count += 1
+            else:
+                sent_count += 1
+
+            MarketingCampaignDelivery.objects.create(
+                campaign=campaign,
+                recommendation=rec,
+                channel='whatsapp',
+                destination=destination,
+                payload_text=campaign.message_text or '',
+                payload_image_url=campaign.creative_image.url if campaign.creative_image else '',
+                status=status_value,
+                provider_response=response_message,
+                sent_at=timezone.now() if status_value in ('sent', 'queued') else None,
+            )
+        else:
+            destination = f"+{rec.lada}{rec.phone_number}" if rec.lada and rec.phone_number else rec.customer.email
+            sent_count += 1
+            MarketingCampaignDelivery.objects.create(
+                campaign=campaign,
+                recommendation=rec,
+                channel='sms',
+                destination=destination,
+                payload_text=(campaign.sms_text or campaign.message_text or '')[:1600],
+                status='queued',
+                provider_response='SMS registrado en histórico (sin proveedor configurado).',
+                sent_at=timezone.now(),
+            )
+
+    campaign.status = 'sent'
+    campaign.sent_at = timezone.now()
+    campaign.save(update_fields=['status', 'sent_at', 'updated_at'])
+
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        return JsonResponse({'success': True, 'sent_count': sent_count, 'failed_count': failed_count})
+    return redirect('adm:marketing_campaign_detail', campaign.id)
+
+
+@permission_required('is_superuser', 'adm:no-permission')
+def marketing_campaign_recommendations_csv(request, pk):
+    campaign = MarketingCampaign.objects.get(pk=pk)
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = f'attachment; filename="marketing_campaign_{campaign.id}_audience.csv"'
+    writer = csv.writer(response)
+    writer.writerow([
+        'customer_id', 'username', 'email', 'country', 'lada', 'phone_number',
+        'total_orders', 'total_revenue', 'last_purchase', 'score', 'reason',
+    ])
+    for r in campaign.recommendations.order_by('-score'):
+        writer.writerow([
+            r.customer_id,
+            r.customer.username,
+            r.customer.email,
+            r.country or '',
+            r.lada or '',
+            r.phone_number or '',
+            r.total_orders,
+            r.total_revenue,
+            timezone.localtime(r.last_purchase).strftime('%Y-%m-%d %H:%M:%S') if r.last_purchase else '',
+            r.score,
+            r.reason or '',
+        ])
+    return response
