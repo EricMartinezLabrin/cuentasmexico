@@ -33,13 +33,27 @@ from django.db.models import DurationField
 from .models import (
     Business, PaymentMethod, Sale, UserDetail, Service, Account, Bank,
     Status, Supplier, Credits, Promocion, AccountChangeHistory,
-    Affiliate, AffiliateCommission, AffiliateWithdrawal, AffiliateSettings, AffiliateSale
+    Affiliate, AffiliateCommission, AffiliateWithdrawal, AffiliateSettings, AffiliateSale, AISettings
 )
 from cupon.models import Cupon, CouponRedemption
 from cupon.forms import CuponForm
 from cupon.services import CouponRedeemError, normalize_code, validate_coupon_from_code
 from .functions.alerts import Alerts
-from .functions.forms import AccountsForm, BankForm, PaymentMethodForm, ServicesForm, SettingsForm, UserDetailForm, UserForm, FilterAccountForm, StatusForm, SupplierForm, CustomerUpdateForm, UserMainForm
+from .functions.forms import (
+    AISettingsForm,
+    AccountsForm,
+    BankForm,
+    PaymentMethodForm,
+    ServicesForm,
+    SettingsForm,
+    UserDetailForm,
+    UserForm,
+    FilterAccountForm,
+    StatusForm,
+    SupplierForm,
+    CustomerUpdateForm,
+    UserMainForm,
+)
 from .functions.permissions import UserAccessMixin
 from .functions.country import Country
 from .functions.active_inactive import Active_Inactive
@@ -488,8 +502,10 @@ def SettingsDetailView(request):
         business_detail = Business.objects.get(pk=1)
     except Business.DoesNotExist:
         business_detail = None
+    ai_settings = AISettings.get_settings()
     return render(request, template_name, {
-        'object': business_detail
+        'object': business_detail,
+        'ai_settings': ai_settings,
     })
 # @permission_required('is_superuser','adm:no-permission')
 
@@ -513,6 +529,26 @@ class SettingsUpdateView(UserAccessMixin, UpdateView):
     template_name = "adm/settings_update.html"
     form_class = SettingsForm
     success_url = reverse_lazy('adm:settings')
+
+
+@permission_required('is_superuser', 'adm:no-permission')
+def AISettingsUpdateView(request):
+    ai_settings = AISettings.get_settings()
+    if request.method == 'POST':
+        form = AISettingsForm(request.POST, instance=ai_settings)
+        if form.is_valid():
+            form.save()
+            return redirect('adm:settings')
+    else:
+        form = AISettingsForm(instance=ai_settings)
+    return render(
+        request,
+        'adm/settings_ai_update.html',
+        {
+            'form': form,
+            'object': ai_settings,
+        },
+    )
 
 @permission_required('is_staff', 'adm:no-permission')
 def ProfileView(request):

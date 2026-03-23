@@ -730,6 +730,54 @@ class AffiliateSettings(models.Model):
         return "Configuración del Sistema de Afiliados"
 
 
+class AISettings(models.Model):
+    """
+    Configuración global de IA (singleton) editable desde /adm/settings.
+    """
+
+    PROVIDER_CHOICES = [
+        ('openai', 'OpenAI (GPT)'),
+        ('gemini', 'Google Gemini'),
+    ]
+
+    provider = models.CharField(max_length=20, choices=PROVIDER_CHOICES, default='openai')
+    openai_api_key = models.CharField(max_length=255, blank=True, default='')
+    gemini_api_key = models.CharField(max_length=255, blank=True, default='')
+
+    openai_model_text = models.CharField(max_length=120, default='gpt-5.4')
+    openai_model_hybrid = models.CharField(max_length=120, default='gpt-5.4')
+    openai_model_image = models.CharField(max_length=120, default='gpt-image-1.5')
+    openai_model_transcription = models.CharField(max_length=120, default='gpt-4o-mini-transcribe')
+    openai_model_speech = models.CharField(max_length=120, default='gpt-4o-mini-tts')
+
+    gemini_model_text = models.CharField(max_length=120, default='gemini-3-flash-preview')
+    gemini_model_hybrid = models.CharField(max_length=120, default='gemini-3-flash-preview')
+    gemini_model_image = models.CharField(max_length=120, default='gemini-2.5-flash-image')
+    gemini_model_transcription = models.CharField(max_length=120, default='gemini-2.5-flash')
+    gemini_model_speech = models.CharField(max_length=120, default='gemini-2.5-flash-preview-tts')
+
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Configuración de IA"
+        verbose_name_plural = "Configuración de IA"
+
+    def save(self, *args, **kwargs):
+        self.pk = 1
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        pass
+
+    @classmethod
+    def get_settings(cls):
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+    def __str__(self):
+        return f"IA: {self.provider}"
+
+
 class Affiliate(models.Model):
     """Perfil de afiliado vinculado a un usuario existente"""
     METODO_RETIRO_CHOICES = [

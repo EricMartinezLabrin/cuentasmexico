@@ -6,69 +6,94 @@
     {% block h1 %}
         <h1>Detalles {{ object.name }}</h1>
     {% endblock h1 %}
-    {% if not object %}
-        <div class="alert alert-danger" role="alert">
-            Aún no existe ningun Negocio, puedes crear una haciendo click <a href="{% url "adm:settings_create" %}" class="alert-link">aquí</a>
+    <div class="container-fluid py-2">
+        {% if not object %}
+            <div class="alert alert-danger" role="alert">
+                Aún no existe ningun Negocio, puedes crear una haciendo click <a href="{% url "adm:settings_create" %}" class="alert-link">aquí</a>
+            </div>
+        {% else %}
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h2 class="h5 mb-0">Configuración del Negocio</h2>
+                    <a href="{% url 'adm:settings_update' 1 %}" class="btn btn-cm">Editar negocio</a>
+                </div>
+                <div class="card-body row g-3">
+                    <div class="col-12 col-md-6">
+                        <label class="form-label">Nombre</label>
+                        <input type="text" class="form-control" value="{{ object.name }}" disabled>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <label class="form-label">E-Mail</label>
+                        <input type="text" class="form-control" value="{{ object.email }}" disabled>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <label class="form-label">Url</label>
+                        <input type="text" class="form-control" value="{{ object.url }}" disabled>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <label class="form-label">Teléfono</label>
+                        <input type="text" class="form-control" value="{{ object.phone_number }}" disabled>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Logo</label><br>
+                        {% if object.logo %}
+                            <img src="{{ object.logo.url }}" alt="{{ object.name }} Logo" width="100">
+                        {% else %}
+                            <span class="text-muted">Sin logo configurado</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <div>
+                    <h2 class="h5 mb-0">Configuración IA</h2>
+                    <small class="text-muted">Proveedor activo y modelos por tarea.</small>
+                </div>
+                <a href="{% url 'adm:settings_ai_update' %}" class="btn btn-cm">Editar IA</a>
+            </div>
+            <div class="card-body row g-3">
+                <div class="col-12 col-md-4">
+                    <label class="form-label">Proveedor activo</label>
+                    <input type="text" class="form-control" value="{{ ai_settings.provider|upper }}" disabled>
+                </div>
+                <div class="col-12 col-md-4">
+                    <label class="form-label">OpenAI API Key</label>
+                    <input type="text" class="form-control" value="{% if ai_settings.openai_api_key %}Configurada{% else %}No configurada{% endif %}" disabled>
+                </div>
+                <div class="col-12 col-md-4">
+                    <label class="form-label">Gemini API Key</label>
+                    <input type="text" class="form-control" value="{% if ai_settings.gemini_api_key %}Configurada{% else %}No configurada{% endif %}" disabled>
+                </div>
+                <div class="col-12">
+                    <label class="form-label">Última actualización</label>
+                    <input type="text" class="form-control" value="{{ ai_settings.updated_at|date:'d/m/Y H:i' }}" disabled>
+                </div>
+
+                <div class="col-12 col-lg-6">
+                    <h6 class="mb-2">OpenAI</h6>
+                    <ul class="list-group">
+                        <li class="list-group-item d-flex justify-content-between"><span>Texto</span><code>{{ ai_settings.openai_model_text }}</code></li>
+                        <li class="list-group-item d-flex justify-content-between"><span>Híbrido</span><code>{{ ai_settings.openai_model_hybrid }}</code></li>
+                        <li class="list-group-item d-flex justify-content-between"><span>Imagen</span><code>{{ ai_settings.openai_model_image }}</code></li>
+                        <li class="list-group-item d-flex justify-content-between"><span>Transcripción</span><code>{{ ai_settings.openai_model_transcription }}</code></li>
+                        <li class="list-group-item d-flex justify-content-between"><span>Voz</span><code>{{ ai_settings.openai_model_speech }}</code></li>
+                    </ul>
+                </div>
+
+                <div class="col-12 col-lg-6">
+                    <h6 class="mb-2">Gemini</h6>
+                    <ul class="list-group">
+                        <li class="list-group-item d-flex justify-content-between"><span>Texto</span><code>{{ ai_settings.gemini_model_text }}</code></li>
+                        <li class="list-group-item d-flex justify-content-between"><span>Híbrido</span><code>{{ ai_settings.gemini_model_hybrid }}</code></li>
+                        <li class="list-group-item d-flex justify-content-between"><span>Imagen</span><code>{{ ai_settings.gemini_model_image }}</code></li>
+                        <li class="list-group-item d-flex justify-content-between"><span>Transcripción</span><code>{{ ai_settings.gemini_model_transcription }}</code></li>
+                        <li class="list-group-item d-flex justify-content-between"><span>Voz</span><code>{{ ai_settings.gemini_model_speech }}</code></li>
+                    </ul>
+                </div>
+            </div>
         </div>
-    {% else %}
-        <p>
-            <label for="{{ object.name }}">Nombre:</label>
-            <input type="text"
-                   class="form-control"
-                   id="{{ object.name }}"
-                   value="{{ object.name }}"
-                   disabled>
-        </p>
-        <p>
-            <label for="{{ object.email }}">E-Mail:</label>
-            <input type="text"
-                   class="form-control"
-                   id="{{ object.email }}"
-                   value="{{ object.email }}"
-                   disabled>
-        </p>
-        <p>
-            <label for="{{ object.url }}">Url:</label>
-            <input type="text"
-                   class="form-control"
-                   id="{{ object.url }}"
-                   value="{{ object.url }}"
-                   disabled>
-        </p>
-        <p>
-            <label for="{{ object.phone_number }}">Teléfono:</label>
-            <input type="text"
-                   class="form-control"
-                   id="{{ object.phone_number }}"
-                   value="{{ object.phone_number }}"
-                   disabled>
-        </p>
-        <p>
-            <label for="{{ object.mp_customer_key }}">Customer Key MercadoPago:</label>
-            <input type="text"
-                   class="form-control"
-                   id="{{ object.mp_customer_key }}"
-                   value="{{ object.mp_customer_key }}"
-                   disabled>
-        </p>
-        <p>
-            <label for="{{ object.mp_secret_key }}">Secret Key MercadoPago:</label>
-            <input type="text"
-                   class="form-control"
-                   id="{{ object.mp_secret_key }}"
-                   value="{{ object.mp_secret_key }}"
-                   disabled>
-        </p>
-        <p>
-            <label for="{{ object.logo }}">Logo:</label>
-            <br>
-            <img src="{{ object.logo.url }}"
-                 id="{{ object.logo }}"
-                 alt="{{ object.name }} Logo"
-                 width="100">
-        </p>
-        <p>
-            <a href="{% url 'adm:settings_update' 1 %}" class="btn btn-cm">Actualizar</a>
-        </p>
-    {% endif %}
+    </div>
 {% endblock body %}

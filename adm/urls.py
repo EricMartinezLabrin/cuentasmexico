@@ -40,6 +40,7 @@ urlpatterns = [
          name='settings_create'),
     path('settings/update/<int:pk>',
          login_required(views.SettingsUpdateView.as_view()), name='settings_update'),
+    path('settings/ai/update', login_required(views.AISettingsUpdateView), name='settings_ai_update'),
     path('profile/', login_required(views.ProfileView), name='profile'),
     path('profile/update/<int:pk>',
          login_required(views.UserUpdateView.as_view()), name='profile_update'),

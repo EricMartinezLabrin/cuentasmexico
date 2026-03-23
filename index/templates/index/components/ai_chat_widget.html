@@ -1,0 +1,66 @@
+{% load static %}
+
+<link rel="stylesheet" href="{% static 'index/css/ai_chat_widget.css' %}">
+
+<div
+  id="cm-ai-chat-widget"
+  class="cm-ai-chat-widget"
+  data-endpoint="{% url 'site_ai_chat' %}"
+  data-meta-endpoint="{% url 'site_ai_chat_meta' %}"
+  data-max-images="3"
+>
+  <button id="cm-ai-chat-toggle" class="cm-ai-chat-toggle" type="button" aria-label="Abrir chat IA">
+    <i class="bi bi-chat-dots"></i>
+  </button>
+
+  <section id="cm-ai-chat-panel" class="cm-ai-chat-panel" aria-live="polite">
+    <header class="cm-ai-chat-header">
+      <div class="cm-ai-chat-head-top">
+        <div class="cm-ai-chat-title-wrap">
+          <h3>Asistente IA</h3>
+          <small>Haz preguntas, adjunta imagen y recibe ayuda rápida.</small>
+        </div>
+        <button id="cm-ai-chat-close" class="cm-ai-chat-close" type="button" aria-label="Cerrar chat">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </div>
+      <div class="cm-ai-chat-tools">
+        <select id="cm-ai-chat-mcp-select" class="cm-ai-chat-mcp-select" aria-label="Modo MCP">
+          <option value="auto">MCP: Auto</option>
+          <option value="force">MCP: Forzar DB</option>
+          <option value="off">MCP: Off</option>
+        </select>
+        <select id="cm-ai-chat-model-select" class="cm-ai-chat-model-select" aria-label="Modelo de IA temporal"></select>
+        <button id="cm-ai-chat-new" class="cm-ai-chat-new" type="button" title="Nuevo chat">
+          Nuevo
+        </button>
+      </div>
+    </header>
+
+    <div id="cm-ai-chat-messages" class="cm-ai-chat-messages">
+      <div class="cm-ai-chat-msg cm-ai-chat-msg--assistant">
+        Hola, soy tu asistente. ¿Qué necesitas revisar hoy?
+      </div>
+    </div>
+
+    <div id="cm-ai-chat-previews" class="cm-ai-chat-previews"></div>
+
+    <footer class="cm-ai-chat-footer">
+      <label for="cm-ai-chat-image-input" class="cm-ai-chat-attach" title="Adjuntar imagen">
+        <i class="bi bi-image"></i>
+      </label>
+      <input id="cm-ai-chat-image-input" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden>
+      <textarea
+        id="cm-ai-chat-input"
+        rows="1"
+        placeholder="Escribe tu mensaje..."
+        maxlength="4000"
+      ></textarea>
+      <button id="cm-ai-chat-send" class="cm-ai-chat-send" type="button" aria-label="Enviar mensaje">
+        <i class="bi bi-send-fill"></i>
+      </button>
+    </footer>
+  </section>
+</div>
+
+<script src="{% static 'index/js/ai_chat_widget.js' %}" defer></script>

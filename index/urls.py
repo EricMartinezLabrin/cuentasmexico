@@ -6,6 +6,7 @@ from django.contrib.auth.views import LoginView, PasswordResetView, PasswordRese
 
 from . import views
 from . import views_affiliates
+from . import views_ai_chat
 
 
 urlpatterns = [
@@ -70,6 +71,8 @@ urlpatterns = [
     path('api/disney-home-code/', views.get_disney_home_code, name='get_disney_home_code'),
     path('api/disney-change-availability/', views.disney_change_availability, name='disney_change_availability'),
     path('api/disney-change-account/', views.disney_change_account, name='disney_change_account'),
+    path('api/ai-chat/', views_ai_chat.ai_chat, name='site_ai_chat'),
+    path('api/ai-chat/meta/', views_ai_chat.ai_chat_meta, name='site_ai_chat_meta'),
 
     # PayPal payment routes
     path('paypal/create-order/', views.paypal_create_order, name='paypal_create_order'),

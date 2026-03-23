@@ -1,0 +1,261 @@
+{% extends 'adm/base/base.html' %}
+{% block title %}
+Configuración IA
+{% endblock title %}
+{% block body %}
+<style>
+    .ai-settings-shell {
+        max-width: 1100px;
+    }
+    .ai-settings-hero {
+        border: 1px solid #d8e4e1;
+        background: linear-gradient(135deg, #f7fbfa 0%, #eef7f5 100%);
+        border-radius: 14px;
+        padding: 1rem 1.1rem;
+    }
+    .ai-provider-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: .35rem;
+        font-size: .8rem;
+        border-radius: 999px;
+        border: 1px solid #c8d8d4;
+        padding: .28rem .62rem;
+        background: #fff;
+        color: #1d4c43;
+    }
+    .ai-radio-card {
+        border: 1px solid #d8e4e1;
+        border-radius: 12px;
+        padding: .8rem .9rem;
+        background: #fff;
+        cursor: pointer;
+        transition: border-color .15s ease, box-shadow .15s ease;
+    }
+    .ai-radio-card:hover {
+        border-color: #9dc5bc;
+    }
+    .ai-radio-card.active {
+        border-color: #2f7f6e;
+        box-shadow: 0 0 0 2px rgba(47, 127, 110, .14);
+    }
+    .ai-model-card {
+        border: 1px solid #d8e4e1;
+        border-radius: 12px;
+        padding: 1rem;
+        background: #fff;
+    }
+    .ai-model-card h2 {
+        font-size: 1rem;
+        margin: 0;
+    }
+    .ai-help {
+        display: block;
+        font-size: .78rem;
+        color: #5e6f6b;
+        margin-top: .25rem;
+    }
+    .ai-field-wrap + .ai-field-wrap {
+        margin-top: .8rem;
+    }
+    .ai-footer-bar {
+        position: sticky;
+        bottom: 0;
+        z-index: 10;
+        border-top: 1px solid #e4ecea;
+        background: #fff;
+        padding: .85rem 1rem;
+    }
+</style>
+
+<div class="container py-3 ai-settings-shell">
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <div>
+            <h1 class="h4 mb-1">Configuración de IA</h1>
+            <div class="ai-provider-chip">
+                <i class="bi bi-stars"></i>
+                Proveedor actual: <strong id="ai-current-provider-pill">{{ form.provider.value|default:'openai'|upper }}</strong>
+            </div>
+        </div>
+        <a href="{% url 'adm:settings' %}" class="btn btn-cm-cancel">Volver a ajustes</a>
+    </div>
+
+    <div class="ai-settings-hero mb-3">
+        <div class="d-flex align-items-start gap-2">
+            <i class="bi bi-info-circle mt-1"></i>
+            <div>
+                <strong>Cómo usar esta pantalla</strong>
+                <p class="mb-0 text-muted">
+                    Selecciona el proveedor activo y ajusta los modelos por tipo de tarea.
+                    El chat de <code>/adm</code> y el módulo IA usarán esta configuración automáticamente.
+                </p>
+                <small class="text-muted d-block mt-1">
+                    Opciones de modelos (top 3 más recientes por proveedor) basadas en:
+                    <a href="https://developers.openai.com/api/docs/models/all" target="_blank" rel="noopener">OpenAI Models</a>
+                    y
+                    <a href="https://ai.google.dev/gemini-api/docs/models?hl=es-419" target="_blank" rel="noopener">Gemini Models</a>.
+                </small>
+            </div>
+        </div>
+    </div>
+
+    <form method="post" class="card border-0 shadow-sm overflow-hidden">
+        {% csrf_token %}
+
+        <div class="card-body p-3 p-lg-4">
+            {% if form.errors %}
+            <div class="alert alert-danger">
+                Revisa los campos marcados. Hay datos inválidos en la configuración.
+            </div>
+            {% endif %}
+
+            <div class="mb-4">
+                <label class="form-label fw-semibold mb-2">{{ form.provider.label }}</label>
+                <div class="row g-2">
+                    <div class="col-12 col-md-6">
+                        <label class="ai-radio-card w-100" id="card-provider-openai">
+                            <div class="form-check m-0">
+                                <input class="form-check-input me-2" type="radio" name="provider" value="openai" id="provider-openai"
+                                    {% if form.provider.value == 'openai' %}checked{% endif %}>
+                                <span class="form-check-label fw-semibold" for="provider-openai">OpenAI (GPT)</span>
+                            </div>
+                            <small class="text-muted d-block mt-1">Ideal para flujos con ecosistema OpenAI.</small>
+                        </label>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <label class="ai-radio-card w-100" id="card-provider-gemini">
+                            <div class="form-check m-0">
+                                <input class="form-check-input me-2" type="radio" name="provider" value="gemini" id="provider-gemini"
+                                    {% if form.provider.value == 'gemini' %}checked{% endif %}>
+                                <span class="form-check-label fw-semibold" for="provider-gemini">Google Gemini</span>
+                            </div>
+                            <small class="text-muted d-block mt-1">Excelente opción multimodal general.</small>
+                        </label>
+                    </div>
+                </div>
+                <small class="ai-help">Puedes dejar modelos configurados para ambos y cambiar proveedor cuando quieras.</small>
+                {% if form.provider.errors %}
+                    <div class="text-danger small mt-1">{{ form.provider.errors|join:", " }}</div>
+                {% endif %}
+            </div>
+
+            <div class="row g-3 g-lg-4">
+                <div class="col-12 col-lg-6">
+                    <div class="ai-model-card h-100" id="openai-model-card">
+                        <h2>Modelos OpenAI</h2>
+                        <small class="text-muted">Se usan cuando el proveedor activo es OpenAI.</small>
+
+                        <div class="ai-field-wrap mt-3">
+                            <label class="form-label mb-1">{{ form.openai_api_key.label }}</label>
+                            {{ form.openai_api_key }}
+                            <small class="ai-help">Se guarda para uso del chat IA y módulo interno.</small>
+                        </div>
+
+                        <div class="ai-field-wrap">
+                            <label class="form-label mb-1">{{ form.openai_model_text.label }}</label>
+                            {{ form.openai_model_text }}
+                            <small class="ai-help">Conversación normal y respuestas de texto.</small>
+                        </div>
+                        <div class="ai-field-wrap">
+                            <label class="form-label mb-1">{{ form.openai_model_hybrid.label }}</label>
+                            {{ form.openai_model_hybrid }}
+                            <small class="ai-help">Flujos mixtos: texto + imagen + audio.</small>
+                        </div>
+                        <div class="ai-field-wrap">
+                            <label class="form-label mb-1">{{ form.openai_model_image.label }}</label>
+                            {{ form.openai_model_image }}
+                            <small class="ai-help">Generación de imagen.</small>
+                        </div>
+                        <div class="ai-field-wrap">
+                            <label class="form-label mb-1">{{ form.openai_model_transcription.label }}</label>
+                            {{ form.openai_model_transcription }}
+                            <small class="ai-help">Audio a texto.</small>
+                        </div>
+                        <div class="ai-field-wrap">
+                            <label class="form-label mb-1">{{ form.openai_model_speech.label }}</label>
+                            {{ form.openai_model_speech }}
+                            <small class="ai-help">Texto a voz.</small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-12 col-lg-6">
+                    <div class="ai-model-card h-100" id="gemini-model-card">
+                        <h2>Modelos Gemini</h2>
+                        <small class="text-muted">Se usan cuando el proveedor activo es Gemini.</small>
+
+                        <div class="ai-field-wrap mt-3">
+                            <label class="form-label mb-1">{{ form.gemini_api_key.label }}</label>
+                            {{ form.gemini_api_key }}
+                            <small class="ai-help">Se guarda para uso del chat IA y módulo interno.</small>
+                        </div>
+
+                        <div class="ai-field-wrap">
+                            <label class="form-label mb-1">{{ form.gemini_model_text.label }}</label>
+                            {{ form.gemini_model_text }}
+                            <small class="ai-help">Conversación normal y respuestas de texto.</small>
+                        </div>
+                        <div class="ai-field-wrap">
+                            <label class="form-label mb-1">{{ form.gemini_model_hybrid.label }}</label>
+                            {{ form.gemini_model_hybrid }}
+                            <small class="ai-help">Flujos mixtos: texto + imagen + audio.</small>
+                        </div>
+                        <div class="ai-field-wrap">
+                            <label class="form-label mb-1">{{ form.gemini_model_image.label }}</label>
+                            {{ form.gemini_model_image }}
+                            <small class="ai-help">Generación de imagen.</small>
+                        </div>
+                        <div class="ai-field-wrap">
+                            <label class="form-label mb-1">{{ form.gemini_model_transcription.label }}</label>
+                            {{ form.gemini_model_transcription }}
+                            <small class="ai-help">Audio a texto.</small>
+                        </div>
+                        <div class="ai-field-wrap">
+                            <label class="form-label mb-1">{{ form.gemini_model_speech.label }}</label>
+                            {{ form.gemini_model_speech }}
+                            <small class="ai-help">Texto a voz.</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="ai-footer-bar d-flex gap-2 justify-content-between flex-wrap">
+            <small class="text-muted align-self-center">
+                Los cambios se aplican al chat en <code>/adm</code> y al módulo IA reutilizable.
+            </small>
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-cm">
+                    <i class="bi bi-check2-circle me-1"></i>Guardar configuración IA
+                </button>
+                <a href="{% url 'adm:settings' %}" class="btn btn-cm-cancel">Cancelar</a>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script>
+    (function () {
+        var openaiRadio = document.getElementById('provider-openai');
+        var geminiRadio = document.getElementById('provider-gemini');
+        var cardOpenai = document.getElementById('card-provider-openai');
+        var cardGemini = document.getElementById('card-provider-gemini');
+        var openaiModelCard = document.getElementById('openai-model-card');
+        var geminiModelCard = document.getElementById('gemini-model-card');
+        var providerPill = document.getElementById('ai-current-provider-pill');
+
+        function updateProviderUI() {
+            var active = openaiRadio.checked ? 'openai' : 'gemini';
+            cardOpenai.classList.toggle('active', active === 'openai');
+            cardGemini.classList.toggle('active', active === 'gemini');
+            openaiModelCard.style.borderColor = active === 'openai' ? '#2f7f6e' : '#d8e4e1';
+            geminiModelCard.style.borderColor = active === 'gemini' ? '#2f7f6e' : '#d8e4e1';
+            providerPill.textContent = active.toUpperCase();
+        }
+
+        openaiRadio.addEventListener('change', updateProviderUI);
+        geminiRadio.addEventListener('change', updateProviderUI);
+        updateProviderUI();
+    })();
+</script>
+{% endblock body %}
