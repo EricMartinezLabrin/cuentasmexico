@@ -50,7 +50,7 @@ from .models import IndexCart, IndexCartdetail
 from datetime import timedelta
 import json
 from urllib.request import urlopen
-from urllib.parse import quote
+from urllib.parse import quote, urlparse, parse_qs
 from urllib.error import URLError, HTTPError
 
 # Afiliados
@@ -58,6 +58,7 @@ from .utils_affiliates import procesar_venta_afiliado_desde_carrito
 
 # Index
 POST_LOGIN_REDIRECT_SESSION_KEY = 'post_login_redirect_to'
+WHATSAPP_LOGIN_NEXT_CACHE_SUFFIX = ':next'
 
 
 def _sanitize_post_login_redirect(request, target_url):
@@ -100,6 +101,19 @@ def _get_post_login_redirect(request, pop=False):
     else:
         target_url = request.session.get(POST_LOGIN_REDIRECT_SESSION_KEY)
     return _sanitize_post_login_redirect(request, target_url)
+
+
+def _get_next_from_referer(request):
+    referer = str(request.META.get("HTTP_REFERER") or "").strip()
+    if not referer:
+        return None
+    try:
+        parsed = urlparse(referer)
+        values = parse_qs(parsed.query or "")
+        raw_next = (values.get("next") or [None])[0]
+    except Exception:
+        return None
+    return _sanitize_post_login_redirect(request, raw_next)
 
 
 def index(request):
@@ -326,6 +340,27 @@ class RedeemView(UserAccessMixin, FormView):
     form_class = RedeemForm
     success_url = reverse_lazy('redeem')
     customer = None
+
+    def has_permission(self):
+        """
+        Compatibilidad para acceso de clientes:
+        - Grupo Django: "Cliente"
+        - Nivel en UserDetail: "Cliente"
+        """
+        user = self.request.user
+        if not user or not user.is_authenticated:
+            return False
+        if user.is_superuser:
+            return True
+        if user.groups.filter(name__iexact='Cliente').exists():
+            return True
+        try:
+            detail = UserDetail.objects.select_related('level').get(user=user)
+            if detail.level and str(detail.level.name or '').strip().lower() == 'cliente':
+                return True
+        except UserDetail.DoesNotExist:
+            pass
+        return False
 
     def get_code(self):
         if self.request.GET.get('name'):
@@ -1793,6 +1828,7 @@ def send_whatsapp_login_code(request):
         data = json.loads(request.body)
         phone_number = data.get('phone_number', '').strip()
         country = data.get('country', '').strip()
+        next_url = data.get('next', '').strip()
 
         if not phone_number or not country:
             return JsonResponse({
@@ -1829,7 +1865,19 @@ def send_whatsapp_login_code(request):
         # Store login intent in cache (usando db_number como identificador)
         if result['success']:
             login_cache_key = f"whatsapp_login_{country}_{db_number}"
-            cache.set(login_cache_key, existing_user.user.id, timeout=600)  # 10 minutes
+            next_cache_key = f"{login_cache_key}{WHATSAPP_LOGIN_NEXT_CACHE_SUFFIX}"
+            safe_next = (
+                _sanitize_post_login_redirect(request, next_url)
+                or _get_next_from_referer(request)
+                or _get_post_login_redirect(request)
+            )
+            # Compatibilidad amplia entre backends de cache:
+            # guardamos valores simples (int/str) en llaves separadas.
+            cache.set(login_cache_key, int(existing_user.user.id), timeout=600)  # 10 minutes
+            if safe_next:
+                cache.set(next_cache_key, safe_next, timeout=600)  # 10 minutes
+            else:
+                cache.delete(next_cache_key)
 
         return JsonResponse(result)
 
@@ -1879,7 +1927,35 @@ def whatsapp_login_verify_and_auth(request):
 
         # Get user from login cache (usando db_number)
         login_cache_key = f"whatsapp_login_{country}_{db_number}"
-        user_id = cache.get(login_cache_key)
+        next_cache_key = f"{login_cache_key}{WHATSAPP_LOGIN_NEXT_CACHE_SUFFIX}"
+        login_payload = cache.get(login_cache_key)
+        cached_next = str(cache.get(next_cache_key) or '').strip()
+
+        # Normalizar user_id de forma robusta para distintos backends/cache antiguos.
+        user_id = None
+        if isinstance(login_payload, dict):
+            user_id = login_payload.get("user_id")
+            if not cached_next:
+                cached_next = str(login_payload.get("next") or '').strip()
+        elif isinstance(login_payload, int):
+            user_id = login_payload
+        elif isinstance(login_payload, str):
+            stripped = login_payload.strip()
+            if stripped.isdigit():
+                user_id = int(stripped)
+            else:
+                try:
+                    decoded = json.loads(stripped)
+                    if isinstance(decoded, dict):
+                        maybe_id = decoded.get("user_id")
+                        if isinstance(maybe_id, int):
+                            user_id = maybe_id
+                        elif isinstance(maybe_id, str) and maybe_id.strip().isdigit():
+                            user_id = int(maybe_id.strip())
+                        if not cached_next:
+                            cached_next = str(decoded.get("next") or '').strip()
+                except Exception:
+                    user_id = None
 
         if not user_id:
             return JsonResponse({
@@ -1900,10 +1976,13 @@ def whatsapp_login_verify_and_auth(request):
 
             # Clean up cache
             cache.delete(login_cache_key)
+            cache.delete(next_cache_key)
 
             # Resolver destino posterior al login (prioriza next del flujo actual)
             redirect_url = (
                 _sanitize_post_login_redirect(request, next_url)
+                or _get_next_from_referer(request)
+                or _sanitize_post_login_redirect(request, cached_next)
                 or _get_post_login_redirect(request, pop=True)
                 or reverse('redirect_on_login')
             )

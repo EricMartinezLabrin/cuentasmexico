@@ -90,6 +90,154 @@ def _looks_like_business_question(message: str) -> bool:
     return any(token in text for token in hints)
 
 
+def _history_looks_business(history: List[Dict[str, str]]) -> bool:
+    if not history:
+        return False
+    recent = history[-6:]
+    for item in recent:
+        if _looks_like_business_question(_safe_text(item.get("content"))):
+            return True
+    return False
+
+
+def _looks_like_non_db_request(message: str) -> bool:
+    text = (message or "").strip().lower()
+    if not text:
+        return True
+
+    casual_patterns = [
+        r"^hola\b",
+        r"^buen(?:os|as)\b",
+        r"^gracias\b",
+        r"^ok\b",
+        r"^perfecto\b",
+        r"^listo\b",
+        r"^sale\b",
+        r"^que puedes hacer\b",
+        r"^qué puedes hacer\b",
+        r"^ayuda\b",
+    ]
+    if any(re.search(p, text) for p in casual_patterns):
+        if len(text) <= 30:
+            return True
+
+    content_patterns = [
+        r"\btraduce\b",
+        r"\bresume\b",
+        r"\bparafrasea\b",
+        r"\bortografia\b",
+        r"\bortografía\b",
+        r"\bredacta\b",
+        r"\bcopy\b",
+        r"\bimagen\b",
+        r"\blogo\b",
+        r"\bdiseñ[ao]\b",
+    ]
+    has_content_intent = any(re.search(p, text) for p in content_patterns)
+    has_business = _looks_like_business_question(text)
+    return has_content_intent and not has_business
+
+
+def _count_mcp_score_signals(message: str, history: List[Dict[str, str]]) -> int:
+    text = (message or "").lower()
+    score = 0
+
+    # Entidades de negocio / ventas.
+    business_patterns = [
+        r"\bcliente[s]?\b",
+        r"\bventa[s]?\b",
+        r"\bfacturaci[oó]n\b",
+        r"\bingreso[s]?\b",
+        r"\bpedido[s]?\b",
+        r"\border(?:en|enes)?\b",
+        r"\bticket\b",
+        r"\bcompr[ao]s?\b",
+        r"\bservicio[s]?\b",
+        r"\bafiliad[oa]s?\b",
+    ]
+    if any(re.search(p, text) for p in business_patterns):
+        score += 3
+
+    # Intención analítica.
+    analytics_patterns = [
+        r"\bcu[aá]nt[oa]s?\b",
+        r"\btotal(?:es)?\b",
+        r"\bpromedio\b",
+        r"\bsuma\b",
+        r"\branking\b",
+        r"\btop\b",
+        r"\bcompar[ae]\b",
+        r"\bvariaci[oó]n\b",
+        r"\btendencia\b",
+        r"\bcreci[oó]?\b",
+        r"\bbaja\b",
+        r"\balza\b",
+        r"\blista(?:do)?\b",
+        r"\bmuestr[ae]\b",
+    ]
+    if any(re.search(p, text) for p in analytics_patterns):
+        score += 2
+
+    # Ventana temporal o segmentación típica de BI.
+    temporal_patterns = [
+        r"\bhoy\b",
+        r"\bayer\b",
+        r"\bsemana\b",
+        r"\bmes\b",
+        r"\ba[ñn]o\b",
+        r"\btrimestre\b",
+        r"\bultim[oa]s?\b",
+        r"\b20\d{2}\b",
+    ]
+    segmentation_patterns = [
+        r"\bpa[ií]s\b",
+        r"\bm[eé]xico\b",
+        r"\bchile\b",
+        r"\bcolombia\b",
+        r"\bper[uú]\b",
+        r"\bargentina\b",
+        r"\bespa[ñn]a\b",
+        r"\bvendedor\b",
+        r"\bseller\b",
+    ]
+    if any(re.search(p, text) for p in temporal_patterns):
+        score += 1
+    if any(re.search(p, text) for p in segmentation_patterns):
+        score += 1
+
+    # Seguimiento conversacional ("y de esos..."), usando contexto de historial.
+    follow_up_patterns = [
+        r"\by (?:de|del|con)\b",
+        r"\bde esos\b",
+        r"\bdel top\b",
+        r"\bel primero\b",
+        r"\bel segundo\b",
+        r"\bahora\b",
+        r"\by en\b",
+    ]
+    if any(re.search(p, text) for p in follow_up_patterns) and _history_looks_business(history):
+        score += 2
+
+    return score
+
+
+def _should_auto_use_mcp(message: str, history: List[Dict[str, str]]) -> bool:
+    text = (message or "").strip()
+    if not text:
+        return False
+
+    if _looks_like_non_db_request(text):
+        return False
+
+    score = _count_mcp_score_signals(text, history)
+    has_fast_path_signal = _is_fast_heuristic_candidate(text)
+    has_business_signal = _looks_like_business_question(text)
+    follow_up_business = _history_looks_business(history) and len(text) <= 90
+
+    # Regla híbrida: señales explícitas + respaldo por historial de negocio.
+    return score >= 3 or has_fast_path_signal or (has_business_signal and follow_up_business)
+
+
 def _extract_month_year_window(message: str):
     text = (message or "").lower()
     month_map = {
@@ -682,7 +830,7 @@ def ai_chat(request):
             and not parts
             and (
                 mcp_mode == "force"
-                or (mcp_mode == "auto" and _looks_like_business_question(message))
+                or (mcp_mode == "auto" and _should_auto_use_mcp(message, history))
             )
         )
         if should_try_mcp:
