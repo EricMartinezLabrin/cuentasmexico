@@ -297,6 +297,10 @@ class RedeemView(UserAccessMixin, FormView):
         if self.request.user:
             user = self.request.user
             active_acc = Sale.objects.filter(customer=user, status=True)
+            code = self.get_code()
+            if code:
+                excluded_ids = code.excluded_services.values_list('id', flat=True)
+                active_acc = active_acc.exclude(account__account_name_id__in=excluded_ids)
             return active_acc
 
     def get_error(self):
@@ -320,6 +324,14 @@ class RedeemView(UserAccessMixin, FormView):
         return context
 
 
+@login_required
+def redeem_code_shortcut(request, code):
+    normalized = (code or '').strip()
+    if not normalized:
+        return redirect('redeem')
+    return redirect(f"{reverse('redeem')}?name={quote(normalized)}")
+
+
 class SelectAccView(TemplateView):
     template_name = "index/select_acc.html"
     code = None
@@ -335,6 +347,10 @@ class SelectAccView(TemplateView):
 
     def get_availables(self):
         available = Service.objects.filter(status=True)
+        code = self.get_code()
+        if code:
+            excluded_ids = code.excluded_services.values_list('id', flat=True)
+            available = available.exclude(id__in=excluded_ids)
         return available
 
     def get_context_data(self, **kwargs):
@@ -375,8 +391,10 @@ class RedeemConfirmView(TemplateView):
         code = self.get_code()
         if not code:
             return "El código no existe."
+        account = self.account()
+        service = account.account_name if isinstance(account, Account) else account
         try:
-            validate_coupon_for_customer(code, self.request.user)
+            validate_coupon_for_customer(code, self.request.user, service=service)
         except CouponRedeemError as exc:
             return f"Error. {str(exc)}"
         return None
@@ -404,7 +422,7 @@ class RedeemRenewDoneView(TemplateView):
         try:
             renew = Sales.redeem_renew(self.request, service, code, customer)
             return renew
-        except CouponRedeemError as exc:
+        except (Account.DoesNotExist, CouponRedeemError) as exc:
             return False, str(exc)
 
     def get_code(self):
@@ -433,7 +451,8 @@ class RedeemDoneView(TemplateView):
         service_id = self.request.GET.get('service')
         try:
             cupon = get_coupon_by_name_or_raise(code)
-            validate_coupon_for_customer(cupon, self.request.user)
+            service = Service.objects.get(pk=service_id)
+            validate_coupon_for_customer(cupon, self.request.user, service=service)
             end_date = cupon.get_expiration_date(timezone.now())
             customer = self.request.user.id
 

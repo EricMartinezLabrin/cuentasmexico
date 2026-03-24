@@ -730,6 +730,54 @@ class AffiliateSettings(models.Model):
         return "Configuración del Sistema de Afiliados"
 
 
+class AISettings(models.Model):
+    """
+    Configuración global de IA (singleton) editable desde /adm/settings.
+    """
+
+    PROVIDER_CHOICES = [
+        ('openai', 'OpenAI (GPT)'),
+        ('gemini', 'Google Gemini'),
+    ]
+
+    provider = models.CharField(max_length=20, choices=PROVIDER_CHOICES, default='openai')
+    openai_api_key = models.CharField(max_length=255, blank=True, default='')
+    gemini_api_key = models.CharField(max_length=255, blank=True, default='')
+
+    openai_model_text = models.CharField(max_length=120, default='gpt-5.4')
+    openai_model_hybrid = models.CharField(max_length=120, default='gpt-5.4')
+    openai_model_image = models.CharField(max_length=120, default='gpt-image-1.5')
+    openai_model_transcription = models.CharField(max_length=120, default='gpt-4o-mini-transcribe')
+    openai_model_speech = models.CharField(max_length=120, default='gpt-4o-mini-tts')
+
+    gemini_model_text = models.CharField(max_length=120, default='gemini-3-flash-preview')
+    gemini_model_hybrid = models.CharField(max_length=120, default='gemini-3-flash-preview')
+    gemini_model_image = models.CharField(max_length=120, default='gemini-2.5-flash-image')
+    gemini_model_transcription = models.CharField(max_length=120, default='gemini-2.5-flash')
+    gemini_model_speech = models.CharField(max_length=120, default='gemini-2.5-flash-preview-tts')
+
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Configuración de IA"
+        verbose_name_plural = "Configuración de IA"
+
+    def save(self, *args, **kwargs):
+        self.pk = 1
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        pass
+
+    @classmethod
+    def get_settings(cls):
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+    def __str__(self):
+        return f"IA: {self.provider}"
+
+
 class Affiliate(models.Model):
     """Perfil de afiliado vinculado a un usuario existente"""
     METODO_RETIRO_CHOICES = [
@@ -1060,3 +1108,191 @@ class AffiliateNotification(models.Model):
     def marcar_leida(self):
         self.leida = True
         self.save()
+
+
+# ============================================
+# MARKETING IA (WhatsApp / SMS)
+# ============================================
+
+class MarketingCampaign(models.Model):
+    CHANNEL_CHOICES = [
+        ('whatsapp', 'WhatsApp (imagen + texto)'),
+        ('sms', 'SMS (solo texto)'),
+    ]
+
+    STATUS_CHOICES = [
+        ('draft', 'Borrador'),
+        ('ready', 'Lista para enviar'),
+        ('sent', 'Enviada'),
+        ('archived', 'Archivada'),
+    ]
+
+    name = models.CharField(max_length=180)
+    channel = models.CharField(max_length=20, choices=CHANNEL_CHOICES, default='whatsapp')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
+    objective = models.CharField(max_length=180, blank=True, null=True)
+    idea_input = models.TextField(blank=True, null=True)
+    ai_prompt_used = models.TextField(blank=True, null=True)
+    message_text = models.TextField(blank=True, null=True)
+    sms_text = models.TextField(blank=True, null=True)
+    creative_image = models.ImageField(upload_to='marketing/campaigns/', blank=True, null=True)
+    image_prompt = models.TextField(blank=True, null=True)
+    tags = models.JSONField(default=list, blank=True)
+    stats_snapshot = models.JSONField(default=dict, blank=True)
+    audience_filters = models.JSONField(default=dict, blank=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='marketing_campaigns_created')
+    sent_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Campaña de Marketing"
+        verbose_name_plural = "Campañas de Marketing"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.name} ({self.get_channel_display()})"
+
+
+class MarketingCampaignRecommendation(models.Model):
+    campaign = models.ForeignKey(MarketingCampaign, on_delete=models.CASCADE, related_name='recommendations')
+    customer = models.ForeignKey(User, on_delete=models.CASCADE, related_name='marketing_recommendations')
+    country = models.CharField(max_length=80, blank=True, null=True)
+    lada = models.CharField(max_length=10, blank=True, null=True)
+    phone_number = models.CharField(max_length=20, blank=True, null=True)
+    total_orders = models.IntegerField(default=0)
+    total_revenue = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    last_purchase = models.DateTimeField(blank=True, null=True)
+    score = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    reason = models.TextField(blank=True, null=True)
+    selected = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Recomendación de Campaña"
+        verbose_name_plural = "Recomendaciones de Campaña"
+        ordering = ['-score', 'id']
+        unique_together = ['campaign', 'customer']
+        indexes = [
+            models.Index(fields=['campaign', 'selected']),
+            models.Index(fields=['country']),
+        ]
+
+    def __str__(self):
+        return f"{self.customer.username} -> {self.campaign.name}"
+
+
+class MarketingCampaignDelivery(models.Model):
+    CHANNEL_CHOICES = [
+        ('whatsapp', 'WhatsApp'),
+        ('sms', 'SMS'),
+    ]
+
+    STATUS_CHOICES = [
+        ('queued', 'En cola'),
+        ('sent', 'Enviado'),
+        ('failed', 'Fallido'),
+        ('skipped', 'Omitido'),
+    ]
+
+    campaign = models.ForeignKey(MarketingCampaign, on_delete=models.CASCADE, related_name='deliveries')
+    recommendation = models.ForeignKey(MarketingCampaignRecommendation, on_delete=models.SET_NULL, null=True, blank=True, related_name='deliveries')
+    channel = models.CharField(max_length=20, choices=CHANNEL_CHOICES)
+    destination = models.CharField(max_length=120)
+    payload_text = models.TextField(blank=True, null=True)
+    payload_image_url = models.CharField(max_length=500, blank=True, null=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='queued')
+    provider_response = models.TextField(blank=True, null=True)
+    sent_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Envío de Campaña"
+        verbose_name_plural = "Envíos de Campaña"
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['campaign', 'status']),
+            models.Index(fields=['channel', 'status']),
+        ]
+
+    def __str__(self):
+        return f"{self.campaign.name} -> {self.destination} ({self.status})"
+
+
+class MarketingCampaignRedemption(models.Model):
+    SOURCE_CHOICES = [
+        ('adm', 'Venta /adm'),
+        ('web', 'Autoservicio web'),
+        ('coupon_admin', 'Canje cupón /adm'),
+        ('coupon_web', 'Canje cupón web'),
+    ]
+
+    campaign = models.ForeignKey(MarketingCampaign, on_delete=models.CASCADE, related_name='redemptions')
+    customer = models.ForeignKey(User, on_delete=models.CASCADE, related_name='marketing_campaign_redemptions')
+    sale = models.ForeignKey(Sale, on_delete=models.SET_NULL, null=True, blank=True, related_name='marketing_campaign_redemptions')
+    source = models.CharField(max_length=20, choices=SOURCE_CHOICES, default='adm')
+    promo_code = models.CharField(max_length=60, blank=True, null=True)
+    details = models.JSONField(default=dict, blank=True)
+    redeemed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-redeemed_at']
+        unique_together = ['campaign', 'customer']
+        indexes = [
+            models.Index(fields=['campaign', 'customer']),
+            models.Index(fields=['customer', 'redeemed_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.customer.username} -> {self.campaign.name} ({self.source})"
+
+
+class MarketingUserTag(models.Model):
+    TAG_TYPE_CAMPAIGN_SENT = 'campaign_sent'
+    TAG_TYPE_COOLDOWN = 'cooldown'
+
+    TAG_TYPE_CHOICES = [
+        (TAG_TYPE_CAMPAIGN_SENT, 'Campaña enviada'),
+        (TAG_TYPE_COOLDOWN, 'Cooldown anti-spam'),
+    ]
+
+    CHANNEL_CHOICES = [
+        ('whatsapp', 'WhatsApp'),
+        ('sms', 'SMS'),
+        ('email', 'Email'),
+        ('all', 'Todos'),
+    ]
+
+    COLOR_CHOICES = [
+        ('primary', 'Azul'),
+        ('danger', 'Rojo'),
+        ('success', 'Verde'),
+        ('warning', 'Amarillo'),
+        ('info', 'Celeste'),
+        ('secondary', 'Gris'),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='marketing_user_tags')
+    campaign = models.ForeignKey(MarketingCampaign, on_delete=models.SET_NULL, null=True, blank=True, related_name='user_tags')
+    tag_key = models.CharField(max_length=120)
+    tag_type = models.CharField(max_length=20, choices=TAG_TYPE_CHOICES)
+    channel = models.CharField(max_length=20, choices=CHANNEL_CHOICES, default='all')
+    label = models.CharField(max_length=140)
+    color = models.CharField(max_length=20, choices=COLOR_CHOICES, default='info')
+    metadata = models.JSONField(default=dict, blank=True)
+    expires_at = models.DateTimeField(null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        unique_together = ['user', 'tag_key']
+        indexes = [
+            models.Index(fields=['user', 'is_active']),
+            models.Index(fields=['tag_type', 'channel', 'is_active']),
+            models.Index(fields=['expires_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.user.username}: {self.label}"

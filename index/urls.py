@@ -6,6 +6,7 @@ from django.contrib.auth.views import LoginView, PasswordResetView, PasswordRese
 
 from . import views
 from . import views_affiliates
+from . import views_ai_chat
 
 
 urlpatterns = [
@@ -16,12 +17,19 @@ urlpatterns = [
     path('cart', views.CartView.as_view(), name='cart'),
     path('shop', views.ShopListView.as_view(), name='shop'),
     path('redeem', login_required(views.RedeemView.as_view()), name='redeem'),
+    path('redeem/', login_required(views.RedeemView.as_view())),
     path('redeem/confirm', login_required(views.RedeemConfirmView.as_view()),
          name='redeem_confirm'),
     path('redeem/done', login_required(views.RedeemDoneView.as_view()),
          name='redeem_done'),
     path('redeem/done/renew', login_required(views.RedeemRenewDoneView.as_view()),
          name='redeem_done_renew'),
+    path('redeem/<str:code>', views.redeem_code_shortcut),
+    path('redeem/<str:code>/', views.redeem_code_shortcut),
+    path('canjear', login_required(views.RedeemView.as_view())),
+    path('canjear/', login_required(views.RedeemView.as_view())),
+    path('canjear/<str:code>', views.redeem_code_shortcut),
+    path('canjear/<str:code>/', views.redeem_code_shortcut),
     path('select', login_required(views.SelectAccView.as_view()), name='select_acc'),
 #     path('checkout/<int:product_id>',
 #          views.CheckOutView.as_view(), name='checkout'),
@@ -70,6 +78,8 @@ urlpatterns = [
     path('api/disney-home-code/', views.get_disney_home_code, name='get_disney_home_code'),
     path('api/disney-change-availability/', views.disney_change_availability, name='disney_change_availability'),
     path('api/disney-change-account/', views.disney_change_account, name='disney_change_account'),
+    path('api/ai-chat/', views_ai_chat.ai_chat, name='site_ai_chat'),
+    path('api/ai-chat/meta/', views_ai_chat.ai_chat_meta, name='site_ai_chat_meta'),
 
     # PayPal payment routes
     path('paypal/create-order/', views.paypal_create_order, name='paypal_create_order'),

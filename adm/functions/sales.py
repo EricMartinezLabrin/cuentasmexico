@@ -1,5 +1,19 @@
 from adm.functions.send_whatsapp_notification import Notification
-from adm.models import Account, Service, UserDetail, Bank, PaymentMethod, Sale, Status, Business, Credits, AccountChangeHistory
+from adm.models import (
+    Account,
+    Service,
+    UserDetail,
+    Bank,
+    PaymentMethod,
+    Sale,
+    Status,
+    Business,
+    Credits,
+    AccountChangeHistory,
+    MarketingCampaign,
+    MarketingCampaignDelivery,
+    MarketingCampaignRedemption,
+)
 from api.functions.notifications import send_push_notification
 from cupon.models import Cupon, CouponRedemption
 from cupon.services import consume_coupon, validate_coupon_from_code
@@ -10,15 +24,167 @@ from django.urls import reverse, reverse_lazy
 from django.db import IntegrityError, transaction
 from django.http import HttpResponseRedirect
 from adm.functions.send_email import Email
+from adm.functions.marketing_tags import marketing_tags_for_sales_view
 from django.utils import timezone
 from datetime import timedelta
 from traceback import format_exc
 from datetime import datetime
 from django.db.models import Count, Q, F
+from django.db.models import Min
 from math import ceil, floor
+import re
+import unicodedata
 
 
 class Sales():
+    @staticmethod
+    def _normalize_token(value):
+        raw = str(value or '').strip().lower()
+        if not raw:
+            return ''
+        normalized = unicodedata.normalize('NFD', raw)
+        return ''.join(ch for ch in normalized if unicodedata.category(ch) != 'Mn')
+
+    @staticmethod
+    def _extract_campaign_promo_code(campaign):
+        meta = campaign.audience_filters or {}
+        promo_params = meta.get('promo_params') if isinstance(meta.get('promo_params'), dict) else {}
+        from_params = str(promo_params.get('promo_code') or '').strip().upper()
+        if from_params:
+            return from_params
+        from_meta = str(meta.get('promo_code') or '').strip().upper()
+        if from_meta:
+            return from_meta
+        text = f"{campaign.message_text or ''} {campaign.sms_text or ''} {meta.get('cta', '')}"
+        candidates = re.findall(r"\b[A-Z][A-Z0-9]{4,20}\b", str(text or '').upper())
+        for token in candidates:
+            if token in {'WHATSAPP', 'MEXICO', 'NETFLIX', 'DISNEY', 'SPOTIFY'}:
+                continue
+            return token
+        return ''
+
+    @staticmethod
+    def _campaign_services(campaign):
+        meta = campaign.audience_filters or {}
+        promo_params = meta.get('promo_params') if isinstance(meta.get('promo_params'), dict) else {}
+        explicit_ids = []
+        for raw_id in (promo_params.get('services_ids') or meta.get('service_ids') or []):
+            try:
+                explicit_ids.append(int(raw_id))
+            except Exception:
+                continue
+        explicit_ids = sorted(list(set(explicit_ids)))
+        if explicit_ids:
+            services = list(Service.objects.filter(id__in=explicit_ids, status=True).order_by('description'))
+            if services:
+                return services
+        strategy = meta.get('audience_strategy') if isinstance(meta.get('audience_strategy'), dict) else {}
+        keywords = promo_params.get('service_keywords') if isinstance(promo_params.get('service_keywords'), list) else []
+        if not keywords:
+            keywords = strategy.get('service_keywords') if isinstance(strategy.get('service_keywords'), list) else []
+        if not keywords:
+            keywords = []
+            for t in campaign.tags or []:
+                tk = Sales._normalize_token(t)
+                if tk and len(tk) >= 4:
+                    keywords.append(tk)
+        qs = Service.objects.filter(status=True)
+        matched_ids = set()
+        for keyword in keywords:
+            k = Sales._normalize_token(keyword)
+            if not k:
+                continue
+            for svc in qs:
+                if k in Sales._normalize_token(svc.description):
+                    matched_ids.add(svc.id)
+        if matched_ids:
+            return list(Service.objects.filter(id__in=list(matched_ids), status=True).order_by('description'))
+        return []
+
+    @staticmethod
+    def _campaign_offer_valid_until(campaign):
+        meta = campaign.audience_filters or {}
+        promo_params = meta.get('promo_params') if isinstance(meta.get('promo_params'), dict) else {}
+        raw = promo_params.get('offer_valid_until') or meta.get('offer_valid_until')
+        if raw:
+            try:
+                dt = datetime.fromisoformat(str(raw).replace('Z', '+00:00'))
+                if timezone.is_naive(dt):
+                    dt = timezone.make_aware(dt)
+                return dt
+            except Exception:
+                pass
+        base = campaign.sent_at or campaign.created_at or timezone.now()
+        return base + timedelta(days=30)
+
+    @staticmethod
+    def customer_marketing_offers(customer):
+        if not customer:
+            return []
+
+        sent_campaign_ids = list(
+            MarketingCampaignDelivery.objects.filter(
+                recommendation__customer=customer,
+                status='sent',
+            ).values_list('campaign_id', flat=True).distinct()
+        )
+        if not sent_campaign_ids:
+            return []
+
+        campaigns = MarketingCampaign.objects.filter(id__in=sent_campaign_ids).order_by('-sent_at', '-created_at')
+        offers = []
+        now = timezone.now()
+
+        for campaign in campaigns:
+            valid_until = Sales._campaign_offer_valid_until(campaign)
+            if valid_until and valid_until < now:
+                continue
+            if MarketingCampaignRedemption.objects.filter(campaign=campaign, customer=customer).exists():
+                continue
+
+            promo_code = Sales._extract_campaign_promo_code(campaign)
+            if promo_code and CouponRedemption.objects.filter(
+                customer=customer,
+                cupon__name__iexact=promo_code.lower(),
+            ).exists():
+                continue
+
+            services = Sales._campaign_services(campaign)
+            if not services:
+                continue
+
+            meta = campaign.audience_filters or {}
+            promo_params = meta.get('promo_params') if isinstance(meta.get('promo_params'), dict) else {}
+            duration_months = int(promo_params.get('duration_months') or meta.get('duration_months') or 1)
+            duration_months = max(1, min(duration_months, 24))
+
+            offer_price = promo_params.get('offer_price')
+            if offer_price in (None, ''):
+                offer_price = meta.get('offer_price') or meta.get('recommended_price')
+            if offer_price is None:
+                text_blob = f"{campaign.message_text or ''} {campaign.sms_text or ''}"
+                m = re.search(r"\$\s*(\d{2,5})", text_blob)
+                if m:
+                    offer_price = int(m.group(1))
+            if offer_price is None:
+                offer_price = int(min(s.price for s in services))
+            offer_price = int(max(1, offer_price))
+
+            offers.append(
+                {
+                    'campaign_id': campaign.id,
+                    'campaign_name': campaign.name,
+                    'promo_code': promo_code,
+                    'offer_price': offer_price,
+                    'duration_months': duration_months,
+                    'valid_until': valid_until,
+                    'services': [{'id': s.id, 'name': s.description, 'base_price': s.price} for s in services],
+                    'services_ids': [s.id for s in services],
+                    'details': promo_params.get('notes') or meta.get('targeting_notes') or meta.get('cta') or '',
+                }
+            )
+        return offers
+
 
     def find_best_account(service_id, months_requested):
         """
@@ -268,8 +434,8 @@ class Sales():
         seller = customer
 
         if c:
-            cupon = validate_coupon_from_code(c, customer)
             service = Account.objects.get(pk=request.POST.get('serv'))
+            cupon = validate_coupon_from_code(c, customer, service=service.account_name)
             price = cupon.price
             ticket = cupon.name
             bank_name = 'Shops'
@@ -561,7 +727,9 @@ class Sales():
                 'availables': Sales.availables()[0],
                 'message': message,
                 'active': Sales.customer_sales_active(customer),
-                'inactive': Sales.customer_sales_inactive(customer, inactive_page)
+                'inactive': Sales.customer_sales_inactive(customer, inactive_page),
+                'marketing_offers': [],
+                'marketing_tags': [],
             }
             return render(request, 'adm/sale.html', my_dict)
         else:
@@ -575,7 +743,9 @@ class Sales():
                 'message': message,
                 'copy': copy,
                 'active': Sales.customer_sales_active(customer),
-                'inactive': Sales.customer_sales_inactive(customer, inactive_page)
+                'inactive': Sales.customer_sales_inactive(customer, inactive_page),
+                'marketing_offers': Sales.customer_marketing_offers(customer),
+                'marketing_tags': marketing_tags_for_sales_view(customer),
             }
             return render(request, 'adm/sale.html', my_dict)
 
@@ -681,7 +851,7 @@ class Sales():
 
     def redeem(request, acc, code, customer_id):
         customer = User.objects.get(pk=customer_id)
-        cupon = validate_coupon_from_code(code, customer)
+        cupon = validate_coupon_from_code(code, customer, service=acc.account_name)
         service = acc
         price = cupon.price
         ticket = cupon.name
@@ -741,7 +911,7 @@ class Sales():
 
     def redeem_renew(request, acc, code, customer_id):
         customer = User.objects.get(pk=customer_id)
-        cupon = validate_coupon_from_code(code, customer)
+        cupon = validate_coupon_from_code(code, customer, service=acc.account_name)
         price = cupon.price
         ticket = cupon.name
         try:
@@ -890,4 +1060,3 @@ class Sales():
                 logger.error(f"Error enviando email a {customer.email}: {str(e)}", exc_info=True)
 
         return True, sale
-

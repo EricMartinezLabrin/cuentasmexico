@@ -251,15 +251,33 @@ CRM 360
     </div>
 
     <div class="card mb-4">
-        <div class="card-header d-flex justify-content-between align-items-center">
+        <div class="card-body">
+            <h5 class="mb-3">Secciones de detalle</h5>
+            <div class="d-flex flex-wrap gap-2" id="crm-section-buttons">
+                <button type="button" class="btn btn-outline-primary crm-section-btn" data-target="section-top-customers">Top clientes</button>
+                <button type="button" class="btn btn-outline-primary crm-section-btn" data-target="section-recovered-customers">Clientes recuperados</button>
+                <button type="button" class="btn btn-outline-primary crm-section-btn" data-target="section-top-products">Top productos</button>
+                <button type="button" class="btn btn-outline-primary crm-section-btn" data-target="section-churn-customers">Clientes churn</button>
+                <button type="button" class="btn btn-outline-primary crm-section-btn" data-target="section-churn-products">Compras clientes churn</button>
+                <button type="button" class="btn btn-outline-primary crm-section-btn" data-target="section-churn-breakdown">Detalle por cliente churn</button>
+            </div>
+            <small class="text-muted d-block mt-2">Presiona un botón para mostrar la tabla.</small>
+        </div>
+    </div>
+
+    <div class="card mb-4 crm-section d-none" id="section-top-customers">
+        <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
             <div>
                 <h5 class="mb-0">Top clientes (por ingresos)</h5>
                 <small class="text-muted">Periodo: {{ period_label }}</small>
             </div>
-            <a href="{% url 'adm:crm_export_top_customers' %}{% if base_query_string %}?{{ base_query_string }}{% endif %}" class="btn btn-sm btn-outline-success">Exportar CSV</a>
+            <div class="d-flex align-items-center gap-2">
+                <input type="text" class="form-control form-control-sm crm-table-filter" style="min-width: 240px;" data-target-table="top-customers-table" placeholder="Filtrar tabla...">
+                <a href="{% url 'adm:crm_export_top_customers' %}{% if base_query_string %}?{{ base_query_string }}{% endif %}" class="btn btn-sm btn-outline-success">Exportar CSV</a>
+            </div>
         </div>
         <div class="table-responsive">
-            <table class="table table-striped mb-0">
+            <table class="table table-striped mb-0 crm-sortable-table" id="top-customers-table">
                 <thead>
                     <tr>
                         <th>Cliente</th>
@@ -313,16 +331,19 @@ CRM 360
         {% endif %}
     </div>
 
-    <div class="card mb-4">
-        <div class="card-header d-flex justify-content-between align-items-center">
+    <div class="card mb-4 crm-section d-none" id="section-recovered-customers">
+        <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
             <div>
                 <h5 class="mb-0">Clientes recuperados (volvieron tras 45+ días)</h5>
                 <small class="text-muted">Periodo de recuperación: {{ period_label }}</small>
             </div>
-            <a href="{% url 'adm:crm_export_recovered_customers' %}{% if base_query_string %}?{{ base_query_string }}{% endif %}" class="btn btn-sm btn-outline-success">Exportar CSV</a>
+            <div class="d-flex align-items-center gap-2">
+                <input type="text" class="form-control form-control-sm crm-table-filter" style="min-width: 240px;" data-target-table="recovered-customers-table" placeholder="Filtrar tabla...">
+                <a href="{% url 'adm:crm_export_recovered_customers' %}{% if base_query_string %}?{{ base_query_string }}{% endif %}" class="btn btn-sm btn-outline-success">Exportar CSV</a>
+            </div>
         </div>
         <div class="table-responsive">
-            <table class="table table-striped mb-0">
+            <table class="table table-striped mb-0 crm-sortable-table" id="recovered-customers-table">
                 <thead>
                     <tr>
                         <th>Cliente</th>
@@ -376,16 +397,19 @@ CRM 360
         {% endif %}
     </div>
 
-    <div class="card mb-4">
-        <div class="card-header d-flex justify-content-between align-items-center">
+    <div class="card mb-4 crm-section d-none" id="section-top-products">
+        <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
             <div>
                 <h5 class="mb-0">Top productos</h5>
                 <small class="text-muted">Periodo: {{ period_label }}</small>
             </div>
-            <a href="{% url 'adm:crm_export_top_products' %}{% if base_query_string %}?{{ base_query_string }}{% endif %}" class="btn btn-sm btn-outline-success">Exportar CSV</a>
+            <div class="d-flex align-items-center gap-2">
+                <input type="text" class="form-control form-control-sm crm-table-filter" style="min-width: 240px;" data-target-table="top-products-table" placeholder="Filtrar tabla...">
+                <a href="{% url 'adm:crm_export_top_products' %}{% if base_query_string %}?{{ base_query_string }}{% endif %}" class="btn btn-sm btn-outline-success">Exportar CSV</a>
+            </div>
         </div>
         <div class="table-responsive">
-            <table class="table table-striped mb-0">
+            <table class="table table-striped mb-0 crm-sortable-table" id="top-products-table">
                 <thead>
                     <tr>
                         <th>Servicio</th>
@@ -431,16 +455,19 @@ CRM 360
         {% endif %}
     </div>
 
-    <div class="card mb-4">
-        <div class="card-header d-flex justify-content-between align-items-center">
+    <div class="card mb-4 crm-section d-none" id="section-churn-customers">
+        <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
             <div>
                 <h5 class="mb-0">Clientes que dejaron de comprar (45+ días)</h5>
                 <small class="text-muted">Periodo de filtro: {{ period_label }}</small>
             </div>
-            <a href="{% url 'adm:crm_export_churn_customers' %}{% if base_query_string %}?{{ base_query_string }}{% endif %}" class="btn btn-sm btn-outline-success">Exportar CSV</a>
+            <div class="d-flex align-items-center gap-2">
+                <input type="text" class="form-control form-control-sm crm-table-filter" style="min-width: 240px;" data-target-table="churn-customers-table" placeholder="Filtrar tabla...">
+                <a href="{% url 'adm:crm_export_churn_customers' %}{% if base_query_string %}?{{ base_query_string }}{% endif %}" class="btn btn-sm btn-outline-success">Exportar CSV</a>
+            </div>
         </div>
         <div class="table-responsive">
-            <table class="table table-striped mb-0">
+            <table class="table table-striped mb-0 crm-sortable-table" id="churn-customers-table">
                 <thead>
                     <tr>
                         <th>Cliente</th>
@@ -494,16 +521,19 @@ CRM 360
         {% endif %}
     </div>
 
-    <div class="card mb-4">
-        <div class="card-header d-flex justify-content-between align-items-center">
+    <div class="card mb-4 crm-section d-none" id="section-churn-products">
+        <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
             <div>
                 <h5 class="mb-0">¿Qué compraban los clientes churn? (agregado)</h5>
                 <small class="text-muted">Periodo de filtro: {{ period_label }}</small>
             </div>
-            <a href="{% url 'adm:crm_export_churn_products' %}{% if base_query_string %}?{{ base_query_string }}{% endif %}" class="btn btn-sm btn-outline-success">Exportar CSV</a>
+            <div class="d-flex align-items-center gap-2">
+                <input type="text" class="form-control form-control-sm crm-table-filter" style="min-width: 240px;" data-target-table="churn-products-table" placeholder="Filtrar tabla...">
+                <a href="{% url 'adm:crm_export_churn_products' %}{% if base_query_string %}?{{ base_query_string }}{% endif %}" class="btn btn-sm btn-outline-success">Exportar CSV</a>
+            </div>
         </div>
         <div class="table-responsive">
-            <table class="table table-striped mb-0">
+            <table class="table table-striped mb-0 crm-sortable-table" id="churn-products-table">
                 <thead>
                     <tr>
                         <th>Servicio</th>
@@ -528,21 +558,24 @@ CRM 360
         </div>
     </div>
 
-    <div class="card mb-4">
-        <div class="card-header">
-            <h5 class="mb-0">Detalle: qué compraba cada cliente churn</h5>
-            <small class="text-muted">Periodo de filtro: {{ period_label }}</small>
+    <div class="card mb-4 crm-section d-none" id="section-churn-breakdown">
+        <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+                <h5 class="mb-0">Detalle: qué compraba cada cliente churn</h5>
+                <small class="text-muted">Periodo de filtro: {{ period_label }}</small>
+            </div>
+            <input type="text" class="form-control form-control-sm" style="min-width: 240px;" id="churn-breakdown-filter" placeholder="Filtrar por cliente, servicio o moneda...">
         </div>
         <div class="card-body">
             {% for block in churn_breakdown|slice:':50' %}
-                <div class="border rounded p-3 mb-3">
+                <div class="border rounded p-3 mb-3 churn-breakdown-block">
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <strong>{{ block.customer.username }}</strong>
                         <span class="badge bg-secondary">{{ block.customer.days_inactive }} días inactivo</span>
                     </div>
                     <p class="mb-2 text-muted">Último servicio: {{ block.customer.last_service }}</p>
                     <div class="table-responsive">
-                        <table class="table table-sm mb-0">
+                        <table class="table table-sm mb-0 crm-sortable-table">
                             <thead>
                                 <tr>
                                     <th>Servicio</th>
@@ -689,6 +722,175 @@ CRM 360
                 scales: {x: {beginAtZero: true}}
             }
         });
+    }
+
+    const sectionButtons = Array.from(document.querySelectorAll('.crm-section-btn'));
+    const sections = Array.from(document.querySelectorAll('.crm-section'));
+    const queryParams = new URLSearchParams(window.location.search);
+    const sectionFromQuery = queryParams.get('section');
+
+    function setActiveSection(targetId) {
+        sections.forEach(section => {
+            const isActive = section.id === targetId;
+            section.classList.toggle('d-none', !isActive);
+        });
+
+        sectionButtons.forEach(button => {
+            const isActive = button.dataset.target === targetId;
+            button.classList.toggle('btn-primary', isActive);
+            button.classList.toggle('btn-outline-primary', !isActive);
+            button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+        });
+    }
+
+    sectionButtons.forEach(button => {
+        button.addEventListener('click', function () {
+            const targetId = this.dataset.target;
+            if (targetId) {
+                setActiveSection(targetId);
+                queryParams.set('section', targetId);
+                const newUrl = `${window.location.pathname}?${queryParams.toString()}`;
+                window.history.replaceState({}, '', newUrl);
+            }
+        });
+    });
+
+    document.querySelectorAll('.crm-section a[href]').forEach(link => {
+        link.addEventListener('click', function () {
+            const activeButton = sectionButtons.find(button => button.classList.contains('btn-primary'));
+            const activeSection = activeButton ? activeButton.dataset.target : null;
+            if (!activeSection) return;
+
+            const href = this.getAttribute('href');
+            if (!href || href.startsWith('#')) return;
+
+            const url = new URL(href, window.location.origin);
+            url.searchParams.set('section', activeSection);
+            this.setAttribute('href', `${url.pathname}?${url.searchParams.toString()}`);
+        });
+    });
+
+    function parseDateValue(text) {
+        const dateMatch = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2}))?$/);
+        if (!dateMatch) return null;
+        const day = Number(dateMatch[1]);
+        const month = Number(dateMatch[2]) - 1;
+        const year = Number(dateMatch[3]);
+        const hours = Number(dateMatch[4] || 0);
+        const minutes = Number(dateMatch[5] || 0);
+        return new Date(year, month, day, hours, minutes).getTime();
+    }
+
+    function parseSortValue(text) {
+        const cleanText = (text || '').trim();
+        if (!cleanText) return '';
+
+        const dateValue = parseDateValue(cleanText);
+        if (dateValue !== null && !Number.isNaN(dateValue)) {
+            return dateValue;
+        }
+
+        const numericCandidate = cleanText
+            .replace(/[$,%]/g, '')
+            .replace(/\s+/g, '')
+            .replace(/,/g, '');
+        const numericValue = Number(numericCandidate);
+        if (!Number.isNaN(numericValue) && numericCandidate !== '') {
+            return numericValue;
+        }
+
+        return cleanText.toLowerCase();
+    }
+
+    function compareValues(a, b) {
+        const aIsNumber = typeof a === 'number';
+        const bIsNumber = typeof b === 'number';
+        if (aIsNumber && bIsNumber) {
+            return a - b;
+        }
+        return String(a).localeCompare(String(b), 'es', {sensitivity: 'base'});
+    }
+
+    function isDataRow(row) {
+        return !(row.cells.length === 1 && row.cells[0].colSpan > 1);
+    }
+
+    function sortTableByColumn(table, columnIndex, direction) {
+        const tbody = table.querySelector('tbody');
+        if (!tbody) return;
+
+        const rows = Array.from(tbody.querySelectorAll('tr'));
+        const dataRows = rows.filter(isDataRow);
+        const extraRows = rows.filter(row => !isDataRow(row));
+        if (!dataRows.length) return;
+
+        dataRows.sort((rowA, rowB) => {
+            const valueA = parseSortValue(rowA.cells[columnIndex] ? rowA.cells[columnIndex].textContent : '');
+            const valueB = parseSortValue(rowB.cells[columnIndex] ? rowB.cells[columnIndex].textContent : '');
+            const comparison = compareValues(valueA, valueB);
+            return direction === 'asc' ? comparison : -comparison;
+        });
+
+        [...dataRows, ...extraRows].forEach(row => tbody.appendChild(row));
+    }
+
+    function addSortButtonsToTables() {
+        document.querySelectorAll('.crm-sortable-table').forEach(table => {
+            const headerCells = table.querySelectorAll('thead th');
+            headerCells.forEach((th, index) => {
+                if (th.querySelector('.crm-sort-controls')) return;
+
+                const controls = document.createElement('span');
+                controls.className = 'crm-sort-controls ms-1';
+                controls.innerHTML = [
+                    '<button type="button" class="btn btn-link btn-sm p-0 text-decoration-none crm-sort-btn" data-dir="asc" aria-label="Orden ascendente">↑</button>',
+                    '<button type="button" class="btn btn-link btn-sm p-0 ms-1 text-decoration-none crm-sort-btn" data-dir="desc" aria-label="Orden descendente">↓</button>',
+                ].join('');
+                th.appendChild(controls);
+
+                controls.querySelectorAll('.crm-sort-btn').forEach(button => {
+                    button.addEventListener('click', function () {
+                        const direction = this.dataset.dir || 'asc';
+                        sortTableByColumn(table, index, direction);
+                    });
+                });
+            });
+        });
+    }
+
+    function setupTableFilters() {
+        document.querySelectorAll('.crm-table-filter').forEach(input => {
+            input.addEventListener('input', function () {
+                const tableId = this.dataset.targetTable;
+                const table = tableId ? document.getElementById(tableId) : null;
+                if (!table) return;
+
+                const query = this.value.trim().toLowerCase();
+                const rows = Array.from(table.querySelectorAll('tbody tr')).filter(isDataRow);
+                rows.forEach(row => {
+                    const text = row.textContent.toLowerCase();
+                    row.style.display = !query || text.includes(query) ? '' : 'none';
+                });
+            });
+        });
+    }
+
+    const churnBreakdownFilter = document.getElementById('churn-breakdown-filter');
+    if (churnBreakdownFilter) {
+        churnBreakdownFilter.addEventListener('input', function () {
+            const query = this.value.trim().toLowerCase();
+            document.querySelectorAll('.churn-breakdown-block').forEach(block => {
+                const text = block.textContent.toLowerCase();
+                block.style.display = !query || text.includes(query) ? '' : 'none';
+            });
+        });
+    }
+
+    addSortButtonsToTables();
+    setupTableFilters();
+
+    if (sectionFromQuery && sections.some(section => section.id === sectionFromQuery)) {
+        setActiveSection(sectionFromQuery);
     }
 })();
 </script>

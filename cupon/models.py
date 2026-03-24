@@ -1,5 +1,5 @@
 from django.db import models
-from adm.models import Sale
+from adm.models import Sale, Service
 from django.contrib.auth.models import User
 from django.utils import timezone
 from datetime import timedelta
@@ -54,6 +54,12 @@ class Cupon(models.Model):
     status_payment = models.BooleanField(default=False)
     status_sale = models.BooleanField(default=False)  
     shop = models.ForeignKey(Shop,on_delete=models.CASCADE, null=True, blank=True)
+    excluded_services = models.ManyToManyField(
+        Service,
+        blank=True,
+        related_name='excluded_coupons',
+        help_text='Servicios donde este código no puede canjearse.',
+    )
 
     class Meta:
         indexes = [
@@ -79,6 +85,11 @@ class Cupon(models.Model):
 
     def can_redeem(self):
         return self.status and not self.is_exhausted
+
+    def is_service_excluded(self, service):
+        if not service:
+            return False
+        return self.excluded_services.filter(pk=service.pk).exists()
 
     def duration_delta(self):
         if self.duration_unit == self.DURATION_UNIT_DAY:

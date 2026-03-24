@@ -1,0 +1,499 @@
+{% extends 'adm/base/base.html' %}
+{% load static %}
+{% block title %}Campaña {{ campaign.id }}{% endblock title %}
+{% block body %}
+<div class="container-fluid py-3">
+  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <div>
+      <div class="d-flex align-items-center gap-2">
+        <h1 class="h4 mb-0" id="campaign-title-text">{{ campaign.name }}</h1>
+        <button type="button" class="btn btn-sm btn-outline-secondary" id="campaign-title-edit-btn" title="Editar título">
+          <i class="bi bi-pencil"></i>
+        </button>
+      </div>
+      <form id="campaign-title-form" class="d-none mt-2" action="{% url 'adm:marketing_campaign_update_title' campaign.id %}" method="post">
+        {% csrf_token %}
+        <div class="input-group input-group-sm" style="max-width: 520px;">
+          <input type="text" class="form-control" name="name" id="campaign-title-input" value="{{ campaign.name }}" maxlength="180">
+          <button class="btn btn-primary" type="submit">Guardar</button>
+          <button class="btn btn-outline-secondary" type="button" id="campaign-title-cancel-btn">Cancelar</button>
+        </div>
+      </form>
+      <div id="campaign-title-status" class="small text-muted mt-1"></div>
+      <small class="text-muted">
+        {{ campaign.get_channel_display }} · {{ campaign.get_status_display }} · #{{ campaign.id }}
+      </small>
+    </div>
+    <div class="d-flex gap-2">
+      <a class="btn btn-cm-cancel" href="{% url 'adm:marketing_campaigns' %}">
+        <i class="bi bi-arrow-left me-1"></i>Volver
+      </a>
+      <a class="btn btn-outline-secondary" href="{% url 'adm:marketing_campaigns' %}">Listado</a>
+      <button type="button" class="btn btn-outline-primary" id="marketing-regenerate-btn" data-url="{% url 'adm:marketing_campaign_regenerate' campaign.id %}">
+        <i class="bi bi-arrow-repeat me-1"></i>Regenerar IA
+      </button>
+      <form method="post" action="{% url 'adm:marketing_campaign_send' campaign.id %}">
+        {% csrf_token %}
+        <input type="hidden" name="send_now" value="false">
+        <button class="btn btn-cm"><i class="bi bi-journal-check me-1"></i>Registrar envío</button>
+      </form>
+      <button class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#marketingSendModal">
+        <i class="bi bi-send me-1"></i>Intentar envío real
+      </button>
+      <form method="post" action="{% url 'adm:marketing_campaign_delete' campaign.id %}" onsubmit="return confirm('¿Eliminar la campaña #{{ campaign.id }}? Esta acción no se puede deshacer.');">
+        {% csrf_token %}
+        <button class="btn btn-outline-danger" type="submit">
+          <i class="bi bi-trash me-1"></i>Eliminar
+        </button>
+      </form>
+    </div>
+  </div>
+  <div class="small text-muted mb-3">
+    Nota: el envío real solo se ejecuta si `AI_MARKETING_ACTUAL_SEND=true`; en caso contrario se registra en histórico.
+  </div>
+  <div id="marketing-generation-meta"
+       data-status-url="{% url 'adm:marketing_campaign_generation_status' campaign.id %}"
+       data-generation-status="{{ campaign.audience_filters.generation_status|default:'' }}"></div>
+  <div id="marketing-regenerate-status" class="alert alert-info mb-3 d-none"></div>
+  {% if dispatch_meta.status %}
+  <div class="alert alert-secondary py-2 small">
+    <strong>Estado de envío WhatsApp:</strong>
+    {{ dispatch_meta.status|upper }}{% if dispatch_meta.status_note %} · {{ dispatch_meta.status_note }}{% endif %}
+    {% if dispatch_meta.config %}
+      · Límite/h: {{ dispatch_meta.config.messages_per_hour|default:'20' }}
+      {% if dispatch_meta.config.start_hour and dispatch_meta.config.end_hour %}
+        · Horario: {{ dispatch_meta.config.start_hour }} - {{ dispatch_meta.config.end_hour }}
+      {% endif %}
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <div class="row g-3">
+    <div class="col-12 col-lg-7">
+      <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header bg-white"><strong>Creativo y Mensaje</strong></div>
+        <div class="card-body">
+          <div class="mb-2"><strong>Objetivo:</strong> {{ campaign.objective|default:'-' }}</div>
+          <div class="mb-2"><strong>Canal:</strong> {{ campaign.get_channel_display }}</div>
+          {% if campaign.audience_filters.generation_mode %}
+          <div class="mb-2">
+            <strong>Modo de generación:</strong>
+            {% if campaign.audience_filters.generation_mode == 'from_stats_only' %}
+              <span class="badge text-bg-primary">Desde cero (solo estadísticas)</span>
+            {% else %}
+              <span class="badge text-bg-secondary">Desde idea base</span>
+            {% endif %}
+          </div>
+          {% endif %}
+          <div class="mb-2"><strong>Tags:</strong>
+            {% for t in campaign.tags %}
+              <span class="badge {% cycle 'text-bg-primary' 'text-bg-success' 'text-bg-warning' 'text-bg-danger' 'text-bg-info' 'text-bg-secondary' %} me-1">{{ t }}</span>
+            {% empty %}-{% endfor %}
+          </div>
+          {% if campaign.audience_filters.targeting_notes %}
+          <div class="mb-2">
+            <strong>Notas de segmentación IA:</strong>
+            <div class="small text-muted">{{ campaign.audience_filters.targeting_notes }}</div>
+          </div>
+          {% endif %}
+          {% if campaign.audience_filters.cta %}
+          <div class="mb-2">
+            <strong>CTA sugerido:</strong>
+            <span class="badge text-bg-warning">{{ campaign.audience_filters.cta }}</span>
+          </div>
+          {% endif %}
+          {% if campaign.audience_filters.growth_hypothesis %}
+          <div class="mb-2">
+            <strong>Hipótesis de growth:</strong>
+            <div class="small text-muted">{{ campaign.audience_filters.growth_hypothesis }}</div>
+          </div>
+          {% endif %}
+          {% if campaign.audience_filters.kpi_focus %}
+          <div class="mb-2">
+            <strong>KPI foco:</strong>
+            <span class="badge text-bg-info">{{ campaign.audience_filters.kpi_focus }}</span>
+          </div>
+          {% endif %}
+          <hr>
+          <div class="mb-2"><strong>Texto WhatsApp:</strong></div>
+          <div class="p-2 border rounded-2 bg-light">{{ campaign.message_text|linebreaksbr }}</div>
+          <div class="mt-3 mb-2"><strong>Texto SMS:</strong></div>
+          <div class="p-2 border rounded-2 bg-light">{{ campaign.sms_text|linebreaksbr }}</div>
+          <div class="mt-3 mb-2"><strong>Prompt imagen:</strong></div>
+          <form id="marketing-image-regenerate-form" method="post" action="{% url 'adm:marketing_campaign_regenerate_image' campaign.id %}">
+            {% csrf_token %}
+            <textarea class="form-control mb-2" name="image_prompt" rows="3" placeholder="Mejora aquí el prompt para regenerar la imagen">{{ campaign.image_prompt|default:'' }}</textarea>
+            <button class="btn btn-outline-primary btn-sm" type="submit">
+              <i class="bi bi-image me-1"></i>Regenerar imagen IA
+            </button>
+          </form>
+          <div id="marketing-image-regenerate-status" class="alert alert-info mt-2 d-none"></div>
+          {% if campaign.audience_filters.image_generation_response %}
+          <div class="mt-2 small">
+            <strong>Respuesta generación imagen:</strong>
+            <div id="marketing-image-meta" class="text-muted">
+              Proveedor: {{ campaign.audience_filters.image_generation_response.provider|default:'-' }} |
+              Modelo: {{ campaign.audience_filters.image_generation_response.model|default:'-' }} |
+              Estado: {{ campaign.audience_filters.image_generation_response.status|default:'-' }}
+            </div>
+            <div id="marketing-image-meta-message" class="text-muted">{{ campaign.audience_filters.image_generation_response.message|default:'' }}</div>
+          </div>
+          {% endif %}
+          {% if campaign.creative_image %}
+          <div class="mt-3">
+            <img id="marketing-image-preview" src="{{ campaign.creative_image.url }}" class="img-fluid rounded border" alt="Creativo IA">
+          </div>
+          {% else %}
+          <div class="mt-3 small text-muted" id="marketing-image-empty-note">Aún no hay imagen generada.</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white d-flex justify-content-between">
+          <strong>Clientes recomendados (<span id="recommendations-count">{{ recommendations|length }}</span>)</strong>
+          <div class="d-flex gap-2">
+            <form id="refresh-recommendations-form" method="post" action="{% url 'adm:marketing_campaign_refresh_recommendations' campaign.id %}">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-sm btn-outline-primary">
+                <i class="bi bi-arrow-repeat me-1"></i>Refrescar clientes
+              </button>
+            </form>
+            <a href="{% url 'adm:marketing_campaign_recommendations_csv' campaign.id %}" class="btn btn-sm btn-outline-success">
+              <i class="bi bi-file-earmark-spreadsheet me-1"></i>Exportar CSV
+            </a>
+          </div>
+        </div>
+        <div id="refresh-recommendations-status" class="alert alert-info m-2 d-none py-2"></div>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Cliente</th>
+                <th>País</th>
+                <th>Teléfono</th>
+                <th>Órdenes</th>
+                <th>Ingreso</th>
+                <th>Score</th>
+                <th>Motivo</th>
+              </tr>
+            </thead>
+            <tbody id="recommendations-tbody">
+              {% for r in recommendations %}
+              <tr>
+                <td>{{ r.customer.username }}<br><small class="text-muted">{{ r.customer.email }}</small></td>
+                <td>{{ r.country|default:'-' }}</td>
+                <td>{% if r.lada and r.phone_number %}+{{ r.lada }} {{ r.phone_number }}{% else %}-{% endif %}</td>
+                <td>{{ r.total_orders }}</td>
+                <td>${{ r.total_revenue }}</td>
+                <td><strong>{{ r.score }}</strong></td>
+                <td class="small">{{ r.reason }}</td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="7" class="text-center text-muted py-3">Sin recomendaciones aún.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-lg-5">
+      <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+          <strong>Parámetros de Promoción (BD)</strong>
+          <div class="d-flex align-items-center gap-2">
+            <span class="badge text-bg-light border">Vista previa</span>
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="promo-params-edit-toggle">
+              <i class="bi bi-pencil me-1"></i>Editar
+            </button>
+          </div>
+        </div>
+        <div class="card-body small">
+          <form id="marketing-promo-params-form" method="post" action="{% url 'adm:marketing_campaign_update_promo_params' campaign.id %}">
+            {% csrf_token %}
+            <div class="row g-2">
+              <div class="col-6">
+                <label class="form-label mb-1">Precio oferta</label>
+                <input type="number" min="0" step="1" class="form-control form-control-sm promo-param-input" name="offer_price" value="{{ promo_params.offer_price|default:'0' }}" disabled>
+              </div>
+              <div class="col-6">
+                <label class="form-label mb-1">Duración (meses)</label>
+                <input type="number" min="1" max="24" step="1" class="form-control form-control-sm promo-param-input" name="duration_months" value="{{ promo_params.duration_months|default:'1' }}" disabled>
+              </div>
+              <div class="col-12">
+                <label class="form-label mb-1">Código promoción</label>
+                <input type="text" maxlength="40" class="form-control form-control-sm promo-param-input" name="promo_code" value="{{ promo_params.promo_code|default:'' }}" placeholder="Ej. VOLVER7" disabled>
+              </div>
+              <div class="col-12">
+                <label class="form-label mb-1">Vigencia hasta</label>
+                <input type="datetime-local" class="form-control form-control-sm promo-param-input" name="offer_valid_until" value="{% if promo_valid_until_dt %}{{ promo_valid_until_dt|date:'Y-m-d\\TH:i' }}{% endif %}" disabled>
+              </div>
+              <div class="col-12">
+                <label class="form-label mb-1">Servicios elegibles</label>
+                <div class="border rounded p-2" style="max-height: 160px; overflow-y: auto;">
+                  <div class="row g-1">
+                    {% for s in promo_services %}
+                    <div class="col-12">
+                      <label class="form-check small mb-0">
+                        <input class="form-check-input me-1 promo-param-input" type="checkbox" name="services_ids" value="{{ s.id }}" {% if s.selected %}checked{% endif %} disabled>
+                        <span class="form-check-label">{{ s.name }} <span class="text-muted">(${% if s.price %}{{ s.price }}{% else %}0{% endif %})</span></span>
+                      </label>
+                    </div>
+                    {% endfor %}
+                  </div>
+                </div>
+              </div>
+              <div class="col-12">
+                <label class="form-label mb-1">Keywords servicio (coma)</label>
+                <input type="text" class="form-control form-control-sm promo-param-input" name="service_keywords" value="{{ promo_params.service_keywords|join:', ' }}" placeholder="netflix, disney+, spotify" disabled>
+              </div>
+              <div class="col-12">
+                <label class="form-label mb-1">Notas internas promo</label>
+                <textarea class="form-control form-control-sm promo-param-input" name="promo_notes" rows="2" placeholder="Reglas internas de esta promo" disabled>{{ promo_params.notes|default:'' }}</textarea>
+              </div>
+              <div class="col-12 d-flex justify-content-end d-none" id="promo-params-save-wrap">
+                <button type="submit" class="btn btn-sm btn-primary" id="promo-params-save-btn">
+                  <i class="bi bi-save me-1"></i>Guardar y recrear con IA
+                </button>
+              </div>
+            </div>
+          </form>
+          <div id="marketing-promo-params-status" class="alert alert-info mt-2 d-none py-2"></div>
+        </div>
+      </div>
+
+      <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header bg-white"><strong>Estadísticas usadas por IA</strong></div>
+        <div class="card-body">
+          <div class="small text-muted mb-2">
+            Ventana: últimos {{ stats.window_days|default:'90' }} días
+          </div>
+          <div class="mb-1">Ventas: <strong>{{ stats.total_sales|default:'0' }}</strong></div>
+          <div class="mb-1">Ingreso: <strong>${{ stats.total_revenue|default:'0' }}</strong></div>
+          <div class="mb-2">Ticket prom.: <strong>${{ stats.avg_ticket|default:'0' }}</strong></div>
+          <hr>
+          <div class="small text-muted">Top países:</div>
+          <ul class="small">
+            {% for p in stats.top_countries %}
+            <li>{{ p.customer__userdetail__country|default:'Sin país' }} ({{ p.total_sales }})</li>
+            {% empty %}
+            <li>Sin datos.</li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+
+      <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header bg-white"><strong>Criterios de Audiencia Aplicados</strong></div>
+        <div class="card-body small">
+          {% if audience_strategy %}
+            <div><strong>Tipo de segmento:</strong> {{ audience_strategy.segment_type|default:'general' }}</div>
+            <div><strong>Días inactividad:</strong> {{ audience_strategy.min_days_inactive|default:'0' }} - {{ audience_strategy.max_days_inactive|default:'3650' }}</div>
+            <div><strong>Órdenes:</strong> {{ audience_strategy.min_total_orders|default:'0' }} - {{ audience_strategy.max_total_orders|default:'9999' }}</div>
+            <div><strong>Ingreso mínimo:</strong> ${{ audience_strategy.min_total_revenue|default:'0' }}</div>
+            <div><strong>Activas máximas ahora:</strong> {{ audience_strategy.max_active_sales_now|default:'999' }}</div>
+            <div><strong>Sin activas:</strong> {{ audience_strategy.require_no_active_sales|default:'False' }}</div>
+            <div><strong>Historial servicio:</strong> {{ audience_strategy.require_service_history|default:'False' }}</div>
+            <div><strong>Servicio objetivo inactivo:</strong> {{ audience_strategy.require_target_service_inactive|default:'False' }}</div>
+            <div><strong>Excluir recompra reciente:</strong> {{ audience_strategy.exclude_recent_same_service_days|default:'0' }} días</div>
+            <div class="mt-2"><strong>Países incluidos:</strong>
+              {% for c in audience_strategy.countries_include %}<span class="badge text-bg-light border me-1">{{ c }}</span>{% empty %}-{% endfor %}
+            </div>
+            <div class="mt-1"><strong>Países excluidos:</strong>
+              {% for c in audience_strategy.countries_exclude %}<span class="badge text-bg-light border me-1">{{ c }}</span>{% empty %}-{% endfor %}
+            </div>
+            <div class="mt-1"><strong>Keywords servicio:</strong>
+              {% for k in audience_strategy.service_keywords %}<span class="badge text-bg-light border me-1">{{ k }}</span>{% empty %}-{% endfor %}
+            </div>
+            <div class="mt-2 text-muted"><strong>Notas:</strong> {{ audience_strategy.notes|default:'-' }}</div>
+            <div class="text-muted"><strong>Fuente:</strong> {{ audience_strategy.source|default:'heuristic' }}</div>
+            {% if campaign.audience_filters.audience_filter_stats %}
+            <hr>
+            <div class="text-muted"><strong>Diagnóstico de filtros:</strong></div>
+            <div>Total candidatos: {{ campaign.audience_filters.audience_filter_stats.total_candidates|default:'0' }}</div>
+            <div>Seleccionados: {{ campaign.audience_filters.audience_filter_stats.selected|default:'0' }}</div>
+            <div>Excluidos por país requerido: {{ campaign.audience_filters.audience_filter_stats.excluded_country_include|default:'0' }}</div>
+            <div>Excluidos por país bloqueado: {{ campaign.audience_filters.audience_filter_stats.excluded_country_exclude|default:'0' }}</div>
+            <div>Excluidos por inactividad: {{ campaign.audience_filters.audience_filter_stats.excluded_days_inactive|default:'0' }}</div>
+            <div>Excluidos por órdenes: {{ campaign.audience_filters.audience_filter_stats.excluded_orders_range|default:'0' }}</div>
+            <div>Excluidos por ingreso: {{ campaign.audience_filters.audience_filter_stats.excluded_revenue|default:'0' }}</div>
+            <div>Excluidos por activas globales: {{ campaign.audience_filters.audience_filter_stats.excluded_active_global|default:'0' }}</div>
+            <div>Excluidos por servicio objetivo activo: {{ campaign.audience_filters.audience_filter_stats.excluded_target_active|default:'0' }}</div>
+            <div>Excluidos por recompra reciente: {{ campaign.audience_filters.audience_filter_stats.excluded_recent_same_service|default:'0' }}</div>
+            <div>Excluidos por teléfono: {{ campaign.audience_filters.audience_filter_stats.excluded_no_phone|default:'0' }}</div>
+            {% endif %}
+          {% else %}
+            <div class="text-muted">La estrategia se mostrará después de generar recomendaciones.</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white"><strong>Histórico de envíos</strong></div>
+        <div class="table-responsive">
+          <table class="table table-sm mb-0 align-middle">
+            <thead class="table-light">
+              <tr>
+                <th>Fecha</th>
+                <th>Canal</th>
+                <th>Destino</th>
+                <th>Status</th>
+                <th>Acción</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for d in deliveries %}
+              <tr>
+                <td>{{ d.created_at|date:'d/m/Y H:i' }}</td>
+                <td>{{ d.get_channel_display }}</td>
+                <td class="small">{{ d.destination }}</td>
+                <td>
+                  <span class="badge {% if d.status == 'sent' %}text-bg-success{% elif d.status == 'failed' %}text-bg-danger{% elif d.status == 'skipped' %}text-bg-warning{% else %}text-bg-secondary{% endif %}">
+                    {{ d.get_status_display }}
+                  </span>
+                </td>
+                <td>
+                  {% if d.status == 'queued' %}
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-primary force-delivery-send-btn"
+                      data-url="{% url 'adm:marketing_campaign_force_send_delivery' campaign.id d.id %}">
+                      Forzar ahora
+                    </button>
+                  {% else %}
+                    <span class="text-muted small">-</span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="5" class="text-center text-muted py-3">Sin envíos registrados.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card border-0 shadow-sm mt-3">
+        <div class="card-header bg-white"><strong>Preguntas de la IA para Afinar la Campaña</strong></div>
+        <div class="card-body">
+          {% if campaign.audience_filters.generation_status == 'needs_input' and campaign.audience_filters.clarification_questions %}
+            <div class="alert alert-warning">
+              La IA necesita estas respuestas para generar una campaña más precisa.
+            </div>
+            <form id="marketing-clarifications-form" method="post" action="{% url 'adm:marketing_campaign_answer_clarifications' campaign.id %}">
+              {% csrf_token %}
+              {% for q in campaign.audience_filters.clarification_questions %}
+                <div class="mb-2">
+                  <label class="form-label"><strong>{{ forloop.counter }}.</strong> {{ q }}</label>
+                  <textarea class="form-control" name="answer_{{ forloop.counter0 }}" rows="2" placeholder="Tu respuesta"></textarea>
+                </div>
+              {% endfor %}
+              <button class="btn btn-primary" type="submit">
+                <i class="bi bi-magic me-1"></i>Responder y continuar generación
+              </button>
+            </form>
+            <div id="marketing-clarifications-status" class="alert alert-info mt-3 d-none"></div>
+          {% else %}
+            <div class="text-muted small">No hay preguntas pendientes de la IA.</div>
+          {% endif %}
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="marketingSendModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Configurar envío real</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <form id="marketing-send-real-form" method="post" action="{% url 'adm:marketing_campaign_send' campaign.id %}">
+        <div class="modal-body">
+          {% csrf_token %}
+          <input type="hidden" name="send_now" value="true">
+          <div class="mb-3">
+            <label class="form-label">Canal de envío</label>
+            <div class="d-flex flex-wrap gap-3">
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="delivery_channel" id="delivery_whatsapp" value="whatsapp" checked>
+                <label class="form-check-label" for="delivery_whatsapp">WhatsApp</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="delivery_channel" id="delivery_sms" value="sms">
+                <label class="form-check-label" for="delivery_sms">SMS</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="delivery_channel" id="delivery_email" value="email">
+                <label class="form-check-label" for="delivery_email">Email (próximamente)</label>
+              </div>
+            </div>
+          </div>
+
+          <div id="marketing-whatsapp-controls">
+            <div class="row g-2 mb-2">
+              <div class="col-12 col-md-4">
+                <label class="form-label">Mensajes por hora</label>
+                <input type="number" min="1" max="500" class="form-control" name="messages_per_hour" value="20">
+              </div>
+              <div class="col-6 col-md-4">
+                <label class="form-label">Horario inicio</label>
+                <input type="time" class="form-control" name="schedule_start" value="09:00">
+              </div>
+              <div class="col-6 col-md-4">
+                <label class="form-label">Horario fin</label>
+                <input type="time" class="form-control" name="schedule_end" value="20:00">
+              </div>
+            </div>
+            <div class="small text-muted mb-2">
+              Fuera de ese horario, la campaña de contactos se pausa y se reanuda automáticamente al volver al horario.
+            </div>
+            <div class="border rounded p-2">
+              <div class="d-flex justify-content-between align-items-center mb-1">
+                <div class="fw-semibold">Grupos (envío inmediato, fuera de la cola)</div>
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="refresh-whatsapp-groups-btn" data-url="{% url 'adm:marketing_whatsapp_groups' %}">
+                  <i class="bi bi-arrow-clockwise me-1"></i>Refrescar grupos
+                </button>
+              </div>
+              <div class="small text-muted mb-2">Si no seleccionas grupos, se enviará solo a contactos.</div>
+              <div id="whatsapp-groups-status" class="small text-muted mb-2"></div>
+              <div id="whatsapp-groups-container">
+              {% if whatsapp_group_options %}
+                <div class="row g-2">
+                  {% for g in whatsapp_group_options %}
+                    <div class="col-12 col-md-6">
+                      <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="group_ids" id="group_{{ forloop.counter }}" value="{{ g.id }}">
+                        <label class="form-check-label" for="group_{{ forloop.counter }}">
+                          {{ g.name }} <small class="text-muted">({{ g.id }})</small>
+                        </label>
+                      </div>
+                    </div>
+                  {% endfor %}
+                </div>
+              {% else %}
+                <div class="small text-muted">
+                  No se encontraron grupos desde Evolution API. Opcionalmente define `AI_WHATSAPP_GROUPS` en `.env` como fallback.
+                </div>
+              {% endif %}
+              </div>
+            </div>
+          </div>
+
+          <div id="marketing-send-modal-status" class="alert alert-info mt-3 d-none"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-outline-success">
+            <i class="bi bi-send me-1"></i>Confirmar envío real
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+<script src="{% static 'adm/js/marketing_campaign.js' %}"></script>
+{% endblock body %}

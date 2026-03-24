@@ -311,3 +311,66 @@ LOGGING = {
         },
     },
 }
+
+# ============================================
+# IA SETTINGS (OpenAI / Gemini)
+# ============================================
+# UX: configuración unificada por proveedor + tipo de tarea.
+# Cambia solo AI_PROVIDER para mover toda la app entre OpenAI/Gemini.
+
+AI_PROVIDER = os.getenv('AI_PROVIDER', 'openai').strip().lower()
+if AI_PROVIDER not in ('openai', 'gemini'):
+    AI_PROVIDER = 'openai'
+
+AI_MODELS = {
+    'openai': {
+        # Texto e híbrido (texto+imagen+audio en un solo prompt)
+        'text': os.getenv('OPENAI_MODEL_TEXT', 'gpt-5.4'),
+        'hybrid': os.getenv('OPENAI_MODEL_HYBRID', 'gpt-5.4'),
+        # Generación de imagen
+        'image': os.getenv('OPENAI_MODEL_IMAGE', 'gpt-image-1.5'),
+        # Audio -> texto
+        'transcription': os.getenv('OPENAI_MODEL_TRANSCRIPTION', 'gpt-4o-mini-transcribe'),
+        # Texto -> audio
+        'speech': os.getenv('OPENAI_MODEL_SPEECH', 'gpt-4o-mini-tts'),
+    },
+    'gemini': {
+        # Para texto/híbrido/imagen/audio se usa la familia Gemini multimodal
+        'text': os.getenv('GEMINI_MODEL_TEXT', 'gemini-3-flash-preview'),
+        'hybrid': os.getenv('GEMINI_MODEL_HYBRID', 'gemini-3-flash-preview'),
+        'image': os.getenv('GEMINI_MODEL_IMAGE', 'gemini-2.5-flash-image'),
+        'transcription': os.getenv('GEMINI_MODEL_TRANSCRIPTION', 'gemini-2.5-flash'),
+        'speech': os.getenv('GEMINI_MODEL_SPEECH', 'gemini-2.5-flash-preview-tts'),
+    }
+}
+
+# Endpoints opcionales por proveedor
+OPENAI_BASE_URL = os.getenv('OPENAI_BASE_URL', 'https://api.openai.com')
+GEMINI_BASE_URL = os.getenv('GEMINI_BASE_URL', 'https://generativelanguage.googleapis.com/v1beta')
+
+# Alias de acceso rápido para el proveedor activo (mejor DX)
+AI_ACTIVE_MODELS = AI_MODELS[AI_PROVIDER]
+AI_TEXT_MODEL = AI_ACTIVE_MODELS['text']
+AI_HYBRID_MODEL = AI_ACTIVE_MODELS['hybrid']
+AI_IMAGE_MODEL = AI_ACTIVE_MODELS['image']
+AI_TRANSCRIPTION_MODEL = AI_ACTIVE_MODELS['transcription']
+AI_SPEECH_MODEL = AI_ACTIVE_MODELS['speech']
+
+# Chat flotante IA (UI)
+AI_CHAT_ENABLED = os.getenv('AI_CHAT_ENABLED', 'true').strip().lower() in ('1', 'true', 'yes', 'on')
+AI_CHAT_MAX_MESSAGE_CHARS = int(os.getenv('AI_CHAT_MAX_MESSAGE_CHARS', '4000'))
+AI_CHAT_MAX_IMAGES = int(os.getenv('AI_CHAT_MAX_IMAGES', '3'))
+AI_CHAT_MAX_IMAGE_MB = int(os.getenv('AI_CHAT_MAX_IMAGE_MB', '4'))
+AI_CHAT_HISTORY_TURNS = int(os.getenv('AI_CHAT_HISTORY_TURNS', '4'))
+AI_CHAT_MAX_OUTPUT_TOKENS = int(os.getenv('AI_CHAT_MAX_OUTPUT_TOKENS', '900'))
+AI_CHAT_TEMPERATURE = float(os.getenv('AI_CHAT_TEMPERATURE', '0.2'))
+AI_CHAT_TIMEOUT_SEC = int(os.getenv('AI_CHAT_TIMEOUT_SEC', '25'))
+AI_CHAT_RATE_LIMIT = int(os.getenv('AI_CHAT_RATE_LIMIT', '20'))
+AI_CHAT_RATE_WINDOW_SEC = int(os.getenv('AI_CHAT_RATE_WINDOW_SEC', '60'))
+AI_CHAT_USE_DB_CONTEXT = os.getenv('AI_CHAT_USE_DB_CONTEXT', 'true').strip().lower() in ('1', 'true', 'yes', 'on')
+AI_CHAT_SYSTEM_PROMPT = os.getenv(
+    'AI_CHAT_SYSTEM_PROMPT',
+    'Eres un asistente útil para clientes de Cuentas México. '
+    'Responde de forma clara y breve. '
+    'Si no tienes suficiente información, dilo explícitamente.'
+)

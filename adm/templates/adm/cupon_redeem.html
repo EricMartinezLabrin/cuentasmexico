@@ -31,6 +31,11 @@
             {% endfor %}
         </div>
     {% endif %}
+    {% if cupon and not service and not services and not error %}
+        <div class="alert alert-warning" role="alert">
+            Este código no tiene servicios disponibles para canje.
+        </div>
+    {% endif %}
     {% if service %}
         <div onload="sendSearchData()">
             <h4>Selecciona una cuenta {{ customer }}</h4>

@@ -1,7 +1,7 @@
 from django.contrib.auth.models import User
 from django.test import TestCase
 
-from adm.models import Business, UserDetail
+from adm.models import Business, Service, UserDetail
 from cupon.models import Cupon, CouponRedemption
 from cupon.services import CouponRedeemError, consume_coupon, validate_coupon_for_customer
 
@@ -25,6 +25,15 @@ class CouponPhoneRulesTests(TestCase):
             country='Mexico',
         )
         return user
+
+    def _create_service(self, description):
+        return Service.objects.create(
+            description=description,
+            perfil_quantity=1,
+            status=True,
+            price=100,
+            regular_price=120,
+        )
 
     def test_blocks_reuse_by_same_phone_across_accounts(self):
         first_user = self._create_user_with_phone('first')
@@ -58,3 +67,35 @@ class CouponPhoneRulesTests(TestCase):
         coupon.refresh_from_db()
         self.assertEqual(coupon.used_count, 1)
         self.assertEqual(CouponRedemption.objects.filter(cupon=coupon).count(), 1)
+
+    def test_blocks_coupon_on_excluded_service(self):
+        user = self._create_user_with_phone('blocked')
+        spotify = self._create_service('Spotify Premium')
+
+        coupon = Cupon.objects.create(
+            name='no-spotify',
+            long=1,
+            price=100,
+            folder=3,
+            max_uses=5,
+        )
+        coupon.excluded_services.add(spotify)
+
+        with self.assertRaises(CouponRedeemError):
+            validate_coupon_for_customer(coupon, user, service=spotify)
+
+    def test_allows_coupon_on_non_excluded_service(self):
+        user = self._create_user_with_phone('allowed')
+        spotify = self._create_service('Spotify Premium')
+        netflix = self._create_service('Netflix Premium')
+
+        coupon = Cupon.objects.create(
+            name='no-spotify-ok-netflix',
+            long=1,
+            price=100,
+            folder=4,
+            max_uses=5,
+        )
+        coupon.excluded_services.add(spotify)
+
+        validate_coupon_for_customer(coupon, user, service=netflix)

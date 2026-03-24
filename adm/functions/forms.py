@@ -6,7 +6,30 @@ from django.core.validators import RegexValidator
 from PIL import Image
 
 # local
-from ..models import Bank, Business, Service, UserDetail, Account, PaymentMethod, Status, Supplier, IndexCarouselImage, IndexPromoImage, Promocion
+from CuentasMexico.ai.model_catalog import (
+    GEMINI_IMAGE_CHOICES,
+    GEMINI_SPEECH_CHOICES,
+    GEMINI_TEXT_CHOICES,
+    GEMINI_TRANSCRIPTION_CHOICES,
+    OPENAI_IMAGE_CHOICES,
+    OPENAI_SPEECH_CHOICES,
+    OPENAI_TEXT_CHOICES,
+    OPENAI_TRANSCRIPTION_CHOICES,
+)
+from ..models import (
+    AISettings,
+    Bank,
+    Business,
+    Service,
+    UserDetail,
+    Account,
+    PaymentMethod,
+    Status,
+    Supplier,
+    IndexCarouselImage,
+    IndexPromoImage,
+    Promocion,
+)
 from CuentasMexico import settings
 
 
@@ -27,6 +50,111 @@ class SettingsForm(forms.ModelForm):
             'flow_show': 'Mostrar Boton de Flow',
             'logo': 'Logo'
         }
+
+
+class AISettingsForm(forms.ModelForm):
+    OPENAI_TEXT_CHOICES = [(v, f"{l} (`{v}`)") for v, l in OPENAI_TEXT_CHOICES]
+    OPENAI_IMAGE_CHOICES = [(v, f"{l} (`{v}`)") for v, l in OPENAI_IMAGE_CHOICES]
+    OPENAI_TRANSCRIPTION_CHOICES = [(v, f"{l} (`{v}`)") for v, l in OPENAI_TRANSCRIPTION_CHOICES]
+    OPENAI_SPEECH_CHOICES = [(v, f"{l} (`{v}`)") for v, l in OPENAI_SPEECH_CHOICES]
+    GEMINI_TEXT_CHOICES = [(v, f"{l} (`{v}`)") for v, l in GEMINI_TEXT_CHOICES]
+    GEMINI_IMAGE_CHOICES = [(v, f"{l} (`{v}`)") for v, l in GEMINI_IMAGE_CHOICES]
+    GEMINI_TRANSCRIPTION_CHOICES = [(v, f"{l} (`{v}`)") for v, l in GEMINI_TRANSCRIPTION_CHOICES]
+    GEMINI_SPEECH_CHOICES = [(v, f"{l} (`{v}`)") for v, l in GEMINI_SPEECH_CHOICES]
+
+    class Meta:
+        model = AISettings
+        fields = [
+            'provider',
+            'openai_api_key',
+            'gemini_api_key',
+            'openai_model_text',
+            'openai_model_hybrid',
+            'openai_model_image',
+            'openai_model_transcription',
+            'openai_model_speech',
+            'gemini_model_text',
+            'gemini_model_hybrid',
+            'gemini_model_image',
+            'gemini_model_transcription',
+            'gemini_model_speech',
+        ]
+        labels = {
+            'provider': 'Proveedor activo',
+            'openai_api_key': 'OpenAI API Key',
+            'gemini_api_key': 'Gemini API Key',
+            'openai_model_text': 'OpenAI texto',
+            'openai_model_hybrid': 'OpenAI híbrido',
+            'openai_model_image': 'OpenAI imagen',
+            'openai_model_transcription': 'OpenAI transcripción',
+            'openai_model_speech': 'OpenAI voz',
+            'gemini_model_text': 'Gemini texto',
+            'gemini_model_hybrid': 'Gemini híbrido',
+            'gemini_model_image': 'Gemini imagen',
+            'gemini_model_transcription': 'Gemini transcripción',
+            'gemini_model_speech': 'Gemini voz',
+        }
+        widgets = {
+            'provider': forms.Select(attrs={'class': 'form-select'}),
+            'openai_api_key': forms.PasswordInput(attrs={'class': 'form-control', 'placeholder': 'sk-...'}, render_value=True),
+            'gemini_api_key': forms.PasswordInput(attrs={'class': 'form-control', 'placeholder': 'AIza...'}, render_value=True),
+            'openai_model_text': forms.Select(attrs={'class': 'form-select'}),
+            'openai_model_hybrid': forms.Select(attrs={'class': 'form-select'}),
+            'openai_model_image': forms.Select(attrs={'class': 'form-select'}),
+            'openai_model_transcription': forms.Select(attrs={'class': 'form-select'}),
+            'openai_model_speech': forms.Select(attrs={'class': 'form-select'}),
+            'gemini_model_text': forms.Select(attrs={'class': 'form-select'}),
+            'gemini_model_hybrid': forms.Select(attrs={'class': 'form-select'}),
+            'gemini_model_image': forms.Select(attrs={'class': 'form-select'}),
+            'gemini_model_transcription': forms.Select(attrs={'class': 'form-select'}),
+            'gemini_model_speech': forms.Select(attrs={'class': 'form-select'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        field_choices_map = {
+            'openai_model_text': self.OPENAI_TEXT_CHOICES,
+            'openai_model_hybrid': self.OPENAI_TEXT_CHOICES,
+            'openai_model_image': self.OPENAI_IMAGE_CHOICES,
+            'openai_model_transcription': self.OPENAI_TRANSCRIPTION_CHOICES,
+            'openai_model_speech': self.OPENAI_SPEECH_CHOICES,
+            'gemini_model_text': self.GEMINI_TEXT_CHOICES,
+            'gemini_model_hybrid': self.GEMINI_TEXT_CHOICES,
+            'gemini_model_image': self.GEMINI_IMAGE_CHOICES,
+            'gemini_model_transcription': self.GEMINI_TRANSCRIPTION_CHOICES,
+            'gemini_model_speech': self.GEMINI_SPEECH_CHOICES,
+        }
+
+        for field_name, choices in field_choices_map.items():
+            self._set_widget_choices(field_name, choices)
+            self._preserve_unknown_current_value(field_name)
+
+    def _set_widget_choices(self, field_name: str, choices) -> None:
+        field = self.fields[field_name]
+        if hasattr(field, "choices"):
+            field.choices = choices
+        if hasattr(field, "widget") and hasattr(field.widget, "choices"):
+            field.widget.choices = choices
+
+    def _preserve_unknown_current_value(self, field_name: str) -> None:
+        current_value = self.initial.get(field_name) or getattr(self.instance, field_name, None)
+        if not current_value:
+            return
+        normalized = str(current_value).strip()
+        if not normalized:
+            return
+        field = self.fields[field_name]
+        widget_choices = list(getattr(field.widget, "choices", []))
+        values = [value for value, _ in widget_choices]
+        if normalized not in values:
+            updated_choices = [
+                (normalized, f"Actual no listado ({normalized})")
+            ] + widget_choices
+            if hasattr(field, "choices"):
+                field.choices = updated_choices
+            if hasattr(field, "widget") and hasattr(field.widget, "choices"):
+                field.widget.choices = updated_choices
         widgets = {
             'name': forms.TextInput(attrs={'class': 'form-control'}),
             'email': forms.EmailInput(attrs={'class': 'form-control'}),
