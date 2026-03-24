@@ -193,8 +193,55 @@
             </div>
         </div>
 
+        {% if marketing_offers %}
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-header bg-white">
+                    <strong>Promociones elegibles para este cliente</strong>
+                </div>
+                <div class="card-body">
+                    <div class="row g-2">
+                        {% for offer in marketing_offers %}
+                            <div class="col-12 col-lg-6">
+                                <div class="border rounded p-3">
+                                    <div class="fw-semibold mb-1">{{ offer.campaign_name }}</div>
+                                    <div class="small text-muted mb-2">
+                                        Precio: <strong>${{ offer.offer_price }}</strong> · Duración: {{ offer.duration_months }} mes(es)
+                                        {% if offer.valid_until %} · Vigente hasta {{ offer.valid_until|date:'d/m/Y H:i' }}{% endif %}
+                                    </div>
+                                    <div class="small mb-2">
+                                        Servicios:
+                                        {% for s in offer.services %}<span class="badge text-bg-light border me-1">{{ s.name }}</span>{% endfor %}
+                                    </div>
+                                    {% if offer.details %}
+                                        <div class="small text-muted mb-2">{{ offer.details }}</div>
+                                    {% endif %}
+                                    {% if offer.promo_code %}
+                                        <div class="small text-muted mb-2">Código: <code>{{ offer.promo_code }}</code></div>
+                                    {% endif %}
+                                    <button
+                                        type="button"
+                                        class="btn btn-sm btn-outline-primary apply-marketing-offer-btn"
+                                        data-campaign-id="{{ offer.campaign_id }}"
+                                        data-promo-code="{{ offer.promo_code }}"
+                                        data-price="{{ offer.offer_price }}"
+                                        data-duration="{{ offer.duration_months }}"
+                                        data-services="{{ offer.services_ids|join:',' }}"
+                                    >
+                                        Aplicar promoción
+                                    </button>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                    <div id="selected-marketing-offer-note" class="alert alert-info mt-3 d-none"></div>
+                </div>
+            </div>
+        {% endif %}
+
         <form action="{% url 'adm:sales_create' customer.id %}" method="post" id="sale-create-form">
             <input type="hidden" name="customer" id="customer" value="{{ customer.id }}">
+            <input type="hidden" name="marketing_campaign_id" id="marketing_campaign_id" value="">
+            <input type="hidden" name="marketing_promo_code" id="marketing_promo_code" value="">
             {% csrf_token %}
             {% if message %}
                 <div class="alert alert-danger mb-3" role="alert">
@@ -557,6 +604,47 @@
 
             syncServiceSelectionUI();
             initCreatedAtPicker();
+
+            function applyMarketingOffer(buttonEl) {
+                const campaignId = buttonEl.getAttribute('data-campaign-id') || '';
+                const promoCode = buttonEl.getAttribute('data-promo-code') || '';
+                const price = buttonEl.getAttribute('data-price') || '';
+                const durationVal = buttonEl.getAttribute('data-duration') || '1';
+                const servicesCsv = buttonEl.getAttribute('data-services') || '';
+                const allowedServiceIds = servicesCsv
+                  .split(',')
+                  .map((v) => v.trim())
+                  .filter((v) => v.length > 0);
+
+                $('#marketing_campaign_id').val(campaignId);
+                $('#marketing_promo_code').val(promoCode);
+                $('#price').val(price);
+                $('#duration').val(durationVal).trigger('change');
+
+                $('.serv').each(function() {
+                    this.checked = allowedServiceIds.includes(String(this.value));
+                });
+                services();
+                syncServiceSelectionUI();
+
+                const note = document.getElementById('selected-marketing-offer-note');
+                if (note) {
+                    note.classList.remove('d-none');
+                    note.textContent = `Promoción aplicada (campaña #${campaignId}). El backend validará precio, vigencia y uso único al guardar.`;
+                }
+            }
+
+            $(document).on('click', '.apply-marketing-offer-btn', function() {
+                applyMarketingOffer(this);
+            });
+
+            const preselectedCampaign = '{{ preselected_offer_id|default:"" }}';
+            if (preselectedCampaign) {
+                const btn = document.querySelector(`.apply-marketing-offer-btn[data-campaign-id="${preselectedCampaign}"]`);
+                if (btn) {
+                    applyMarketingOffer(btn);
+                }
+            }
 
             $('#sale-create-form').on('submit', function(e) {
                 const selectedServices = $('.serv:checked').length;

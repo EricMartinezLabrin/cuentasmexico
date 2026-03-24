@@ -44,7 +44,7 @@ from .models import (
     Business, PaymentMethod, Sale, UserDetail, Service, Account, Bank,
     Status, Supplier, Credits, Promocion, AccountChangeHistory,
     Affiliate, AffiliateCommission, AffiliateWithdrawal, AffiliateSettings, AffiliateSale, AISettings,
-    MarketingCampaign, MarketingCampaignRecommendation, MarketingCampaignDelivery
+    MarketingCampaign, MarketingCampaignRecommendation, MarketingCampaignDelivery, MarketingCampaignRedemption
 )
 from cupon.models import Cupon, CouponRedemption
 from cupon.forms import CuponForm
@@ -1449,23 +1449,91 @@ def SalesCreateView(request, pk):
     bank = Bank.objects.filter(status=True)
     payment = PaymentMethod.objects.all()
     message = None
+    customer = User.objects.get(pk=pk)
+    marketing_offers = Sales.customer_marketing_offers(customer)
+    offers_map = {str(o['campaign_id']): o for o in marketing_offers}
+    preselected_offer_id = request.GET.get('apply_campaign', '').strip()
+    applied_offer = offers_map.get(preselected_offer_id) if preselected_offer_id else None
+
     if request.method == 'POST':
+        applied_offer = None
+        selected_campaign_id = (request.POST.get('marketing_campaign_id') or '').strip()
+        if selected_campaign_id:
+            preselected_offer_id = selected_campaign_id
+        if selected_campaign_id:
+            applied_offer = offers_map.get(selected_campaign_id)
+            if not applied_offer:
+                message = 'La promoción seleccionada ya no está disponible para este cliente.'
+            else:
+                selected_accounts_ids = request.POST.getlist('serv')
+                if not selected_accounts_ids:
+                    message = 'Debes seleccionar al menos una cuenta para aplicar la promoción.'
+                else:
+                    allowed_service_ids = set(applied_offer.get('services_ids') or [])
+                    accounts_qs = Account.objects.filter(id__in=selected_accounts_ids).select_related('account_name')
+                    if accounts_qs.count() != len(selected_accounts_ids):
+                        message = 'Una o más cuentas seleccionadas no son válidas.'
+                    else:
+                        invalid = [a for a in accounts_qs if a.account_name_id not in allowed_service_ids]
+                        if invalid:
+                            message = 'La promoción solo aplica a servicios específicos. Ajusta la selección de cuentas.'
+                        else:
+                            forced_invoice = (
+                                f"MKG-{applied_offer['campaign_id']}-"
+                                f"{timezone.localtime(timezone.now()).strftime('%Y%m%d%H%M%S')}"
+                            )
+                            mutable_post = request.POST.copy()
+                            mutable_post['price'] = str(applied_offer.get('offer_price') or 0)
+                            mutable_post['duration'] = str(applied_offer.get('duration_months') or 1)
+                            mutable_post['comp'] = forced_invoice
+                            request.POST = mutable_post
+
+        if message:
+            pass
         if not request.POST.getlist('serv'):
             message = 'Debes seleccionar al menos un servicio para terminar la venta.'
-        elif Sales.new_sale(request) == True:
+        elif not message and Sales.new_sale(request) == True:
+            if applied_offer:
+                try:
+                    campaign = MarketingCampaign.objects.get(pk=applied_offer['campaign_id'])
+                    created_sales = Sale.objects.filter(
+                        customer=customer,
+                        invoice=request.POST.get('comp'),
+                    ).order_by('-created_at')
+                    linked_sale = created_sales.first()
+                    MarketingCampaignRedemption.objects.get_or_create(
+                        campaign=campaign,
+                        customer=customer,
+                        defaults={
+                            'sale': linked_sale,
+                            'source': 'adm',
+                            'promo_code': applied_offer.get('promo_code') or '',
+                            'details': {
+                                'offer_price': applied_offer.get('offer_price'),
+                                'duration_months': applied_offer.get('duration_months'),
+                                'services_ids': applied_offer.get('services_ids', []),
+                                'invoice': request.POST.get('comp'),
+                            },
+                        },
+                    )
+                except Exception:
+                    pass
             # Obtener el cliente y redirigir a su página de ventas
             customer = User.objects.get(pk=pk)
             return Sales.render_view(request, customer.id)
         else:
-            message = 'No se pudo crear la venta. Verifica los datos e intenta nuevamente.'
+            if not message:
+                message = 'No se pudo crear la venta. Verifica los datos e intenta nuevamente.'
     return render(request, template_name, {
-        'customer': User.objects.get(pk=pk),
+        'customer': customer,
         'services': Sales.availables()[1],
         'bank': bank,
         'payment': payment,
         'availables': Sales.availables()[0],
         'created_at': timezone.now(),
-        'message': message
+        'message': message,
+        'marketing_offers': marketing_offers,
+        'preselected_offer_id': preselected_offer_id,
     })
 
 @permission_required('is_staff', 'adm:no-permission')
@@ -3468,6 +3536,220 @@ def _marketing_parse_json(text):
     return {}
 
 
+def _to_int(value, default=0, min_value=None, max_value=None):
+    try:
+        ivalue = int(str(value).strip())
+    except Exception:
+        ivalue = default
+    if min_value is not None:
+        ivalue = max(min_value, ivalue)
+    if max_value is not None:
+        ivalue = min(max_value, ivalue)
+    return ivalue
+
+
+def _campaign_promo_params(campaign):
+    meta = campaign.audience_filters or {}
+    params = meta.get('promo_params') if isinstance(meta.get('promo_params'), dict) else {}
+    strategy = meta.get('audience_strategy') if isinstance(meta.get('audience_strategy'), dict) else {}
+
+    promo_code = _mysql_safe_text(
+        params.get('promo_code')
+        or meta.get('promo_code')
+        or Sales._extract_campaign_promo_code(campaign)
+    ).strip().upper()
+    offer_price = _to_int(
+        params.get('offer_price', meta.get('offer_price', meta.get('recommended_price'))),
+        default=0,
+        min_value=0,
+        max_value=999999,
+    )
+    duration_months = _to_int(
+        params.get('duration_months', meta.get('duration_months', 1)),
+        default=1,
+        min_value=1,
+        max_value=24,
+    )
+    offer_valid_until = _mysql_safe_text(
+        params.get('offer_valid_until') or meta.get('offer_valid_until') or ''
+    ).strip()
+
+    services_ids = []
+    for raw_id in (params.get('services_ids') or []):
+        try:
+            services_ids.append(int(raw_id))
+        except Exception:
+            continue
+    services_ids = sorted(list(set(services_ids)))
+
+    service_keywords = []
+    raw_keywords = params.get('service_keywords')
+    if isinstance(raw_keywords, list):
+        service_keywords = [_mysql_safe_text(v).strip().lower() for v in raw_keywords if str(v).strip()]
+    elif isinstance(raw_keywords, str):
+        service_keywords = [_mysql_safe_text(v).strip().lower() for v in raw_keywords.split(',') if v.strip()]
+    if not service_keywords:
+        from_strategy = strategy.get('service_keywords') if isinstance(strategy.get('service_keywords'), list) else []
+        service_keywords = [_mysql_safe_text(v).strip().lower() for v in from_strategy if str(v).strip()]
+    service_keywords = sorted(list(set([v for v in service_keywords if v])))
+
+    notes = _mysql_safe_text(params.get('notes') or '').strip()
+
+    if services_ids:
+        names = list(
+            Service.objects.filter(id__in=services_ids, status=True).values_list('description', flat=True)
+        )
+        for name in names:
+            token = _mysql_safe_text(str(name)).strip().lower()
+            if token and token not in service_keywords:
+                service_keywords.append(token)
+
+    return {
+        'promo_code': promo_code,
+        'offer_price': offer_price,
+        'duration_months': duration_months,
+        'offer_valid_until': offer_valid_until,
+        'services_ids': services_ids,
+        'service_keywords': sorted(list(set(service_keywords))),
+        'notes': notes,
+    }
+
+
+def _infer_campaign_promo_params(campaign, current_params=None):
+    """
+    Completa parámetros de promoción con inferencia sobre el contenido generado por IA.
+    """
+    params = dict(current_params or _campaign_promo_params(campaign))
+    text_blob = f"{campaign.message_text or ''} {campaign.sms_text or ''} {(campaign.audience_filters or {}).get('cta', '')}"
+    text_upper = text_blob.upper()
+
+    if not params.get('promo_code'):
+        tokens = re.findall(r"\b[A-Z][A-Z0-9]{4,20}\b", text_upper)
+        blocked = {'WHATSAPP', 'MEXICO', 'NETFLIX', 'DISNEY', 'SPOTIFY', 'PROMOCION'}
+        for token in tokens:
+            if token not in blocked:
+                params['promo_code'] = token
+                break
+
+    if not params.get('offer_price') or int(params.get('offer_price') or 0) <= 0:
+        price_match = re.search(r"\$\s*(\d{2,6})", text_blob)
+        if price_match:
+            params['offer_price'] = _to_int(price_match.group(1), default=0, min_value=0, max_value=999999)
+
+    if not params.get('duration_months'):
+        duration_match = re.search(r"(\d{1,2})\s*mes", text_blob.lower())
+        if duration_match:
+            params['duration_months'] = _to_int(duration_match.group(1), default=1, min_value=1, max_value=24)
+    params['duration_months'] = _to_int(params.get('duration_months'), default=1, min_value=1, max_value=24)
+
+    services_ids = []
+    for raw_id in (params.get('services_ids') or []):
+        try:
+            services_ids.append(int(raw_id))
+        except Exception:
+            continue
+    services_ids = sorted(list(set(services_ids)))
+
+    keywords = []
+    for raw_k in (params.get('service_keywords') or []):
+        token = _mysql_safe_text(raw_k).strip().lower()
+        if token:
+            keywords.append(token)
+    strategy = (campaign.audience_filters or {}).get('audience_strategy')
+    if isinstance(strategy, dict):
+        for raw_k in (strategy.get('service_keywords') or []):
+            token = _mysql_safe_text(raw_k).strip().lower()
+            if token:
+                keywords.append(token)
+    for tag in (campaign.tags or []):
+        token = _mysql_safe_text(tag).strip().lower()
+        if token and len(token) >= 4:
+            keywords.append(token)
+    keywords = sorted(list(set(keywords)))
+
+    active_services = list(Service.objects.filter(status=True).only('id', 'description', 'price').order_by('description'))
+    if not services_ids:
+        matched = set()
+        normalized_blob = Sales._normalize_token(text_blob)
+        for svc in active_services:
+            svc_norm = Sales._normalize_token(svc.description)
+            if svc_norm and svc_norm in normalized_blob:
+                matched.add(svc.id)
+                if svc_norm not in keywords:
+                    keywords.append(svc_norm)
+        for k in keywords:
+            kn = Sales._normalize_token(k)
+            if not kn:
+                continue
+            for svc in active_services:
+                if kn in Sales._normalize_token(svc.description):
+                    matched.add(svc.id)
+        services_ids = sorted(list(matched))
+
+    if (not params.get('offer_price') or int(params.get('offer_price') or 0) <= 0) and services_ids:
+        svc_price = Service.objects.filter(id__in=services_ids, status=True).order_by('price').values_list('price', flat=True).first()
+        if svc_price is not None:
+            params['offer_price'] = _to_int(svc_price, default=0, min_value=0, max_value=999999)
+
+    params['services_ids'] = services_ids
+    params['service_keywords'] = sorted(list(set([k for k in keywords if k])))
+    params['offer_price'] = _to_int(params.get('offer_price'), default=0, min_value=0, max_value=999999)
+    params['promo_code'] = _mysql_safe_text(params.get('promo_code') or '').strip().upper()
+    params['notes'] = _mysql_safe_text(params.get('notes') or '').strip()
+    return params
+
+
+def _persist_campaign_promo_params(campaign, promo_params):
+    meta = campaign.audience_filters or {}
+    merged = {
+        'promo_code': _mysql_safe_text(promo_params.get('promo_code') or '').strip().upper(),
+        'offer_price': _to_int(promo_params.get('offer_price'), default=0, min_value=0, max_value=999999),
+        'duration_months': _to_int(promo_params.get('duration_months'), default=1, min_value=1, max_value=24),
+        'offer_valid_until': _mysql_safe_text(promo_params.get('offer_valid_until') or '').strip(),
+        'services_ids': sorted(
+            list(
+                set(
+                    [
+                        int(v)
+                        for v in (promo_params.get('services_ids') or [])
+                        if str(v).strip().isdigit()
+                    ]
+                )
+            )
+        ),
+        'service_keywords': sorted(
+            list(
+                set(
+                    [
+                        _mysql_safe_text(v).strip().lower()
+                        for v in (promo_params.get('service_keywords') or [])
+                        if str(v).strip()
+                    ]
+                )
+            )
+        ),
+        'notes': _mysql_safe_text(promo_params.get('notes') or '').strip(),
+        'updated_at': timezone.now().isoformat(),
+    }
+    meta['promo_params'] = merged
+    # Retrocompatibilidad con claves antiguas.
+    meta['promo_code'] = merged['promo_code']
+    meta['offer_price'] = merged['offer_price']
+    meta['duration_months'] = merged['duration_months']
+    meta['offer_valid_until'] = merged['offer_valid_until']
+    meta['service_ids'] = merged['services_ids']
+    meta['service_keywords'] = merged['service_keywords']
+
+    strategy = meta.get('audience_strategy') if isinstance(meta.get('audience_strategy'), dict) else {}
+    if merged['service_keywords']:
+        strategy['service_keywords'] = merged['service_keywords']
+        strategy['source'] = strategy.get('source') or 'promo_params'
+        meta['audience_strategy'] = strategy
+
+    campaign.audience_filters = meta
+    return merged
+
+
 def _get_whatsapp_group_options():
     """
     Grupos configurables desde .env:
@@ -3611,9 +3893,10 @@ def _run_whatsapp_dispatch_worker(campaign_id):
             destination = f"+{rec.lada}{rec.phone_number}" if rec.lada and rec.phone_number else rec.customer.email
             status_value = 'queued'
             response_message = 'Registrado en histórico'
+            wa_message = _normalize_whatsapp_text_markup(campaign.message_text or '')
             try:
-                if rec.lada and rec.phone_number and campaign.message_text:
-                    Notification.send_whatsapp_notification(campaign.message_text, rec.lada, rec.phone_number)
+                if rec.lada and rec.phone_number and wa_message:
+                    Notification.send_whatsapp_notification(wa_message, rec.lada, rec.phone_number)
                     status_value = 'sent'
                     response_message = 'WhatsApp enviado'
                     sent_count += 1
@@ -3631,7 +3914,7 @@ def _run_whatsapp_dispatch_worker(campaign_id):
                 recommendation=rec,
                 channel='whatsapp',
                 destination=destination,
-                payload_text=campaign.message_text or '',
+                payload_text=wa_message,
                 payload_image_url=campaign.creative_image.url if campaign.creative_image else '',
                 status=status_value,
                 provider_response=response_message,
@@ -3666,6 +3949,23 @@ def _mysql_safe_text(value):
         if code <= 0xFFFF:
             cleaned.append(ch)
     return ''.join(cleaned)
+
+
+def _normalize_whatsapp_text_markup(text):
+    """
+    Convierte markdown común a formato compatible con WhatsApp:
+    **bold** -> *bold*
+    __italic__ -> _italic_
+    ~~strike~~ -> ~strike~
+    """
+    raw = str(text or '')
+    if not raw:
+        return ''
+    out = raw
+    out = re.sub(r'\*\*(?=\S)(.+?)(?<=\S)\*\*', r'*\1*', out, flags=re.DOTALL)
+    out = re.sub(r'__(?=\S)(.+?)(?<=\S)__', r'_\1_', out, flags=re.DOTALL)
+    out = re.sub(r'~~(?=\S)(.+?)(?<=\S)~~', r'~\1~', out, flags=re.DOTALL)
+    return out
 
 
 def _error_to_text(exc):
@@ -4329,6 +4629,9 @@ def _generate_campaign_ai_content(campaign, from_scratch=False):
     db_context = _marketing_db_context(campaign.created_by)
     campaign.stats_snapshot = stats
     meta = campaign.audience_filters or {}
+    promo_params = _campaign_promo_params(campaign)
+    _persist_campaign_promo_params(campaign, promo_params)
+    meta = campaign.audience_filters or {}
     clarification_answers = meta.get('clarification_answers') if isinstance(meta.get('clarification_answers'), list) else []
 
     provider = get_active_provider()
@@ -4351,12 +4654,22 @@ def _generate_campaign_ai_content(campaign, from_scratch=False):
         "El mensaje final debe sonar comercial, directo, emocional y con urgencia real.\n"
         "WhatsApp: usar formato visual atractivo con emojis y markdown breve (negritas/listas cortas), estilo anuncio listo para enviar.\n"
         "SMS: texto corto, claro, sin markdown complejo, con CTA único.\n"
+        "Debes respetar estrictamente estos parámetros comerciales, sin contradecirlos:\n"
+        f"{json.dumps(promo_params, ensure_ascii=False, default=str)}\n"
+        "- Si hay promo_code, inclúyelo claramente en WhatsApp y SMS.\n"
+        "- Si hay offer_price > 0, el precio comunicado debe coincidir exactamente.\n"
+        "- Si hay services_ids/service_keywords, la oferta debe hablar solo de esos servicios elegibles.\n"
+        "- Si hay offer_valid_until, agrega urgencia coherente con esa vigencia.\n"
         "Devuelve SOLO JSON con:\n"
         "{"
         "\"campaign_name\":\"...\","
         "\"whatsapp_text\":\"...\","
         "\"sms_text\":\"...\","
         "\"image_prompt\":\"...\","
+        "\"offer_price\":0,"
+        "\"duration_months\":1,"
+        "\"promo_code\":\"...\","
+        "\"offer_valid_until\":\"ISO8601 opcional\","
         "\"tags\":[\"...\"],"
         "\"targeting_notes\":\"...\","
         "\"cta\":\"...\","
@@ -4381,9 +4694,12 @@ def _generate_campaign_ai_content(campaign, from_scratch=False):
     payload = _marketing_parse_json(result.text)
     campaign.ai_prompt_used = _mysql_safe_text(prompt)
     campaign.name = _mysql_safe_text(payload.get('campaign_name') or campaign.name)
-    campaign.message_text = _mysql_safe_text(
+    whatsapp_text = _mysql_safe_text(
         payload.get('whatsapp_text') or campaign.message_text or campaign.idea_input
     )
+    if campaign.channel == 'whatsapp':
+        whatsapp_text = _normalize_whatsapp_text_markup(whatsapp_text)
+    campaign.message_text = whatsapp_text
     campaign.sms_text = _mysql_safe_text(payload.get('sms_text') or campaign.sms_text or campaign.message_text)
     campaign.image_prompt = _mysql_safe_text(
         payload.get('image_prompt') or campaign.image_prompt or f"Promocion marketing para {campaign.objective}"
@@ -4392,14 +4708,28 @@ def _generate_campaign_ai_content(campaign, from_scratch=False):
         campaign.tags = [_mysql_safe_text(t) for t in payload.get('tags')[:20]]
     else:
         campaign.tags = ['marketing', campaign.channel, 'ia']
-    campaign.audience_filters = {
-        'targeting_notes': _mysql_safe_text(payload.get('targeting_notes', '')),
-        'cta': _mysql_safe_text(payload.get('cta', '')),
-        'growth_hypothesis': _mysql_safe_text(payload.get('growth_hypothesis', '')),
-        'kpi_focus': _mysql_safe_text(payload.get('kpi_focus', '')),
-        'generation_mode': 'from_stats_only' if from_scratch else 'from_idea',
-        'db_context_errors': db_context.get('errors', []),
+
+    merged_meta = campaign.audience_filters or {}
+    merged_meta['targeting_notes'] = _mysql_safe_text(payload.get('targeting_notes', ''))
+    merged_meta['cta'] = _mysql_safe_text(payload.get('cta', ''))
+    merged_meta['growth_hypothesis'] = _mysql_safe_text(payload.get('growth_hypothesis', ''))
+    merged_meta['kpi_focus'] = _mysql_safe_text(payload.get('kpi_focus', ''))
+    merged_meta['generation_mode'] = 'from_stats_only' if from_scratch else 'from_idea'
+    merged_meta['db_context_errors'] = db_context.get('errors', [])
+
+    # Si IA devuelve datos estructurados de promo, priorizarlos para consistencia.
+    payload_promo = {
+        'promo_code': payload.get('promo_code') or promo_params.get('promo_code') or '',
+        'offer_price': payload.get('offer_price') if payload.get('offer_price') is not None else promo_params.get('offer_price'),
+        'duration_months': payload.get('duration_months') if payload.get('duration_months') is not None else promo_params.get('duration_months'),
+        'offer_valid_until': payload.get('offer_valid_until') or promo_params.get('offer_valid_until') or '',
+        'services_ids': promo_params.get('services_ids') or [],
+        'service_keywords': promo_params.get('service_keywords') or [],
+        'notes': promo_params.get('notes') or '',
     }
+    payload_promo = _infer_campaign_promo_params(campaign, payload_promo)
+    campaign.audience_filters = merged_meta
+    _persist_campaign_promo_params(campaign, payload_promo)
 
     image_generation_response = {'status': 'not_requested', 'provider': '', 'model': '', 'message': ''}
     if campaign.channel == 'whatsapp':
@@ -4596,10 +4926,57 @@ def marketing_campaign_create(request):
 
 
 @permission_required('is_superuser', 'adm:no-permission')
+def marketing_campaign_delete(request, pk):
+    if request.method != 'POST':
+        messages.error(request, 'Método no permitido para eliminar campaña.')
+        return redirect('adm:marketing_campaigns')
+    campaign = MarketingCampaign.objects.filter(pk=pk).first()
+    if not campaign:
+        messages.error(request, 'La campaña que intentas eliminar no existe.')
+        return redirect('adm:marketing_campaigns')
+    dispatch = {}
+    meta = campaign.audience_filters or {}
+    if isinstance(meta, dict) and isinstance(meta.get('dispatch'), dict):
+        dispatch = meta.get('dispatch') or {}
+    if dispatch.get('status') in ('running', 'queued'):
+        messages.warning(
+            request,
+            'No se puede eliminar una campaña en cola o en proceso de envío. Espera a que termine.',
+        )
+        return redirect('adm:marketing_campaign_detail', campaign.id)
+    campaign_name = campaign.name or f"#{campaign.id}"
+    campaign_id = campaign.id
+    campaign.delete()
+    messages.success(request, f'Campaña "{campaign_name}" (#{campaign_id}) eliminada correctamente.')
+    return redirect('adm:marketing_campaigns')
+
+
+@permission_required('is_superuser', 'adm:no-permission')
 def marketing_campaign_detail(request, pk):
     campaign = MarketingCampaign.objects.get(pk=pk)
     meta = campaign.audience_filters or {}
     dispatch_meta = meta.get('dispatch') if isinstance(meta.get('dispatch'), dict) else {}
+    promo_params = _campaign_promo_params(campaign)
+    promo_valid_until_dt = None
+    if promo_params.get('offer_valid_until'):
+        try:
+            promo_valid_until_dt = datetime.fromisoformat(str(promo_params.get('offer_valid_until')).replace('Z', '+00:00'))
+            if timezone.is_naive(promo_valid_until_dt):
+                promo_valid_until_dt = timezone.make_aware(promo_valid_until_dt)
+            promo_valid_until_dt = timezone.localtime(promo_valid_until_dt)
+        except Exception:
+            promo_valid_until_dt = None
+    selected_service_ids = set(promo_params.get('services_ids') or [])
+    active_services = list(Service.objects.filter(status=True).order_by('description'))
+    promo_services = [
+        {
+            'id': s.id,
+            'name': s.description,
+            'price': s.price,
+            'selected': s.id in selected_service_ids,
+        }
+        for s in active_services
+    ]
     return render(
         request,
         'adm/marketing/campaign_detail.html',
@@ -4611,6 +4988,9 @@ def marketing_campaign_detail(request, pk):
             'audience_strategy': meta.get('audience_strategy', {}),
             'whatsapp_group_options': _get_whatsapp_group_options(),
             'dispatch_meta': dispatch_meta,
+            'promo_params': promo_params,
+            'promo_services': promo_services,
+            'promo_valid_until_dt': promo_valid_until_dt,
         },
     )
 
@@ -4771,14 +5151,119 @@ def marketing_campaign_regenerate_image(request, pk):
 
 
 @permission_required('is_superuser', 'adm:no-permission')
-def marketing_campaign_regenerate(request, pk):
+def marketing_campaign_update_promo_params(request, pk):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
     campaign = MarketingCampaign.objects.get(pk=pk)
     try:
-        _generate_campaign_ai_content(campaign)
-        messages.success(request, 'Campaña regenerada con IA correctamente.')
+        offer_price = _to_int(request.POST.get('offer_price'), default=0, min_value=0, max_value=999999)
+        duration_months = _to_int(request.POST.get('duration_months'), default=1, min_value=1, max_value=24)
+        promo_code = _mysql_safe_text(request.POST.get('promo_code') or '').strip().upper()
+        valid_until_raw = _mysql_safe_text(request.POST.get('offer_valid_until') or '').strip()
+        valid_until_iso = ''
+        if valid_until_raw:
+            try:
+                valid_dt = datetime.fromisoformat(valid_until_raw)
+                if timezone.is_naive(valid_dt):
+                    valid_dt = timezone.make_aware(valid_dt)
+                valid_until_iso = valid_dt.isoformat()
+            except Exception:
+                return JsonResponse({'success': False, 'error': 'Fecha de vigencia inválida.'}, status=400)
+
+        services_ids = []
+        for raw_id in request.POST.getlist('services_ids'):
+            try:
+                services_ids.append(int(raw_id))
+            except Exception:
+                continue
+        services_ids = sorted(list(set(services_ids)))
+
+        service_keywords_raw = _mysql_safe_text(request.POST.get('service_keywords') or '').strip()
+        service_keywords = [
+            _mysql_safe_text(v).strip().lower()
+            for v in service_keywords_raw.split(',')
+            if _mysql_safe_text(v).strip()
+        ]
+        service_keywords = sorted(list(set(service_keywords)))
+
+        if services_ids and not service_keywords:
+            names = list(
+                Service.objects.filter(id__in=services_ids, status=True).values_list('description', flat=True)
+            )
+            service_keywords = sorted(list(set([_mysql_safe_text(n).strip().lower() for n in names if str(n).strip()])))
+
+        notes = _mysql_safe_text(request.POST.get('promo_notes') or '').strip()
+        promo_params = {
+            'offer_price': offer_price,
+            'duration_months': duration_months,
+            'promo_code': promo_code,
+            'offer_valid_until': valid_until_iso,
+            'services_ids': services_ids,
+            'service_keywords': service_keywords,
+            'notes': notes,
+        }
+        _persist_campaign_promo_params(campaign, promo_params)
+        campaign.audience_filters = campaign.audience_filters or {}
+        campaign.audience_filters['generation_status'] = 'processing'
+        campaign.audience_filters['generation_error'] = ''
+        campaign.save(update_fields=['audience_filters', 'updated_at'])
+
+        from_scratch = (campaign.audience_filters or {}).get('generation_mode') == 'from_stats_only'
+        Thread(
+            target=_run_marketing_generation_job,
+            args=(campaign.id, from_scratch, False),
+            daemon=True,
+        ).start()
+        return JsonResponse(
+            {
+                'success': True,
+                'campaign_id': campaign.id,
+                'message': 'Parámetros guardados. Regenerando campaña IA con los nuevos parámetros.',
+                'status_url': reverse('adm:marketing_campaign_generation_status', kwargs={'pk': campaign.id}),
+                'detail_url': reverse('adm:marketing_campaign_detail', kwargs={'pk': campaign.id}),
+            }
+        )
     except Exception as exc:
-        messages.warning(request, f'No se pudo regenerar la campaña con IA: {exc}')
-    return redirect('adm:marketing_campaign_detail', campaign.id)
+        return JsonResponse({'success': False, 'error': _error_to_text(exc)}, status=500)
+
+
+@permission_required('is_superuser', 'adm:no-permission')
+def marketing_campaign_regenerate(request, pk):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
+    campaign = MarketingCampaign.objects.get(pk=pk)
+    campaign.audience_filters = campaign.audience_filters or {}
+    campaign.audience_filters['generation_status'] = 'processing'
+    campaign.audience_filters['generation_error'] = ''
+    campaign.save(update_fields=['audience_filters', 'updated_at'])
+    from_scratch = (campaign.audience_filters or {}).get('generation_mode') == 'from_stats_only'
+    Thread(
+        target=_run_marketing_generation_job,
+        args=(campaign.id, from_scratch, False),
+        daemon=True,
+    ).start()
+    return JsonResponse(
+        {
+            'success': True,
+            'campaign_id': campaign.id,
+            'message': 'Regeneración encolada.',
+            'status_url': reverse('adm:marketing_campaign_generation_status', kwargs={'pk': campaign.id}),
+            'detail_url': reverse('adm:marketing_campaign_detail', kwargs={'pk': campaign.id}),
+        }
+    )
+
+
+@permission_required('is_superuser', 'adm:no-permission')
+def marketing_campaign_update_title(request, pk):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
+    campaign = MarketingCampaign.objects.get(pk=pk)
+    title = _mysql_safe_text(request.POST.get('name') or '').strip()
+    if not title:
+        return JsonResponse({'success': False, 'error': 'El título no puede ir vacío.'}, status=400)
+    campaign.name = title[:180]
+    campaign.save(update_fields=['name', 'updated_at'])
+    return JsonResponse({'success': True, 'name': campaign.name})
 
 
 @permission_required('is_superuser', 'adm:no-permission')
@@ -4786,6 +5271,15 @@ def marketing_campaign_send(request, pk):
     if request.method != 'POST':
         return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
     campaign = MarketingCampaign.objects.get(pk=pk)
+    meta = campaign.audience_filters or {}
+    if meta.get('generation_status') == 'processing':
+        return JsonResponse(
+            {
+                'success': False,
+                'error': 'La campaña se está regenerando con los nuevos parámetros. Espera a que termine antes de enviar.',
+            },
+            status=409,
+        )
     delivery_channel = (request.POST.get('delivery_channel') or campaign.channel or 'whatsapp').strip().lower()
     if delivery_channel not in ('whatsapp', 'sms', 'email'):
         delivery_channel = 'whatsapp'
@@ -4800,6 +5294,7 @@ def marketing_campaign_send(request, pk):
     send_now = request.POST.get('send_now', 'false') == 'true'
     sent_count = 0
     failed_count = 0
+    whatsapp_message = _normalize_whatsapp_text_markup(campaign.message_text or '')
 
     # 1) Envío a grupos (WhatsApp) inmediato si se seleccionaron.
     if send_now and delivery_channel == 'whatsapp' and selected_group_ids:
@@ -4809,9 +5304,9 @@ def marketing_campaign_send(request, pk):
                 continue
             status_value = 'queued'
             response_message = 'Grupo registrado en histórico'
-            if actual_send_enabled and campaign.message_text:
+            if actual_send_enabled and whatsapp_message:
                 try:
-                    Notification.send_whatsapp_group_notification(campaign.message_text, gid_clean)
+                    Notification.send_whatsapp_group_notification(whatsapp_message, gid_clean)
                     status_value = 'sent'
                     response_message = 'WhatsApp grupo enviado'
                     sent_count += 1
@@ -4825,7 +5320,7 @@ def marketing_campaign_send(request, pk):
                 campaign=campaign,
                 channel='whatsapp',
                 destination=f"group:{gid_clean}",
-                payload_text=campaign.message_text or '',
+                payload_text=whatsapp_message,
                 payload_image_url=campaign.creative_image.url if campaign.creative_image else '',
                 status=status_value,
                 provider_response=response_message,
@@ -4844,7 +5339,7 @@ def marketing_campaign_send(request, pk):
                     recommendation=rec,
                     channel='whatsapp',
                     destination=destination,
-                    payload_text=campaign.message_text or '',
+                    payload_text=whatsapp_message,
                     payload_image_url=campaign.creative_image.url if campaign.creative_image else '',
                     status='queued',
                     provider_response='WhatsApp registrado en histórico (AI_MARKETING_ACTUAL_SEND=false).',
@@ -4923,7 +5418,11 @@ def marketing_campaign_send(request, pk):
                 recommendation=rec,
                 channel='whatsapp' if delivery_channel == 'whatsapp' else 'sms',
                 destination=destination,
-                payload_text=(campaign.sms_text or campaign.message_text or '')[:1600],
+                payload_text=(
+                    (whatsapp_message or '')[:1600]
+                    if delivery_channel == 'whatsapp'
+                    else (campaign.sms_text or campaign.message_text or '')[:1600]
+                ),
                 status='queued',
                 provider_response='Registrado en histórico',
                 sent_at=timezone.now(),

@@ -1217,3 +1217,31 @@ class MarketingCampaignDelivery(models.Model):
 
     def __str__(self):
         return f"{self.campaign.name} -> {self.destination} ({self.status})"
+
+
+class MarketingCampaignRedemption(models.Model):
+    SOURCE_CHOICES = [
+        ('adm', 'Venta /adm'),
+        ('web', 'Autoservicio web'),
+        ('coupon_admin', 'Canje cupón /adm'),
+        ('coupon_web', 'Canje cupón web'),
+    ]
+
+    campaign = models.ForeignKey(MarketingCampaign, on_delete=models.CASCADE, related_name='redemptions')
+    customer = models.ForeignKey(User, on_delete=models.CASCADE, related_name='marketing_campaign_redemptions')
+    sale = models.ForeignKey(Sale, on_delete=models.SET_NULL, null=True, blank=True, related_name='marketing_campaign_redemptions')
+    source = models.CharField(max_length=20, choices=SOURCE_CHOICES, default='adm')
+    promo_code = models.CharField(max_length=60, blank=True, null=True)
+    details = models.JSONField(default=dict, blank=True)
+    redeemed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-redeemed_at']
+        unique_together = ['campaign', 'customer']
+        indexes = [
+            models.Index(fields=['campaign', 'customer']),
+            models.Index(fields=['customer', 'redeemed_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.customer.username} -> {self.campaign.name} ({self.source})"

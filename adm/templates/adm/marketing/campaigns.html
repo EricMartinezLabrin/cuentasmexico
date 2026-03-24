@@ -62,7 +62,13 @@
             <td>{{ c.created_at|date:'d/m/Y H:i' }}</td>
             <td>{% if c.sent_at %}{{ c.sent_at|date:'d/m/Y H:i' }}{% else %}-{% endif %}</td>
             <td class="text-end">
-              <a href="{% url 'adm:marketing_campaign_detail' c.id %}" class="btn btn-sm btn-outline-primary">Abrir</a>
+              <div class="d-inline-flex gap-1">
+                <a href="{% url 'adm:marketing_campaign_detail' c.id %}" class="btn btn-sm btn-outline-primary">Abrir</a>
+                <form method="post" action="{% url 'adm:marketing_campaign_delete' c.id %}" onsubmit="return confirm('¿Eliminar la campaña #{{ c.id }}? Esta acción no se puede deshacer.');">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-sm btn-outline-danger">Eliminar</button>
+                </form>
+              </div>
             </td>
           </tr>
           {% empty %}

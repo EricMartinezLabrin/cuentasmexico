@@ -2,7 +2,13 @@ from django.db import transaction
 from django.db.models import F, Q
 from django.utils import timezone
 
-from adm.models import UserDetail, UserPhoneHistory
+from adm.models import (
+    UserDetail,
+    UserPhoneHistory,
+    MarketingCampaign,
+    MarketingCampaignDelivery,
+    MarketingCampaignRedemption,
+)
 from cupon.models import Cupon, CouponRedemption
 
 
@@ -175,7 +181,7 @@ def consume_coupon(code_name, customer, seller=None, sale=None, channel=CouponRe
         account_email = account.email
         profile = account.profile
 
-    CouponRedemption.objects.create(
+    redemption = CouponRedemption.objects.create(
         cupon=cupon,
         customer=customer,
         sale=sale,
@@ -190,5 +196,44 @@ def consume_coupon(code_name, customer, seller=None, sale=None, channel=CouponRe
         phone_number=phone_number,
         phone_key=phone_identity,
     )
+
+    # Marcar uso de promoción de marketing si este cupón pertenece a una campaña enviada.
+    try:
+        sent_campaign_ids = list(
+            MarketingCampaignDelivery.objects.filter(
+                recommendation__customer=customer,
+                status='sent',
+            ).values_list('campaign_id', flat=True).distinct()
+        )
+        if sent_campaign_ids:
+            matched_campaign = (
+                MarketingCampaign.objects.filter(id__in=sent_campaign_ids)
+                .filter(
+                    Q(audience_filters__promo_code__iexact=cupon.name)
+                    | Q(audience_filters__promo_params__promo_code__iexact=cupon.name)
+                    | Q(message_text__icontains=cupon.name)
+                    | Q(sms_text__icontains=cupon.name)
+                )
+                .order_by('-sent_at', '-created_at')
+                .first()
+            )
+            if matched_campaign:
+                source_value = 'coupon_web' if channel == CouponRedemption.CHANNEL_WEB else 'coupon_admin'
+                MarketingCampaignRedemption.objects.get_or_create(
+                    campaign=matched_campaign,
+                    customer=customer,
+                    defaults={
+                        'sale': sale,
+                        'source': source_value,
+                        'promo_code': cupon.name,
+                        'details': {
+                            'coupon_redemption_id': redemption.id,
+                            'channel': channel,
+                            'sale_id': sale.id if sale else None,
+                        },
+                    },
+                )
+    except Exception:
+        pass
 
     return cupon

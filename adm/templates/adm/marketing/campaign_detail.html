@@ -5,7 +5,21 @@
 <div class="container-fluid py-3">
   <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
     <div>
-      <h1 class="h4 mb-0">{{ campaign.name }}</h1>
+      <div class="d-flex align-items-center gap-2">
+        <h1 class="h4 mb-0" id="campaign-title-text">{{ campaign.name }}</h1>
+        <button type="button" class="btn btn-sm btn-outline-secondary" id="campaign-title-edit-btn" title="Editar título">
+          <i class="bi bi-pencil"></i>
+        </button>
+      </div>
+      <form id="campaign-title-form" class="d-none mt-2" action="{% url 'adm:marketing_campaign_update_title' campaign.id %}" method="post">
+        {% csrf_token %}
+        <div class="input-group input-group-sm" style="max-width: 520px;">
+          <input type="text" class="form-control" name="name" id="campaign-title-input" value="{{ campaign.name }}" maxlength="180">
+          <button class="btn btn-primary" type="submit">Guardar</button>
+          <button class="btn btn-outline-secondary" type="button" id="campaign-title-cancel-btn">Cancelar</button>
+        </div>
+      </form>
+      <div id="campaign-title-status" class="small text-muted mt-1"></div>
       <small class="text-muted">
         {{ campaign.get_channel_display }} · {{ campaign.get_status_display }} · #{{ campaign.id }}
       </small>
@@ -15,9 +29,9 @@
         <i class="bi bi-arrow-left me-1"></i>Volver
       </a>
       <a class="btn btn-outline-secondary" href="{% url 'adm:marketing_campaigns' %}">Listado</a>
-      <a class="btn btn-outline-primary" href="{% url 'adm:marketing_campaign_regenerate' campaign.id %}">
+      <button type="button" class="btn btn-outline-primary" id="marketing-regenerate-btn" data-url="{% url 'adm:marketing_campaign_regenerate' campaign.id %}">
         <i class="bi bi-arrow-repeat me-1"></i>Regenerar IA
-      </a>
+      </button>
       <form method="post" action="{% url 'adm:marketing_campaign_send' campaign.id %}">
         {% csrf_token %}
         <input type="hidden" name="send_now" value="false">
@@ -26,11 +40,21 @@
       <button class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#marketingSendModal">
         <i class="bi bi-send me-1"></i>Intentar envío real
       </button>
+      <form method="post" action="{% url 'adm:marketing_campaign_delete' campaign.id %}" onsubmit="return confirm('¿Eliminar la campaña #{{ campaign.id }}? Esta acción no se puede deshacer.');">
+        {% csrf_token %}
+        <button class="btn btn-outline-danger" type="submit">
+          <i class="bi bi-trash me-1"></i>Eliminar
+        </button>
+      </form>
     </div>
   </div>
   <div class="small text-muted mb-3">
     Nota: el envío real solo se ejecuta si `AI_MARKETING_ACTUAL_SEND=true`; en caso contrario se registra en histórico.
   </div>
+  <div id="marketing-generation-meta"
+       data-status-url="{% url 'adm:marketing_campaign_generation_status' campaign.id %}"
+       data-generation-status="{{ campaign.audience_filters.generation_status|default:'' }}"></div>
+  <div id="marketing-regenerate-status" class="alert alert-info mb-3 d-none"></div>
   {% if dispatch_meta.status %}
   <div class="alert alert-secondary py-2 small">
     <strong>Estado de envío WhatsApp:</strong>
@@ -175,6 +199,70 @@
     </div>
 
     <div class="col-12 col-lg-5">
+      <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+          <strong>Parámetros de Promoción (BD)</strong>
+          <div class="d-flex align-items-center gap-2">
+            <span class="badge text-bg-light border">Vista previa</span>
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="promo-params-edit-toggle">
+              <i class="bi bi-pencil me-1"></i>Editar
+            </button>
+          </div>
+        </div>
+        <div class="card-body small">
+          <form id="marketing-promo-params-form" method="post" action="{% url 'adm:marketing_campaign_update_promo_params' campaign.id %}">
+            {% csrf_token %}
+            <div class="row g-2">
+              <div class="col-6">
+                <label class="form-label mb-1">Precio oferta</label>
+                <input type="number" min="0" step="1" class="form-control form-control-sm promo-param-input" name="offer_price" value="{{ promo_params.offer_price|default:'0' }}" disabled>
+              </div>
+              <div class="col-6">
+                <label class="form-label mb-1">Duración (meses)</label>
+                <input type="number" min="1" max="24" step="1" class="form-control form-control-sm promo-param-input" name="duration_months" value="{{ promo_params.duration_months|default:'1' }}" disabled>
+              </div>
+              <div class="col-12">
+                <label class="form-label mb-1">Código promoción</label>
+                <input type="text" maxlength="40" class="form-control form-control-sm promo-param-input" name="promo_code" value="{{ promo_params.promo_code|default:'' }}" placeholder="Ej. VOLVER7" disabled>
+              </div>
+              <div class="col-12">
+                <label class="form-label mb-1">Vigencia hasta</label>
+                <input type="datetime-local" class="form-control form-control-sm promo-param-input" name="offer_valid_until" value="{% if promo_valid_until_dt %}{{ promo_valid_until_dt|date:'Y-m-d\\TH:i' }}{% endif %}" disabled>
+              </div>
+              <div class="col-12">
+                <label class="form-label mb-1">Servicios elegibles</label>
+                <div class="border rounded p-2" style="max-height: 160px; overflow-y: auto;">
+                  <div class="row g-1">
+                    {% for s in promo_services %}
+                    <div class="col-12">
+                      <label class="form-check small mb-0">
+                        <input class="form-check-input me-1 promo-param-input" type="checkbox" name="services_ids" value="{{ s.id }}" {% if s.selected %}checked{% endif %} disabled>
+                        <span class="form-check-label">{{ s.name }} <span class="text-muted">(${% if s.price %}{{ s.price }}{% else %}0{% endif %})</span></span>
+                      </label>
+                    </div>
+                    {% endfor %}
+                  </div>
+                </div>
+              </div>
+              <div class="col-12">
+                <label class="form-label mb-1">Keywords servicio (coma)</label>
+                <input type="text" class="form-control form-control-sm promo-param-input" name="service_keywords" value="{{ promo_params.service_keywords|join:', ' }}" placeholder="netflix, disney+, spotify" disabled>
+              </div>
+              <div class="col-12">
+                <label class="form-label mb-1">Notas internas promo</label>
+                <textarea class="form-control form-control-sm promo-param-input" name="promo_notes" rows="2" placeholder="Reglas internas de esta promo" disabled>{{ promo_params.notes|default:'' }}</textarea>
+              </div>
+              <div class="col-12 d-flex justify-content-end d-none" id="promo-params-save-wrap">
+                <button type="submit" class="btn btn-sm btn-primary" id="promo-params-save-btn">
+                  <i class="bi bi-save me-1"></i>Guardar y recrear con IA
+                </button>
+              </div>
+            </div>
+          </form>
+          <div id="marketing-promo-params-status" class="alert alert-info mt-2 d-none py-2"></div>
+        </div>
+      </div>
+
       <div class="card border-0 shadow-sm mb-3">
         <div class="card-header bg-white"><strong>Estadísticas usadas por IA</strong></div>
         <div class="card-body">

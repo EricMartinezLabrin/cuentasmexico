@@ -68,6 +68,203 @@
   }
 
   function initDetailPage() {
+    async function pollGenerationStatus(statusUrl, statusEl, doneMessage) {
+      for (let i = 0; i < 240; i += 1) {
+        const res = await fetch(statusUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+        const data = await res.json();
+        if (data.done) {
+          if (data.generation_status === 'error') {
+            statusEl.className = 'alert alert-danger mt-2 py-2';
+            statusEl.innerHTML = `La regeneración falló: ${escapeHtml(data.error || 'Error desconocido')}`;
+            return;
+          }
+          statusEl.className = 'alert alert-success mt-2 py-2';
+          statusEl.innerHTML = doneMessage || 'Regeneración completada.';
+          setTimeout(() => window.location.reload(), 900);
+          return;
+        }
+        if (data.generation_status === 'needs_input') {
+          statusEl.className = 'alert alert-warning mt-2 py-2';
+          statusEl.innerHTML = 'La IA requiere respuestas adicionales para completar la regeneración.';
+          return;
+        }
+        statusEl.className = 'alert alert-info mt-2 py-2';
+        statusEl.textContent = 'Recreando campaña con IA según parámetros guardados...';
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+      }
+      statusEl.className = 'alert alert-warning mt-2 py-2';
+      statusEl.textContent = 'Sigue procesando. Puedes recargar en unos segundos.';
+    }
+
+    const generationMeta = document.getElementById('marketing-generation-meta');
+    const regenerateBtn = document.getElementById('marketing-regenerate-btn');
+    const regenerateStatus = document.getElementById('marketing-regenerate-status');
+    if (regenerateBtn && regenerateStatus) {
+      regenerateBtn.addEventListener('click', async function () {
+        regenerateStatus.className = 'alert alert-info mb-3';
+        regenerateStatus.classList.remove('d-none');
+        regenerateStatus.textContent = 'Encolando regeneración IA...';
+        const formData = new FormData();
+        const csrfInput = document.querySelector('input[name="csrfmiddlewaretoken"]');
+        if (csrfInput && csrfInput.value) formData.append('csrfmiddlewaretoken', csrfInput.value);
+        try {
+          const res = await fetch(regenerateBtn.getAttribute('data-url'), {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+          });
+          const data = await res.json();
+          if (!data.success) {
+            regenerateStatus.className = 'alert alert-danger mb-3';
+            regenerateStatus.textContent = data.error || 'No se pudo iniciar la regeneración.';
+            return;
+          }
+          await pollGenerationStatus(
+            data.status_url,
+            regenerateStatus,
+            'Regeneración completada. Actualizando vista...'
+          );
+        } catch (err) {
+          regenerateStatus.className = 'alert alert-danger mb-3';
+          regenerateStatus.textContent = 'Error de red al iniciar regeneración.';
+        }
+      });
+    }
+
+    if (generationMeta && regenerateStatus) {
+      const initialStatus = generationMeta.getAttribute('data-generation-status') || '';
+      const statusUrl = generationMeta.getAttribute('data-status-url') || '';
+      if (initialStatus === 'processing' && statusUrl) {
+        regenerateStatus.className = 'alert alert-info mb-3';
+        regenerateStatus.classList.remove('d-none');
+        regenerateStatus.textContent = 'La campaña sigue regenerándose. Esperando resultado...';
+        pollGenerationStatus(statusUrl, regenerateStatus, 'Regeneración completada. Actualizando vista...');
+      }
+    }
+
+    const titleText = document.getElementById('campaign-title-text');
+    const titleEditBtn = document.getElementById('campaign-title-edit-btn');
+    const titleForm = document.getElementById('campaign-title-form');
+    const titleInput = document.getElementById('campaign-title-input');
+    const titleCancelBtn = document.getElementById('campaign-title-cancel-btn');
+    const titleStatus = document.getElementById('campaign-title-status');
+    if (titleEditBtn && titleForm && titleInput && titleText) {
+      const openEdit = function () {
+        titleForm.classList.remove('d-none');
+        titleEditBtn.classList.add('d-none');
+        titleInput.focus();
+        titleInput.select();
+      };
+      const closeEdit = function () {
+        titleForm.classList.add('d-none');
+        titleEditBtn.classList.remove('d-none');
+      };
+      titleEditBtn.addEventListener('click', openEdit);
+      if (titleCancelBtn) {
+        titleCancelBtn.addEventListener('click', closeEdit);
+      }
+      titleForm.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        const formData = new FormData(titleForm);
+        if (titleStatus) {
+          titleStatus.className = 'small text-muted mt-1';
+          titleStatus.textContent = 'Guardando título...';
+        }
+        try {
+          const res = await fetch(titleForm.getAttribute('action'), {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+          });
+          const data = await res.json();
+          if (!data.success) {
+            if (titleStatus) {
+              titleStatus.className = 'small text-danger mt-1';
+              titleStatus.textContent = data.error || 'No se pudo guardar el título.';
+            }
+            return;
+          }
+          titleText.textContent = data.name || titleInput.value;
+          if (titleStatus) {
+            titleStatus.className = 'small text-success mt-1';
+            titleStatus.textContent = 'Título actualizado.';
+          }
+          closeEdit();
+        } catch (err) {
+          if (titleStatus) {
+            titleStatus.className = 'small text-danger mt-1';
+            titleStatus.textContent = 'Error de red al guardar el título.';
+          }
+        }
+      });
+    }
+
+    const promoParamsForm = document.getElementById('marketing-promo-params-form');
+    const promoParamsStatus = document.getElementById('marketing-promo-params-status');
+    const promoEditToggle = document.getElementById('promo-params-edit-toggle');
+    const promoSaveWrap = document.getElementById('promo-params-save-wrap');
+    const promoInputs = Array.from(document.querySelectorAll('.promo-param-input'));
+    let promoEditMode = false;
+    function setPromoEditMode(enabled) {
+      promoEditMode = !!enabled;
+      promoInputs.forEach((el) => {
+        el.disabled = !promoEditMode;
+      });
+      if (promoSaveWrap) {
+        promoSaveWrap.classList.toggle('d-none', !promoEditMode);
+      }
+      if (promoEditToggle) {
+        promoEditToggle.innerHTML = promoEditMode
+          ? '<i class="bi bi-eye me-1"></i>Vista previa'
+          : '<i class="bi bi-pencil me-1"></i>Editar';
+      }
+    }
+    if (promoEditToggle) {
+      promoEditToggle.addEventListener('click', function () {
+        setPromoEditMode(!promoEditMode);
+      });
+      setPromoEditMode(false);
+    }
+    if (promoParamsForm && promoParamsStatus) {
+      promoParamsForm.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        if (!promoEditMode) {
+          promoParamsStatus.className = 'alert alert-warning mt-2 py-2';
+          promoParamsStatus.classList.remove('d-none');
+          promoParamsStatus.textContent = 'Activa modo edición para guardar cambios.';
+          return;
+        }
+        promoParamsStatus.className = 'alert alert-info mt-2 py-2';
+        promoParamsStatus.classList.remove('d-none');
+        promoParamsStatus.textContent = 'Guardando parámetros y relanzando IA...';
+        const formData = new FormData(promoParamsForm);
+        try {
+          const res = await fetch(promoParamsForm.getAttribute('action'), {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+          });
+          const data = await res.json();
+          if (!data.success) {
+            promoParamsStatus.className = 'alert alert-danger mt-2 py-2';
+            promoParamsStatus.textContent = data.error || 'No se pudo guardar los parámetros.';
+            return;
+          }
+          promoParamsStatus.className = 'alert alert-info mt-2 py-2';
+          promoParamsStatus.textContent = data.message || 'Parámetros guardados. Regenerando...';
+          await pollGenerationStatus(
+            data.status_url,
+            promoParamsStatus,
+            'Parámetros aplicados y campaña regenerada. Recargando...'
+          );
+          setPromoEditMode(false);
+        } catch (err) {
+          promoParamsStatus.className = 'alert alert-danger mt-2 py-2';
+          promoParamsStatus.textContent = 'Error de red al guardar parámetros.';
+        }
+      });
+    }
+
     const refreshAudienceForm = document.getElementById('refresh-recommendations-form');
     const refreshAudienceStatus = document.getElementById('refresh-recommendations-status');
     const recommendationsTbody = document.getElementById('recommendations-tbody');
