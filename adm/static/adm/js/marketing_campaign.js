@@ -203,8 +203,24 @@
     const promoParamsStatus = document.getElementById('marketing-promo-params-status');
     const promoEditToggle = document.getElementById('promo-params-edit-toggle');
     const promoSaveWrap = document.getElementById('promo-params-save-wrap');
+    const promoSaveBtn = document.getElementById('promo-params-save-btn');
     const promoInputs = Array.from(document.querySelectorAll('.promo-param-input'));
     let promoEditMode = false;
+    let promoSavingInProgress = false;
+    function promoStateSignature() {
+      return promoInputs
+        .map((el) => {
+          const value = el.type === 'checkbox' ? (el.checked ? '1' : '0') : String(el.value || '').trim();
+          return `${el.name}:${value}`;
+        })
+        .join('|');
+    }
+    let promoBaselineSignature = promoStateSignature();
+    function refreshPromoSaveAvailability() {
+      if (!promoSaveBtn) return;
+      const isDirty = promoStateSignature() !== promoBaselineSignature;
+      promoSaveBtn.disabled = !promoEditMode || !isDirty || promoSavingInProgress;
+    }
     function setPromoEditMode(enabled) {
       promoEditMode = !!enabled;
       promoInputs.forEach((el) => {
@@ -218,6 +234,7 @@
           ? '<i class="bi bi-eye me-1"></i>Vista previa'
           : '<i class="bi bi-pencil me-1"></i>Editar';
       }
+      refreshPromoSaveAvailability();
     }
     if (promoEditToggle) {
       promoEditToggle.addEventListener('click', function () {
@@ -225,6 +242,10 @@
       });
       setPromoEditMode(false);
     }
+    promoInputs.forEach((el) => {
+      el.addEventListener('input', refreshPromoSaveAvailability);
+      el.addEventListener('change', refreshPromoSaveAvailability);
+    });
     if (promoParamsForm && promoParamsStatus) {
       promoParamsForm.addEventListener('submit', async function (e) {
         e.preventDefault();
@@ -234,6 +255,15 @@
           promoParamsStatus.textContent = 'Activa modo edición para guardar cambios.';
           return;
         }
+        if (promoStateSignature() === promoBaselineSignature) {
+          promoParamsStatus.className = 'alert alert-warning mt-2 py-2';
+          promoParamsStatus.classList.remove('d-none');
+          promoParamsStatus.textContent = 'No hay cambios en parámetros para guardar.';
+          refreshPromoSaveAvailability();
+          return;
+        }
+        promoSavingInProgress = true;
+        refreshPromoSaveAvailability();
         promoParamsStatus.className = 'alert alert-info mt-2 py-2';
         promoParamsStatus.classList.remove('d-none');
         promoParamsStatus.textContent = 'Guardando parámetros y relanzando IA...';
@@ -248,8 +278,11 @@
           if (!data.success) {
             promoParamsStatus.className = 'alert alert-danger mt-2 py-2';
             promoParamsStatus.textContent = data.error || 'No se pudo guardar los parámetros.';
+            promoSavingInProgress = false;
+            refreshPromoSaveAvailability();
             return;
           }
+          promoBaselineSignature = promoStateSignature();
           promoParamsStatus.className = 'alert alert-info mt-2 py-2';
           promoParamsStatus.textContent = data.message || 'Parámetros guardados. Regenerando...';
           await pollGenerationStatus(
@@ -257,10 +290,13 @@
             promoParamsStatus,
             'Parámetros aplicados y campaña regenerada. Recargando...'
           );
+          promoSavingInProgress = false;
           setPromoEditMode(false);
         } catch (err) {
           promoParamsStatus.className = 'alert alert-danger mt-2 py-2';
           promoParamsStatus.textContent = 'Error de red al guardar parámetros.';
+          promoSavingInProgress = false;
+          refreshPromoSaveAvailability();
         }
       });
     }
@@ -404,9 +440,22 @@
             sendStatus.textContent = data.error || 'No se pudo iniciar el envío.';
             return;
           }
-          sendStatus.className = 'alert alert-success mt-3';
-          sendStatus.textContent = `Proceso iniciado. enviados=${data.sent_count || 0}, fallidos=${data.failed_count || 0}`;
-          setTimeout(() => window.location.reload(), 1200);
+          const queueState = String(data.queue_state || '');
+          if (queueState === 'running' || queueState === 'queued') {
+            sendStatus.className = 'alert alert-info mt-3';
+            const note = data.dispatch_note ? ` (${data.dispatch_note})` : '';
+            sendStatus.innerHTML = `Proceso en cola: estado=${queueState}${note}.<br><button type="button" class="btn btn-sm btn-outline-primary mt-2" id="retry-send-btn">Reintentar envío</button>`;
+            const retryBtn = document.getElementById('retry-send-btn');
+            if (retryBtn) {
+              retryBtn.addEventListener('click', function () {
+                sendForm.requestSubmit();
+              });
+            }
+          } else {
+            sendStatus.className = 'alert alert-success mt-3';
+            sendStatus.textContent = `Proceso iniciado. enviados=${data.sent_count || 0}, fallidos=${data.failed_count || 0}`;
+            setTimeout(() => window.location.reload(), 1200);
+          }
         } catch (err) {
           sendStatus.className = 'alert alert-danger mt-3';
           sendStatus.textContent = 'Error de red al iniciar envío.';
@@ -492,6 +541,39 @@
           clarStatus.className = 'alert alert-danger mt-3';
           clarStatus.textContent = 'Error de red al enviar respuestas.';
         }
+      });
+    }
+
+    const forceButtons = Array.from(document.querySelectorAll('.force-delivery-send-btn'));
+    if (forceButtons.length) {
+      forceButtons.forEach((btn) => {
+        btn.addEventListener('click', async function () {
+          const url = btn.getAttribute('data-url');
+          if (!url) return;
+          btn.disabled = true;
+          const originalText = btn.textContent;
+          btn.textContent = 'Enviando...';
+          try {
+            const formData = new FormData();
+            const csrfInput = document.querySelector('input[name="csrfmiddlewaretoken"]');
+            if (csrfInput && csrfInput.value) formData.append('csrfmiddlewaretoken', csrfInput.value);
+            const res = await fetch(url, {
+              method: 'POST',
+              body: formData,
+              headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            });
+            const data = await res.json();
+            if (!data.success) {
+              btn.disabled = false;
+              btn.textContent = 'Reintentar';
+              return;
+            }
+            window.location.reload();
+          } catch (err) {
+            btn.disabled = false;
+            btn.textContent = originalText || 'Forzar ahora';
+          }
+        });
       });
     }
 

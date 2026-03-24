@@ -44,6 +44,11 @@
                     {{ create_form.one_use_per_phone }}
                     <label class="form-check-label">1 uso por teléfono</label>
                 </div>
+                <div class="col-12">
+                    <label class="form-label">Servicios excluidos</label>
+                    {{ create_form.excluded_services }}
+                    <small class="text-muted">Selecciona los servicios donde este código no se podrá canjear.</small>
+                </div>
             </div>
             <button type="submit" class="btn btn-cm mt-3">Crear código</button>
         </form>
@@ -88,6 +93,7 @@
                 <th>Folio</th>
                 <th>Usos</th>
                 <th>Restantes</th>
+                <th>Exclusiones</th>
                 <th>Último canje</th>
                 <th>Cliente inicial</th>
                 <th>Acciones</th>
@@ -104,6 +110,17 @@
                     <td>{% if code.folder %}{{ code.folder }}{% else %}-{% endif %}</td>
                     <td>{{ code.used_count }} / {% if code.max_uses == 0 %}Ilimitado{% else %}{{ code.max_uses }}{% endif %}</td>
                     <td>{% if code.max_uses == 0 %}Ilimitado{% else %}{{ code.remaining_uses }}{% endif %}</td>
+                    <td>
+                        {% with excluded=code.excluded_services_active %}
+                            {% if excluded %}
+                                {% for item in excluded %}
+                                    {{ item.description }}{% if not forloop.last %}, {% endif %}
+                                {% endfor %}
+                            {% else %}
+                                -
+                            {% endif %}
+                        {% endwith %}
+                    </td>
                     <td>{{ code.used_at|default:"-" }}</td>
                     <td>
                         {% if code.customer %}
@@ -121,7 +138,7 @@
                 </tr>
             {% empty %}
                 <tr>
-                    <td colspan="11" class="text-center text-muted">No hay códigos disponibles.</td>
+                    <td colspan="12" class="text-center text-muted">No hay códigos disponibles.</td>
                 </tr>
             {% endfor %}
         </tbody>

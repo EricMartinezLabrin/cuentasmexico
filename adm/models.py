@@ -1245,3 +1245,54 @@ class MarketingCampaignRedemption(models.Model):
 
     def __str__(self):
         return f"{self.customer.username} -> {self.campaign.name} ({self.source})"
+
+
+class MarketingUserTag(models.Model):
+    TAG_TYPE_CAMPAIGN_SENT = 'campaign_sent'
+    TAG_TYPE_COOLDOWN = 'cooldown'
+
+    TAG_TYPE_CHOICES = [
+        (TAG_TYPE_CAMPAIGN_SENT, 'Campaña enviada'),
+        (TAG_TYPE_COOLDOWN, 'Cooldown anti-spam'),
+    ]
+
+    CHANNEL_CHOICES = [
+        ('whatsapp', 'WhatsApp'),
+        ('sms', 'SMS'),
+        ('email', 'Email'),
+        ('all', 'Todos'),
+    ]
+
+    COLOR_CHOICES = [
+        ('primary', 'Azul'),
+        ('danger', 'Rojo'),
+        ('success', 'Verde'),
+        ('warning', 'Amarillo'),
+        ('info', 'Celeste'),
+        ('secondary', 'Gris'),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='marketing_user_tags')
+    campaign = models.ForeignKey(MarketingCampaign, on_delete=models.SET_NULL, null=True, blank=True, related_name='user_tags')
+    tag_key = models.CharField(max_length=120)
+    tag_type = models.CharField(max_length=20, choices=TAG_TYPE_CHOICES)
+    channel = models.CharField(max_length=20, choices=CHANNEL_CHOICES, default='all')
+    label = models.CharField(max_length=140)
+    color = models.CharField(max_length=20, choices=COLOR_CHOICES, default='info')
+    metadata = models.JSONField(default=dict, blank=True)
+    expires_at = models.DateTimeField(null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        unique_together = ['user', 'tag_key']
+        indexes = [
+            models.Index(fields=['user', 'is_active']),
+            models.Index(fields=['tag_type', 'channel', 'is_active']),
+            models.Index(fields=['expires_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.user.username}: {self.label}"

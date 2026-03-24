@@ -73,6 +73,12 @@ from .functions.dashboard import Dashboard
 from adm.functions.duplicated import NoDuplicate
 from adm.functions.sales import Sales
 from adm.functions.crm import CRMAnalytics
+from adm.functions.marketing_tags import (
+    apply_campaign_sent_tags,
+    cleanup_expired_marketing_tags,
+    has_active_cooldown,
+    users_with_active_cooldown,
+)
 from CuentasMexico.ai import AIClient
 from CuentasMexico.ai.config import get_active_provider, get_model_for_task, get_db_mcp_config
 from CuentasMexico.ai.mcp_readonly_db import ReadOnlyDatabaseMCP
@@ -1959,7 +1965,13 @@ class CuponView(UserAccessMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        queryset = Cupon.objects.select_related('customer', 'seller', 'order').order_by('-create_date')
+        queryset = Cupon.objects.select_related('customer', 'seller', 'order').prefetch_related(
+            Prefetch(
+                'excluded_services',
+                queryset=Service.objects.filter(status=True).order_by('description'),
+                to_attr='excluded_services_active',
+            )
+        ).order_by('-create_date')
         search = self.request.GET.get('search', '').strip().lower()
         status_filter = self.request.GET.get('status', '').strip()
         duration_filter = self.request.GET.get('duration', '').strip()
@@ -1993,6 +2005,7 @@ def CuponCreateView(request):
         cupon.long = _legacy_long_from_duration(cupon.duration_unit, cupon.duration_quantity)
         cupon.used_count = 0
         cupon.save()
+        form.save_m2m()
         return redirect(reverse('adm:cupon'))
 
     queryset = Cupon.objects.order_by('-create_date')
@@ -2018,6 +2031,7 @@ def CuponUpdateView(request, pk):
             if updated.max_uses > 0 and updated.used_count > updated.max_uses:
                 updated.used_count = updated.max_uses
             updated.save()
+            form.save_m2m()
             return redirect(reverse('adm:cupon'))
     else:
         form = CuponForm(instance=cupon)
@@ -2086,7 +2100,8 @@ def CuponRedeemView(request):
         customer_user = User.objects.get(pk=customer)
         if service:
             try:
-                cupon = validate_coupon_from_code(code_name, customer_user)
+                selected_service = Service.objects.get(pk=service)
+                cupon = validate_coupon_from_code(code_name, customer_user, service=selected_service)
                 return render(request, template_name, {
                     'service': service,
                     'cupon': cupon,
@@ -2094,14 +2109,15 @@ def CuponRedeemView(request):
                     'duration_label': cupon.get_duration_unit_display(),
                     'duration_quantity': cupon.duration_quantity,
                 })
-            except (Cupon.DoesNotExist, CouponRedeemError) as exc:
+            except (Service.DoesNotExist, Cupon.DoesNotExist, CouponRedeemError) as exc:
                 return render(request, template_name, {
                     'error': str(exc),
                     'customer': customer,
                 })
         try:
             cupon = validate_coupon_from_code(code_name, customer_user)
-            services = Service.objects.filter(status=True)
+            excluded_ids = cupon.excluded_services.values_list('id', flat=True)
+            services = Service.objects.filter(status=True).exclude(id__in=excluded_ids)
         except (Cupon.DoesNotExist, CouponRedeemError) as exc:
             error = str(exc)
         return render(request, template_name, {
@@ -3849,6 +3865,7 @@ def _find_next_whatsapp_queued_campaign(exclude_campaign_id=None):
 
 def _run_whatsapp_dispatch_worker(campaign_id):
     with WHATSAPP_DISPATCH_MUTEX:
+        cleanup_expired_marketing_tags()
         campaign = MarketingCampaign.objects.get(pk=campaign_id)
         meta = campaign.audience_filters or {}
         dispatch = meta.get('dispatch') if isinstance(meta.get('dispatch'), dict) else {}
@@ -3879,8 +3896,24 @@ def _run_whatsapp_dispatch_worker(campaign_id):
         interval_seconds = max(1.0, 3600.0 / float(messages_per_hour))
         sent_count = 0
         failed_count = 0
+        image_url = _campaign_image_public_url(campaign)
 
         for rec in selected:
+            if has_active_cooldown(rec.customer_id, 'whatsapp'):
+                MarketingCampaignDelivery.objects.create(
+                    campaign=campaign,
+                    recommendation=rec,
+                    channel='whatsapp',
+                    destination=f"+{rec.lada}{rec.phone_number}" if rec.lada and rec.phone_number else rec.customer.email,
+                    payload_text=_normalize_whatsapp_text_markup(campaign.message_text or ''),
+                    payload_image_url=image_url,
+                    status='skipped',
+                    provider_response='Omitido por cooldown anti-spam activo.',
+                    sent_at=None,
+                )
+                failed_count += 1
+                continue
+
             now_local = timezone.localtime(timezone.now())
             while not _is_within_schedule(now_local, start_hour, end_hour):
                 dispatch['status_note'] = f'Pausado por horario ({start_hour}-{end_hour})'
@@ -3896,10 +3929,18 @@ def _run_whatsapp_dispatch_worker(campaign_id):
             wa_message = _normalize_whatsapp_text_markup(campaign.message_text or '')
             try:
                 if rec.lada and rec.phone_number and wa_message:
-                    Notification.send_whatsapp_notification(wa_message, rec.lada, rec.phone_number)
+                    if image_url:
+                        status_code = Notification.send_whatsapp_notification_with_media(
+                            wa_message, rec.lada, rec.phone_number, image_url
+                        )
+                    else:
+                        status_code = Notification.send_whatsapp_notification(wa_message, rec.lada, rec.phone_number)
+                    if status_code not in [200, 201]:
+                        raise RuntimeError(f'Envío WhatsApp respondió {status_code}')
                     status_value = 'sent'
                     response_message = 'WhatsApp enviado'
                     sent_count += 1
+                    apply_campaign_sent_tags(campaign, rec.customer, 'whatsapp')
                 else:
                     status_value = 'skipped'
                     response_message = 'Sin teléfono válido'
@@ -3915,7 +3956,7 @@ def _run_whatsapp_dispatch_worker(campaign_id):
                 channel='whatsapp',
                 destination=destination,
                 payload_text=wa_message,
-                payload_image_url=campaign.creative_image.url if campaign.creative_image else '',
+                payload_image_url=image_url,
                 status=status_value,
                 provider_response=response_message,
                 sent_at=timezone.now() if status_value in ('sent', 'queued') else None,
@@ -3980,6 +4021,20 @@ def _error_to_text(exc):
     return base
 
 
+def _campaign_image_public_url(campaign):
+    if not getattr(campaign, 'creative_image', None):
+        return ''
+    image_url = str(campaign.creative_image.url or '').strip()
+    if not image_url:
+        return ''
+    if image_url.startswith('http://') or image_url.startswith('https://'):
+        return image_url
+    base_url = (os.getenv('PUBLIC_APP_URL') or URL or '').strip()
+    if not base_url:
+        return image_url
+    return f"{base_url.rstrip('/')}/{image_url.lstrip('/')}"
+
+
 def _force_square_image_bytes(raw_bytes):
     """
     Garantiza salida 1:1 (cuadrada), recortando al centro.
@@ -3999,6 +4054,37 @@ def _force_square_image_bytes(raw_bytes):
             return output.getvalue()
     except Exception:
         return raw_bytes
+
+
+def _normalize_square_image_prompt(prompt):
+    """
+    Estandariza el prompt para imagen 1:1 (cuadrada) y evita instrucciones verticales.
+    """
+    text = _mysql_safe_text(prompt or '').strip()
+    if not text:
+        text = "Creativo publicitario para WhatsApp."
+
+    vertical_patterns = [
+        r'(?i)\bdiseño\s+vertical\s+para\s+whats\s*app\b',
+        r'(?i)\bdiseño\s+vertical\s+para\s+whatsapp\b',
+        r'(?i)\bformato\s+vertical\b',
+        r'(?i)\borientaci[oó]n\s+vertical\b',
+        r'(?i)\bvertical\b',
+        r'(?i)\bportrait\b',
+        r'(?i)\b9:16\b',
+        r'(?i)\b1080\s*x\s*1920\b',
+    ]
+    for pattern in vertical_patterns:
+        text = re.sub(pattern, ' ', text)
+    text = re.sub(r'\s+', ' ', text).strip()
+
+    square_rule = (
+        " Formato obligatorio 1:1 (cuadrado). "
+        "No vertical, no 9:16, no 4:5."
+    )
+    if '1:1' not in text:
+        text = f"{text}. {square_rule}".strip()
+    return _mysql_safe_text(text)
 
 
 def _marketing_db_context(user):
@@ -4387,6 +4473,7 @@ def _infer_audience_strategy(campaign):
 
 
 def _build_audience_recommendations(campaign, limit=250):
+    cleanup_expired_marketing_tags()
     campaign.recommendations.all().delete()
     now = timezone.now()
     # Historial completo de compras (incluye ventas ya no activas) para detectar inactividad real.
@@ -4429,7 +4516,9 @@ def _build_audience_recommendations(campaign, limit=250):
         'excluded_target_active': 0,
         'excluded_recent_same_service': 0,
         'excluded_no_phone': 0,
+        'excluded_cooldown': 0,
     }
+    cooldown_blocked_users = users_with_active_cooldown(campaign.channel)
 
     rows = (
         base_qs.values(
@@ -4497,6 +4586,9 @@ def _build_audience_recommendations(campaign, limit=250):
             score += min(service_history * 4, 32)
 
         eligible = True
+        if row['customer_id'] in cooldown_blocked_users:
+            eligible = False
+            filter_stats['excluded_cooldown'] += 1
         country_value = _normalize_token(row.get('customer__userdetail__country') or '')
         if countries_include and country_value not in countries_include:
             eligible = False
@@ -4660,6 +4752,7 @@ def _generate_campaign_ai_content(campaign, from_scratch=False):
         "- Si hay offer_price > 0, el precio comunicado debe coincidir exactamente.\n"
         "- Si hay services_ids/service_keywords, la oferta debe hablar solo de esos servicios elegibles.\n"
         "- Si hay offer_valid_until, agrega urgencia coherente con esa vigencia.\n"
+        "- image_prompt debe pedir formato 1:1 (cuadrado), nunca vertical.\n"
         "Devuelve SOLO JSON con:\n"
         "{"
         "\"campaign_name\":\"...\","
@@ -4701,7 +4794,7 @@ def _generate_campaign_ai_content(campaign, from_scratch=False):
         whatsapp_text = _normalize_whatsapp_text_markup(whatsapp_text)
     campaign.message_text = whatsapp_text
     campaign.sms_text = _mysql_safe_text(payload.get('sms_text') or campaign.sms_text or campaign.message_text)
-    campaign.image_prompt = _mysql_safe_text(
+    campaign.image_prompt = _normalize_square_image_prompt(
         payload.get('image_prompt') or campaign.image_prompt or f"Promocion marketing para {campaign.objective}"
     )
     if isinstance(payload.get('tags'), list):
@@ -4767,13 +4860,17 @@ def _generate_campaign_image(campaign):
             if m and m not in candidate_models:
                 candidate_models.append(m)
         try:
-            gemini_client = AIClient.from_provider_name('gemini', timeout=90)
+            image_timeout = int(os.getenv('AI_MARKETING_IMAGE_TIMEOUT_SECONDS', '35') or 35)
+            max_image_models = int(os.getenv('AI_MARKETING_IMAGE_MAX_MODELS', '3') or 3)
+            gemini_client = AIClient.from_provider_name('gemini', timeout=image_timeout)
             errors = []
             image_result = None
             used_model = ''
-            for model_name in candidate_models:
+            image_prompt = _normalize_square_image_prompt(campaign.image_prompt)
+            campaign.image_prompt = image_prompt
+            for model_name in candidate_models[:max(1, max_image_models)]:
                 try:
-                    image_result = gemini_client.generate_image(prompt=campaign.image_prompt, model=model_name)
+                    image_result = gemini_client.generate_image(prompt=image_prompt, model=model_name)
                     if image_result.images_base64:
                         used_model = model_name
                         break
@@ -4810,7 +4907,7 @@ def _generate_campaign_image(campaign):
             }
     campaign.audience_filters = campaign.audience_filters or {}
     campaign.audience_filters['image_generation_response'] = image_generation_response
-    campaign.save(update_fields=['creative_image', 'audience_filters', 'updated_at'])
+    campaign.save(update_fields=['creative_image', 'image_prompt', 'audience_filters', 'updated_at'])
     return image_generation_response
 
 
@@ -4839,6 +4936,14 @@ def _run_marketing_generation_job(campaign_id, from_scratch, allow_questions=Tru
             campaign.save(update_fields=['audience_filters', 'updated_at'])
         except Exception:
             pass
+
+
+def _set_campaign_generation_processing(campaign):
+    campaign.audience_filters = campaign.audience_filters or {}
+    campaign.audience_filters['generation_status'] = 'processing'
+    campaign.audience_filters['generation_error'] = ''
+    campaign.audience_filters['generation_started_at'] = timezone.now().isoformat()
+    campaign.save(update_fields=['audience_filters', 'updated_at'])
 
 
 @permission_required('is_superuser', 'adm:no-permission')
@@ -4872,10 +4977,7 @@ def marketing_campaign_create(request):
             campaign.save()
             action = request.POST.get('action', 'generate')
             if action in ('generate', 'generate_stats') and request.headers.get('x-requested-with') == 'XMLHttpRequest':
-                campaign.audience_filters = campaign.audience_filters or {}
-                campaign.audience_filters['generation_status'] = 'processing'
-                campaign.audience_filters['generation_error'] = ''
-                campaign.save(update_fields=['audience_filters', 'updated_at'])
+                _set_campaign_generation_processing(campaign)
                 from_scratch = action == 'generate_stats'
                 Thread(
                     target=_run_marketing_generation_job,
@@ -5006,14 +5108,45 @@ def marketing_whatsapp_groups(request):
 def marketing_campaign_generation_status(request, pk):
     campaign = MarketingCampaign.objects.get(pk=pk)
     meta = campaign.audience_filters or {}
-    status_value = meta.get('generation_status', '')
+    status_value = (meta.get('generation_status', '') or '').strip().lower()
     error = meta.get('generation_error', '')
-    done = status_value in ('done', 'error') or campaign.status == 'ready'
+    started_raw = meta.get('generation_started_at')
+    started_at = None
+    try:
+        if started_raw:
+            started_at = datetime.fromisoformat(str(started_raw).replace('Z', '+00:00'))
+            if timezone.is_naive(started_at):
+                started_at = timezone.make_aware(started_at)
+    except Exception:
+        started_at = None
+
+    max_processing_minutes = int(os.getenv('AI_MARKETING_MAX_PROCESSING_MINUTES', '8') or 8)
+    processing_started_at = started_at or campaign.updated_at
+    if status_value == 'processing' and processing_started_at:
+        elapsed_seconds = max(0, int((timezone.now() - processing_started_at).total_seconds()))
+        if elapsed_seconds > (max_processing_minutes * 60):
+            status_value = 'error'
+            error = (
+                f'La generación excedió {max_processing_minutes} minutos y se marcó como error. '
+                'Reintenta la regeneración.'
+            )
+            campaign.audience_filters = campaign.audience_filters or {}
+            campaign.audience_filters['generation_status'] = 'error'
+            campaign.audience_filters['generation_error'] = error
+            campaign.save(update_fields=['audience_filters', 'updated_at'])
+
+    normalized_status = (status_value or '').strip().lower()
+    if normalized_status == 'processing':
+        done = False
+    elif normalized_status in ('done', 'error'):
+        done = True
+    else:
+        done = campaign.status == 'ready'
     return JsonResponse(
         {
             'success': True,
             'campaign_id': campaign.id,
-            'generation_status': status_value or ('done' if campaign.status == 'ready' else 'processing'),
+            'generation_status': normalized_status or ('done' if campaign.status == 'ready' else 'processing'),
             'error': error,
             'done': done,
             'questions': meta.get('clarification_questions', []),
@@ -5036,9 +5169,8 @@ def marketing_campaign_answer_clarifications(request, pk):
     if not any(answers):
         return JsonResponse({'success': False, 'error': 'Responde al menos una pregunta'}, status=400)
     meta['clarification_answers'] = answers
-    meta['generation_status'] = 'processing'
     campaign.audience_filters = meta
-    campaign.save(update_fields=['audience_filters', 'updated_at'])
+    _set_campaign_generation_processing(campaign)
     Thread(
         target=_run_marketing_generation_job,
         args=(campaign.id, meta.get('generation_mode') == 'from_stats_only', False),
@@ -5134,8 +5266,13 @@ def marketing_campaign_regenerate_image(request, pk):
         return JsonResponse({'success': False, 'error': 'Solo aplica para campañas de WhatsApp'}, status=400)
     new_prompt = _mysql_safe_text((request.POST.get('image_prompt') or '').strip())
     if new_prompt:
-        campaign.image_prompt = new_prompt
+        campaign.image_prompt = _normalize_square_image_prompt(new_prompt)
         campaign.save(update_fields=['image_prompt', 'updated_at'])
+    else:
+        normalized_prompt = _normalize_square_image_prompt(campaign.image_prompt)
+        if normalized_prompt != campaign.image_prompt:
+            campaign.image_prompt = normalized_prompt
+            campaign.save(update_fields=['image_prompt', 'updated_at'])
     try:
         image_meta = _generate_campaign_image(campaign)
     except Exception as exc:
@@ -5203,10 +5340,7 @@ def marketing_campaign_update_promo_params(request, pk):
             'notes': notes,
         }
         _persist_campaign_promo_params(campaign, promo_params)
-        campaign.audience_filters = campaign.audience_filters or {}
-        campaign.audience_filters['generation_status'] = 'processing'
-        campaign.audience_filters['generation_error'] = ''
-        campaign.save(update_fields=['audience_filters', 'updated_at'])
+        _set_campaign_generation_processing(campaign)
 
         from_scratch = (campaign.audience_filters or {}).get('generation_mode') == 'from_stats_only'
         Thread(
@@ -5232,10 +5366,7 @@ def marketing_campaign_regenerate(request, pk):
     if request.method != 'POST':
         return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
     campaign = MarketingCampaign.objects.get(pk=pk)
-    campaign.audience_filters = campaign.audience_filters or {}
-    campaign.audience_filters['generation_status'] = 'processing'
-    campaign.audience_filters['generation_error'] = ''
-    campaign.save(update_fields=['audience_filters', 'updated_at'])
+    _set_campaign_generation_processing(campaign)
     from_scratch = (campaign.audience_filters or {}).get('generation_mode') == 'from_stats_only'
     Thread(
         target=_run_marketing_generation_job,
@@ -5271,6 +5402,7 @@ def marketing_campaign_send(request, pk):
     if request.method != 'POST':
         return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
     campaign = MarketingCampaign.objects.get(pk=pk)
+    cleanup_expired_marketing_tags()
     meta = campaign.audience_filters or {}
     if meta.get('generation_status') == 'processing':
         return JsonResponse(
@@ -5295,6 +5427,7 @@ def marketing_campaign_send(request, pk):
     sent_count = 0
     failed_count = 0
     whatsapp_message = _normalize_whatsapp_text_markup(campaign.message_text or '')
+    campaign_image_url = _campaign_image_public_url(campaign)
 
     # 1) Envío a grupos (WhatsApp) inmediato si se seleccionaron.
     if send_now and delivery_channel == 'whatsapp' and selected_group_ids:
@@ -5306,7 +5439,14 @@ def marketing_campaign_send(request, pk):
             response_message = 'Grupo registrado en histórico'
             if actual_send_enabled and whatsapp_message:
                 try:
-                    Notification.send_whatsapp_group_notification(whatsapp_message, gid_clean)
+                    if campaign_image_url:
+                        status_code = Notification.send_whatsapp_group_notification_with_media(
+                            whatsapp_message, gid_clean, campaign_image_url
+                        )
+                    else:
+                        status_code = Notification.send_whatsapp_group_notification(whatsapp_message, gid_clean)
+                    if status_code not in [200, 201]:
+                        raise RuntimeError(f'Envío WhatsApp grupo respondió {status_code}')
                     status_value = 'sent'
                     response_message = 'WhatsApp grupo enviado'
                     sent_count += 1
@@ -5321,7 +5461,7 @@ def marketing_campaign_send(request, pk):
                 channel='whatsapp',
                 destination=f"group:{gid_clean}",
                 payload_text=whatsapp_message,
-                payload_image_url=campaign.creative_image.url if campaign.creative_image else '',
+                payload_image_url=campaign_image_url,
                 status=status_value,
                 provider_response=response_message,
                 sent_at=timezone.now() if status_value in ('sent', 'queued') else None,
@@ -5340,7 +5480,7 @@ def marketing_campaign_send(request, pk):
                     channel='whatsapp',
                     destination=destination,
                     payload_text=whatsapp_message,
-                    payload_image_url=campaign.creative_image.url if campaign.creative_image else '',
+                    payload_image_url=campaign_image_url,
                     status='queued',
                     provider_response='WhatsApp registrado en histórico (AI_MARKETING_ACTUAL_SEND=false).',
                     sent_at=timezone.now(),
@@ -5377,6 +5517,19 @@ def marketing_campaign_send(request, pk):
     elif send_now and delivery_channel == 'sms':
         for rec in selected:
             destination = f"+{rec.lada}{rec.phone_number}" if rec.lada and rec.phone_number else rec.customer.email
+            if has_active_cooldown(rec.customer_id, 'sms'):
+                failed_count += 1
+                MarketingCampaignDelivery.objects.create(
+                    campaign=campaign,
+                    recommendation=rec,
+                    channel='sms',
+                    destination=destination,
+                    payload_text=(campaign.sms_text or campaign.message_text or '')[:1600],
+                    status='skipped',
+                    provider_response='Omitido por cooldown anti-spam activo.',
+                    sent_at=None,
+                )
+                continue
             sent_count += 1
             MarketingCampaignDelivery.objects.create(
                 campaign=campaign,
@@ -5388,12 +5541,26 @@ def marketing_campaign_send(request, pk):
                 provider_response='SMS registrado en histórico (sin proveedor configurado).',
                 sent_at=timezone.now(),
             )
+            apply_campaign_sent_tags(campaign, rec.customer, 'sms')
         campaign.status = 'sent'
         campaign.sent_at = timezone.now()
         campaign.save(update_fields=['status', 'sent_at', 'updated_at'])
     elif send_now and delivery_channel == 'email':
         for rec in selected:
             destination = rec.customer.email
+            if has_active_cooldown(rec.customer_id, 'email'):
+                failed_count += 1
+                MarketingCampaignDelivery.objects.create(
+                    campaign=campaign,
+                    recommendation=rec,
+                    channel='sms',
+                    destination=destination,
+                    payload_text=(campaign.message_text or '')[:5000],
+                    status='skipped',
+                    provider_response='Omitido por cooldown anti-spam activo.',
+                    sent_at=None,
+                )
+                continue
             sent_count += 1
             MarketingCampaignDelivery.objects.create(
                 campaign=campaign,
@@ -5405,6 +5572,7 @@ def marketing_campaign_send(request, pk):
                 provider_response='Email listo para integración futura (pendiente proveedor).',
                 sent_at=timezone.now(),
             )
+            apply_campaign_sent_tags(campaign, rec.customer, 'email')
         campaign.status = 'sent'
         campaign.sent_at = timezone.now()
         campaign.save(update_fields=['status', 'sent_at', 'updated_at'])
@@ -5433,10 +5601,12 @@ def marketing_campaign_send(request, pk):
 
     if request.headers.get('x-requested-with') == 'XMLHttpRequest':
         queue_state = None
+        dispatch_note = ''
         if delivery_channel == 'whatsapp':
             meta = campaign.audience_filters or {}
             dispatch = meta.get('dispatch') if isinstance(meta.get('dispatch'), dict) else {}
             queue_state = dispatch.get('status')
+            dispatch_note = dispatch.get('status_note') or ''
         return JsonResponse(
             {
                 'success': True,
@@ -5444,9 +5614,78 @@ def marketing_campaign_send(request, pk):
                 'failed_count': failed_count,
                 'delivery_channel': delivery_channel,
                 'queue_state': queue_state,
+                'dispatch_note': dispatch_note,
             }
         )
     return redirect('adm:marketing_campaign_detail', campaign.id)
+
+
+@permission_required('is_superuser', 'adm:no-permission')
+def marketing_campaign_force_send_delivery(request, pk, delivery_id):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
+    try:
+        campaign = MarketingCampaign.objects.get(pk=pk)
+        delivery = MarketingCampaignDelivery.objects.select_related('recommendation', 'recommendation__customer').get(
+            pk=delivery_id, campaign=campaign
+        )
+    except (MarketingCampaign.DoesNotExist, MarketingCampaignDelivery.DoesNotExist):
+        return JsonResponse({'success': False, 'error': 'Registro de envío no encontrado.'}, status=404)
+
+    if delivery.status != 'queued':
+        return JsonResponse({'success': False, 'error': 'Solo se puede forzar envíos en cola.'}, status=400)
+
+    try:
+        image_url = _campaign_image_public_url(campaign)
+        message_text = _normalize_whatsapp_text_markup(campaign.message_text or '') if delivery.channel == 'whatsapp' else (
+            campaign.sms_text or campaign.message_text or ''
+        )
+
+        if delivery.channel == 'whatsapp':
+            destination = str(delivery.destination or '').strip()
+            status_code = 500
+            if destination.startswith('group:'):
+                group_id = destination.split('group:', 1)[1].strip()
+                if image_url:
+                    status_code = Notification.send_whatsapp_group_notification_with_media(
+                        message_text, group_id, image_url
+                    )
+                else:
+                    status_code = Notification.send_whatsapp_group_notification(message_text, group_id)
+            else:
+                digits = re.sub(r'\D+', '', destination)
+                if not digits:
+                    raise ValueError('Destino inválido para WhatsApp.')
+                if image_url:
+                    status_code = Notification.send_whatsapp_notification_with_media(
+                        message_text, '', digits, image_url
+                    )
+                else:
+                    status_code = Notification.send_whatsapp_notification(message_text, '', digits)
+                if delivery.recommendation and delivery.recommendation.customer:
+                    apply_campaign_sent_tags(campaign, delivery.recommendation.customer, 'whatsapp')
+
+            if status_code not in [200, 201]:
+                raise RuntimeError(f'Envío WhatsApp respondió {status_code}')
+
+        elif delivery.channel == 'sms':
+            # Placeholder actual del proyecto (sin proveedor SMS integrado):
+            # al forzar, solo marcamos como enviado manualmente.
+            if delivery.recommendation and delivery.recommendation.customer:
+                apply_campaign_sent_tags(campaign, delivery.recommendation.customer, 'sms')
+        else:
+            return JsonResponse({'success': False, 'error': 'Canal no soportado para forzar envío.'}, status=400)
+
+        delivery.status = 'sent'
+        delivery.provider_response = 'Envío forzado manualmente desde /adm.'
+        delivery.sent_at = timezone.now()
+        delivery.save(update_fields=['status', 'provider_response', 'sent_at'])
+        return JsonResponse({'success': True, 'message': 'Envío forzado correctamente.'})
+    except Exception as exc:
+        delivery.status = 'failed'
+        delivery.provider_response = _error_to_text(exc)
+        delivery.save(update_fields=['status', 'provider_response'])
+        return JsonResponse({'success': False, 'error': _error_to_text(exc)}, status=500)
 
 
 @permission_required('is_superuser', 'adm:no-permission')

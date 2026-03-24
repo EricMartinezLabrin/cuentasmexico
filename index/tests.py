@@ -1,4 +1,5 @@
 from django.test import TestCase
+from django.contrib.auth.models import User
 from index.phone_utils import PhoneNumberHandler
 
 
@@ -69,3 +70,19 @@ class PhoneNumberHandlerTestCase(TestCase):
                            f"Failed for format: {phone_format}")
             self.assertEqual(result['full_number'], "56912345678",
                            f"Failed for format: {phone_format}")
+
+
+class RedeemShortcutRoutesTestCase(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='tester', password='secret123')
+        self.client.login(username='tester', password='secret123')
+
+    def test_canjear_code_shortcut_redirects_to_redeem_query(self):
+        response = self.client.get('/canjear/7FREE')
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, '/redeem?name=7FREE')
+
+    def test_redeem_code_shortcut_redirects_to_redeem_query(self):
+        response = self.client.get('/redeem/7FREE')
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, '/redeem?name=7FREE')

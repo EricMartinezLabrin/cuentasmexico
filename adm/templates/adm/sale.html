@@ -91,6 +91,19 @@
                                     </div>
                                 </div>
                             </div>
+                            {% if marketing_tags %}
+                                <div class="mt-3">
+                                    <small class="text-muted d-block mb-1">Etiquetas de marketing activas</small>
+                                    <div class="d-flex flex-wrap gap-2">
+                                        {% for tag in marketing_tags %}
+                                            <span class="badge text-bg-{{ tag.color }}">
+                                                {{ tag.label }}
+                                                {% if tag.expires_at %} · expira {{ tag.expires_at }}{% endif %}
+                                            </span>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            {% endif %}
                         </div>
                         <div class="col-auto">
                             <div class="btn-group-vertical" role="group">

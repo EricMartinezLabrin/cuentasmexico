@@ -24,6 +24,7 @@ from django.urls import reverse, reverse_lazy
 from django.db import IntegrityError, transaction
 from django.http import HttpResponseRedirect
 from adm.functions.send_email import Email
+from adm.functions.marketing_tags import marketing_tags_for_sales_view
 from django.utils import timezone
 from datetime import timedelta
 from traceback import format_exc
@@ -433,8 +434,8 @@ class Sales():
         seller = customer
 
         if c:
-            cupon = validate_coupon_from_code(c, customer)
             service = Account.objects.get(pk=request.POST.get('serv'))
+            cupon = validate_coupon_from_code(c, customer, service=service.account_name)
             price = cupon.price
             ticket = cupon.name
             bank_name = 'Shops'
@@ -728,6 +729,7 @@ class Sales():
                 'active': Sales.customer_sales_active(customer),
                 'inactive': Sales.customer_sales_inactive(customer, inactive_page),
                 'marketing_offers': [],
+                'marketing_tags': [],
             }
             return render(request, 'adm/sale.html', my_dict)
         else:
@@ -743,6 +745,7 @@ class Sales():
                 'active': Sales.customer_sales_active(customer),
                 'inactive': Sales.customer_sales_inactive(customer, inactive_page),
                 'marketing_offers': Sales.customer_marketing_offers(customer),
+                'marketing_tags': marketing_tags_for_sales_view(customer),
             }
             return render(request, 'adm/sale.html', my_dict)
 
@@ -848,7 +851,7 @@ class Sales():
 
     def redeem(request, acc, code, customer_id):
         customer = User.objects.get(pk=customer_id)
-        cupon = validate_coupon_from_code(code, customer)
+        cupon = validate_coupon_from_code(code, customer, service=acc.account_name)
         service = acc
         price = cupon.price
         ticket = cupon.name
@@ -908,7 +911,7 @@ class Sales():
 
     def redeem_renew(request, acc, code, customer_id):
         customer = User.objects.get(pk=customer_id)
-        cupon = validate_coupon_from_code(code, customer)
+        cupon = validate_coupon_from_code(code, customer, service=acc.account_name)
         price = cupon.price
         ticket = cupon.name
         try:

@@ -62,6 +62,10 @@
                                 </div>
                             </a>
                         </div>
+                    {% empty %}
+                        <div class="alert alert-warning m-3" role="alert">
+                            Este código no tiene servicios disponibles para crear una cuenta nueva.
+                        </div>
                     {% endfor %}
                 </div>
             </div>

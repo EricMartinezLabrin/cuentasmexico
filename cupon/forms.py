@@ -1,5 +1,6 @@
 from django import forms
 
+from adm.models import Service
 from cupon.models import Cupon
 
 
@@ -18,6 +19,7 @@ class CuponForm(forms.ModelForm):
             'one_use_per_phone',
             'duration_unit',
             'duration_quantity',
+            'excluded_services',
         ]
         widgets = {
             'name': forms.TextInput(attrs={'class': 'form-control'}),
@@ -26,7 +28,13 @@ class CuponForm(forms.ModelForm):
             'one_use_per_phone': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'duration_unit': forms.Select(attrs={'class': 'form-select'}),
             'duration_quantity': forms.NumberInput(attrs={'class': 'form-control', 'min': 1}),
+            'excluded_services': forms.SelectMultiple(attrs={'class': 'form-select', 'size': 6}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['excluded_services'].queryset = Service.objects.filter(status=True).order_by('description')
+        self.fields['excluded_services'].required = False
 
     def clean_name(self):
         return (self.cleaned_data.get('name') or '').strip().lower()

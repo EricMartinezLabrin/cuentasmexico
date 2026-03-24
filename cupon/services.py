@@ -3,6 +3,8 @@ from django.db.models import F, Q
 from django.utils import timezone
 
 from adm.models import (
+    Account,
+    Service,
     UserDetail,
     UserPhoneHistory,
     MarketingCampaign,
@@ -113,9 +115,33 @@ def validate_coupon_phone_rule(cupon, customer):
         raise CouponRedeemError('Este código ya fue usado con tu teléfono y no se puede reutilizar.')
 
 
-def validate_coupon_for_customer(cupon, customer):
+def resolve_service(service):
+    if service is None:
+        return None
+    if isinstance(service, Service):
+        return service
+    if isinstance(service, Account):
+        return service.account_name
+    try:
+        return Service.objects.get(pk=int(service))
+    except (TypeError, ValueError, Service.DoesNotExist):
+        return None
+
+
+def validate_coupon_service_rule(cupon, service):
+    resolved_service = resolve_service(service)
+    if not resolved_service:
+        return
+    if cupon.excluded_services.filter(pk=resolved_service.pk).exists():
+        raise CouponRedeemError(
+            f'El código no se puede usar en {resolved_service.description}.'
+        )
+
+
+def validate_coupon_for_customer(cupon, customer, service=None):
     validate_coupon_availability(cupon)
     validate_coupon_phone_rule(cupon, customer)
+    validate_coupon_service_rule(cupon, service)
 
 
 def get_coupon_by_name_or_raise(code_name):
@@ -129,9 +155,9 @@ def get_coupon_by_name_or_raise(code_name):
         raise CouponRedeemError('El código no existe, por favor contacta a tu vendedor.')
 
 
-def validate_coupon_from_code(code_name, customer):
+def validate_coupon_from_code(code_name, customer, service=None):
     cupon = get_coupon_by_name_or_raise(code_name)
-    validate_coupon_for_customer(cupon, customer)
+    validate_coupon_for_customer(cupon, customer, service=service)
     return cupon
 
 
@@ -144,7 +170,13 @@ def consume_coupon(code_name, customer, seller=None, sale=None, channel=CouponRe
     except Cupon.DoesNotExist:
         raise CouponRedeemError('El código no existe, por favor contacta a tu vendedor.')
 
-    validate_coupon_for_customer(cupon, customer)
+    redeem_service = None
+    if account is not None:
+        redeem_service = account.account_name if isinstance(account, Account) else account
+    elif sale is not None and getattr(sale, 'account', None):
+        redeem_service = sale.account.account_name
+
+    validate_coupon_for_customer(cupon, customer, service=redeem_service)
 
     cupon.used_count = F('used_count') + 1
     cupon.used_at = timezone.now()

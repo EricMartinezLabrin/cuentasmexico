@@ -234,6 +234,7 @@ urlpatterns = [
     path('marketing/<int:pk>/title/', login_required(views.marketing_campaign_update_title), name='marketing_campaign_update_title'),
     path('marketing/<int:pk>/regenerate/', login_required(views.marketing_campaign_regenerate), name='marketing_campaign_regenerate'),
     path('marketing/<int:pk>/send/', login_required(views.marketing_campaign_send), name='marketing_campaign_send'),
+    path('marketing/<int:pk>/deliveries/<int:delivery_id>/force-send/', login_required(views.marketing_campaign_force_send_delivery), name='marketing_campaign_force_send_delivery'),
     path('marketing/<int:pk>/refresh-recommendations/', login_required(views.marketing_campaign_refresh_recommendations), name='marketing_campaign_refresh_recommendations'),
     path('marketing/<int:pk>/recommendations.csv', login_required(views.marketing_campaign_recommendations_csv), name='marketing_campaign_recommendations_csv'),
 ]

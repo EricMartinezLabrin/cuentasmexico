@@ -334,9 +334,32 @@
           })
         });
         clearTimeout(timeoutId);
-        var data = await response.json();
+        var rawBody = await response.text();
+        var data = null;
+        try {
+          data = rawBody ? JSON.parse(rawBody) : null;
+        } catch (parseError) {
+          data = null;
+        }
         clearInterval(stageTimer);
         statusMsg.remove();
+
+        if ((response.redirected && /\/login\b/.test(response.url || "")) || (!data && /<html/i.test(rawBody || ""))) {
+          appendMessage(
+            "assistant",
+            "Tu sesión parece expirada. Recarga la página e inicia sesión de nuevo."
+          );
+          return;
+        }
+
+        if (!data) {
+          appendMessage(
+            "assistant",
+            "El servidor devolvió una respuesta no válida. Intenta de nuevo en unos segundos."
+          );
+          return;
+        }
+
         if (!response.ok || !data.success) {
           var extra = data && data.details ? "\n\n" + data.details : "";
           appendMessage(
@@ -361,7 +384,8 @@
             "La respuesta tardó demasiado. Intenta una pregunta más corta o cambia a un modelo más rápido."
           );
         } else {
-          appendMessage("assistant", "Error de conexión con el asistente.");
+          var networkDetail = error && error.message ? (" Detalle técnico: " + error.message) : "";
+          appendMessage("assistant", "Error de conexión con el asistente." + networkDetail);
         }
       } finally {
         pendingImages = [];
