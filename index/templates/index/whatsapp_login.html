@@ -99,7 +99,7 @@
 
                             <div class="col-12 text-center">
                                 <hr>
-                                <a href="{% url 'login' %}" class="text-muted">
+                                <a href="{% url 'login' %}{% if post_login_redirect %}?next={{ post_login_redirect|urlencode }}{% endif %}" class="text-muted">
                                     <i class="bi bi-arrow-left"></i> Volver al inicio de sesión tradicional
                                 </a>
                             </div>
@@ -115,6 +115,7 @@
                 let codeSent = false;
                 let countdown = 60;
                 let countdownInterval;
+                const postLoginRedirect = "{{ post_login_redirect|escapejs }}";
 
                 function showAlert(message, type = 'danger') {
                     const alertHtml = `
@@ -160,7 +161,8 @@
                         contentType: 'application/json',
                         data: JSON.stringify({
                             phone_number: phone_number,
-                            country: country
+                            country: country,
+                            next: postLoginRedirect
                         }),
                         success: function(response) {
                             if (response.success) {
@@ -220,14 +222,15 @@
                         data: JSON.stringify({
                             phone_number: phone_number,
                             country: country,
-                            code: code
+                            code: code,
+                            next: postLoginRedirect
                         }),
                         success: function(response) {
                             if (response.success) {
                                 showAlert('¡Código verificado! Iniciando sesión...', 'success');
                                 $('#id_login_verification_code').removeClass('pulse-animation');
                                 setTimeout(() => {
-                                    window.location.href = '{% url "my_account" %}';
+                                    window.location.href = response.redirect_url || '{% url "redirect_on_login" %}';
                                 }, 1000);
                             } else {
                                 showAlert(response.message);

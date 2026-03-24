@@ -10,6 +10,7 @@ from django.views.generic import DetailView, CreateView, TemplateView, ListView,
 from django.views.generic.edit import FormView
 from django.http import HttpResponseRedirect
 from django.utils import timezone
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.core.validators import validate_email
@@ -56,6 +57,49 @@ from urllib.error import URLError, HTTPError
 from .utils_affiliates import procesar_venta_afiliado_desde_carrito
 
 # Index
+POST_LOGIN_REDIRECT_SESSION_KEY = 'post_login_redirect_to'
+
+
+def _sanitize_post_login_redirect(request, target_url):
+    if not target_url:
+        return None
+
+    target_url = str(target_url).strip()
+    if not target_url:
+        return None
+
+    # Evita redirecciones abiertas y valida que sea interna/permitida.
+    if not url_has_allowed_host_and_scheme(
+        url=target_url,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        return None
+
+    blocked_paths = {
+        reverse('login'),
+        reverse('whatsapp_login'),
+        reverse('logout'),
+    }
+    if any(target_url.startswith(path) for path in blocked_paths):
+        return None
+
+    return target_url
+
+
+def _store_post_login_redirect(request, target_url):
+    safe_target = _sanitize_post_login_redirect(request, target_url)
+    if safe_target:
+        request.session[POST_LOGIN_REDIRECT_SESSION_KEY] = safe_target
+    return safe_target
+
+
+def _get_post_login_redirect(request, pop=False):
+    if pop:
+        target_url = request.session.pop(POST_LOGIN_REDIRECT_SESSION_KEY, None)
+    else:
+        target_url = request.session.get(POST_LOGIN_REDIRECT_SESSION_KEY)
+    return _sanitize_post_login_redirect(request, target_url)
 
 
 def index(request):
@@ -519,6 +563,7 @@ class LoginPageView(LoginView):
     template_name = "index/login.html"
 
     def get(self, request, *args, **kwargs):
+        _store_post_login_redirect(request, request.GET.get(self.redirect_field_name))
         response = super().get(request, *args, **kwargs)
         response.xframe_options_exempt = True
         if 'X-Frame-Options' in response:
@@ -526,6 +571,7 @@ class LoginPageView(LoginView):
         return response
 
     def post(self, request, *args, **kwargs):
+        _store_post_login_redirect(request, request.POST.get(self.redirect_field_name) or request.GET.get(self.redirect_field_name))
         response = super().post(request, *args, **kwargs)
         response.xframe_options_exempt = True
         if 'X-Frame-Options' in response:
@@ -555,6 +601,7 @@ class WhatsAppLoginView(TemplateView):
     template_name = "index/whatsapp_login.html"
 
     def get(self, request, *args, **kwargs):
+        _store_post_login_redirect(request, request.GET.get('next'))
         response = super().get(request, *args, **kwargs)
         response.xframe_options_exempt = True
         if 'X-Frame-Options' in response:
@@ -567,6 +614,11 @@ class WhatsAppLoginView(TemplateView):
         context["credits"] = BusinessInfo.credits(self.request)
         context['services'] = Service.objects.filter(status=True)
         context['form'] = WhatsAppLoginForm()
+        context['post_login_redirect'] = (
+            _sanitize_post_login_redirect(self.request, self.request.GET.get('next'))
+            or _get_post_login_redirect(self.request)
+            or ''
+        )
         return context
 
 
@@ -728,6 +780,13 @@ def RedirectOnLogin(request):
     """
     Verify permission and details of User and redirect to Main Page or Admin Page
     """
+    pending_redirect = (
+        _sanitize_post_login_redirect(request, request.GET.get('next'))
+        or _get_post_login_redirect(request, pop=True)
+    )
+    if pending_redirect:
+        return redirect(pending_redirect)
+
     admin_list = ['superadmin', 'admin', 'supervisor', 'salesman']
     # Verify Details
     try:
@@ -1800,6 +1859,7 @@ def whatsapp_login_verify_and_auth(request):
         phone_number = data.get('phone_number', '').strip()
         country = data.get('country', '').strip()
         code = data.get('code', '').strip()
+        next_url = data.get('next', '').strip()
 
         if not phone_number or not country or not code:
             return JsonResponse({
@@ -1841,10 +1901,17 @@ def whatsapp_login_verify_and_auth(request):
             # Clean up cache
             cache.delete(login_cache_key)
 
+            # Resolver destino posterior al login (prioriza next del flujo actual)
+            redirect_url = (
+                _sanitize_post_login_redirect(request, next_url)
+                or _get_post_login_redirect(request, pop=True)
+                or reverse('redirect_on_login')
+            )
+
             return JsonResponse({
                 'success': True,
                 'message': 'Inicio de sesión exitoso',
-                'redirect_url': reverse('redirect_on_login')
+                'redirect_url': redirect_url
             })
 
         except User.DoesNotExist:
