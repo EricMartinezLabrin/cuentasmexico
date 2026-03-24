@@ -224,11 +224,13 @@ urlpatterns = [
     path('marketing/', login_required(views.marketing_campaigns), name='marketing_campaigns'),
     path('marketing/create/', login_required(views.marketing_campaign_create), name='marketing_campaign_create'),
     path('marketing/<int:pk>/', login_required(views.marketing_campaign_detail), name='marketing_campaign_detail'),
+    path('marketing/whatsapp-groups/', login_required(views.marketing_whatsapp_groups), name='marketing_whatsapp_groups'),
     path('marketing/<int:pk>/generation-status/', login_required(views.marketing_campaign_generation_status), name='marketing_campaign_generation_status'),
     path('marketing/<int:pk>/answer-clarifications/', login_required(views.marketing_campaign_answer_clarifications), name='marketing_campaign_answer_clarifications'),
     path('marketing/<int:pk>/feedback/', login_required(views.marketing_campaign_feedback), name='marketing_campaign_feedback'),
     path('marketing/<int:pk>/regenerate-image/', login_required(views.marketing_campaign_regenerate_image), name='marketing_campaign_regenerate_image'),
     path('marketing/<int:pk>/regenerate/', login_required(views.marketing_campaign_regenerate), name='marketing_campaign_regenerate'),
     path('marketing/<int:pk>/send/', login_required(views.marketing_campaign_send), name='marketing_campaign_send'),
+    path('marketing/<int:pk>/refresh-recommendations/', login_required(views.marketing_campaign_refresh_recommendations), name='marketing_campaign_refresh_recommendations'),
     path('marketing/<int:pk>/recommendations.csv', login_required(views.marketing_campaign_recommendations_csv), name='marketing_campaign_recommendations_csv'),
 ]

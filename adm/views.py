@@ -3,6 +3,9 @@ import csv
 import json
 import base64
 import re
+import unicodedata
+import threading
+import time as time_module
 from io import BytesIO
 from django.shortcuts import render
 from django.http import HttpResponse, HttpRequest
@@ -19,6 +22,7 @@ from django.db.models import Sum, Prefetch, Case, When, IntegerField, Q, Count
 from django.db.models import Max
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
+from django.core.cache import cache
 from django.db.models import DateTimeField, ExpressionWrapper, F
 from calendar import monthrange
 # Python
@@ -79,6 +83,8 @@ try:
     from PIL import Image
 except Exception:  # pragma: no cover
     Image = None
+
+WHATSAPP_DISPATCH_MUTEX = threading.Lock()
 
 def is_ajax(request):
     return request.META.get('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest'
@@ -3462,6 +3468,190 @@ def _marketing_parse_json(text):
     return {}
 
 
+def _get_whatsapp_group_options():
+    """
+    Grupos configurables desde .env:
+    AI_WHATSAPP_GROUPS="Ventas MX|1203...@g.us,VIP|1204...@g.us"
+    """
+    cache_key = 'marketing_whatsapp_groups_options'
+    cached = cache.get(cache_key)
+    if isinstance(cached, list) and cached:
+        return cached
+
+    groups_from_api = Notification.fetch_whatsapp_groups()
+    if groups_from_api:
+        cache.set(cache_key, groups_from_api, timeout=180)
+        return groups_from_api
+
+    raw = str(os.getenv('AI_WHATSAPP_GROUPS', '') or '').strip()
+    options = []
+    if not raw:
+        return options
+    for chunk in raw.split(','):
+        token = chunk.strip()
+        if not token:
+            continue
+        if '|' in token:
+            label, gid = token.split('|', 1)
+            group_id = gid.strip()
+            name = label.strip() or group_id
+        else:
+            group_id = token
+            name = token
+        if group_id:
+            options.append({'id': group_id, 'name': name})
+    if options:
+        cache.set(cache_key, options, timeout=180)
+    return options
+
+
+def _fetch_whatsapp_group_options(force_refresh=False):
+    if force_refresh:
+        cache.delete('marketing_whatsapp_groups_options')
+    return _get_whatsapp_group_options()
+
+
+def _is_within_schedule(now_dt, start_hhmm, end_hhmm):
+    if not start_hhmm or not end_hhmm:
+        return True
+    try:
+        start_h, start_m = [int(x) for x in start_hhmm.split(':', 1)]
+        end_h, end_m = [int(x) for x in end_hhmm.split(':', 1)]
+        now_m = now_dt.hour * 60 + now_dt.minute
+        start_mins = start_h * 60 + start_m
+        end_mins = end_h * 60 + end_m
+        if start_mins == end_mins:
+            return True
+        if start_mins < end_mins:
+            return start_mins <= now_m < end_mins
+        return now_m >= start_mins or now_m < end_mins
+    except Exception:
+        return True
+
+
+def _seconds_until_schedule(start_hhmm):
+    try:
+        start_h, start_m = [int(x) for x in start_hhmm.split(':', 1)]
+        now_dt = timezone.localtime(timezone.now())
+        target = now_dt.replace(hour=start_h, minute=start_m, second=0, microsecond=0)
+        if target <= now_dt:
+            target = target + timedelta(days=1)
+        return max(60, int((target - now_dt).total_seconds()))
+    except Exception:
+        return 300
+
+
+def _is_whatsapp_campaign_running(exclude_campaign_id=None):
+    qs = MarketingCampaign.objects.all().order_by('-updated_at')[:300]
+    for c in qs:
+        if exclude_campaign_id and c.id == exclude_campaign_id:
+            continue
+        meta = c.audience_filters or {}
+        dispatch = meta.get('dispatch') if isinstance(meta.get('dispatch'), dict) else {}
+        if dispatch.get('channel') == 'whatsapp' and dispatch.get('status') == 'running':
+            return c
+    return None
+
+
+def _find_next_whatsapp_queued_campaign(exclude_campaign_id=None):
+    candidates = []
+    for c in MarketingCampaign.objects.all().order_by('updated_at')[:400]:
+        if exclude_campaign_id and c.id == exclude_campaign_id:
+            continue
+        meta = c.audience_filters or {}
+        dispatch = meta.get('dispatch') if isinstance(meta.get('dispatch'), dict) else {}
+        if dispatch.get('channel') == 'whatsapp' and dispatch.get('status') == 'queued':
+            candidates.append(c)
+    return candidates[0] if candidates else None
+
+
+def _run_whatsapp_dispatch_worker(campaign_id):
+    with WHATSAPP_DISPATCH_MUTEX:
+        campaign = MarketingCampaign.objects.get(pk=campaign_id)
+        meta = campaign.audience_filters or {}
+        dispatch = meta.get('dispatch') if isinstance(meta.get('dispatch'), dict) else {}
+        dispatch_cfg = dispatch.get('config') if isinstance(dispatch.get('config'), dict) else {}
+        messages_per_hour = int(dispatch_cfg.get('messages_per_hour') or 20)
+        messages_per_hour = max(1, min(messages_per_hour, 500))
+        start_hour = str(dispatch_cfg.get('start_hour') or '')
+        end_hour = str(dispatch_cfg.get('end_hour') or '')
+
+        # Si hay otra campaña corriendo, vuelve a cola y sale.
+        running_other = _is_whatsapp_campaign_running(exclude_campaign_id=campaign.id)
+        if running_other:
+            dispatch['status'] = 'queued'
+            dispatch['status_note'] = f'En cola. Ejecutándose campaña #{running_other.id}'
+            meta['dispatch'] = dispatch
+            campaign.audience_filters = meta
+            campaign.save(update_fields=['audience_filters', 'updated_at'])
+            return
+
+        dispatch['status'] = 'running'
+        dispatch['started_at'] = timezone.now().isoformat()
+        dispatch['status_note'] = 'Envío de contactos en ejecución'
+        meta['dispatch'] = dispatch
+        campaign.audience_filters = meta
+        campaign.save(update_fields=['audience_filters', 'updated_at'])
+
+        selected = campaign.recommendations.filter(selected=True).order_by('-score')[:1000]
+        interval_seconds = max(1.0, 3600.0 / float(messages_per_hour))
+        sent_count = 0
+        failed_count = 0
+
+        for rec in selected:
+            now_local = timezone.localtime(timezone.now())
+            while not _is_within_schedule(now_local, start_hour, end_hour):
+                dispatch['status_note'] = f'Pausado por horario ({start_hour}-{end_hour})'
+                meta['dispatch'] = dispatch
+                campaign.audience_filters = meta
+                campaign.save(update_fields=['audience_filters', 'updated_at'])
+                time_module.sleep(_seconds_until_schedule(start_hour))
+                now_local = timezone.localtime(timezone.now())
+
+            destination = f"+{rec.lada}{rec.phone_number}" if rec.lada and rec.phone_number else rec.customer.email
+            status_value = 'queued'
+            response_message = 'Registrado en histórico'
+            try:
+                if rec.lada and rec.phone_number and campaign.message_text:
+                    Notification.send_whatsapp_notification(campaign.message_text, rec.lada, rec.phone_number)
+                    status_value = 'sent'
+                    response_message = 'WhatsApp enviado'
+                    sent_count += 1
+                else:
+                    status_value = 'skipped'
+                    response_message = 'Sin teléfono válido'
+                    failed_count += 1
+            except Exception as exc:
+                status_value = 'failed'
+                response_message = _error_to_text(exc)
+                failed_count += 1
+
+            MarketingCampaignDelivery.objects.create(
+                campaign=campaign,
+                recommendation=rec,
+                channel='whatsapp',
+                destination=destination,
+                payload_text=campaign.message_text or '',
+                payload_image_url=campaign.creative_image.url if campaign.creative_image else '',
+                status=status_value,
+                provider_response=response_message,
+                sent_at=timezone.now() if status_value in ('sent', 'queued') else None,
+            )
+            time_module.sleep(interval_seconds)
+
+        dispatch['status'] = 'done'
+        dispatch['finished_at'] = timezone.now().isoformat()
+        dispatch['status_note'] = f'Completado. enviados={sent_count}, fallidos={failed_count}'
+        meta['dispatch'] = dispatch
+        campaign.audience_filters = meta
+        campaign.status = 'sent'
+        campaign.sent_at = timezone.now()
+        campaign.save(update_fields=['audience_filters', 'status', 'sent_at', 'updated_at'])
+
+    next_campaign = _find_next_whatsapp_queued_campaign(exclude_campaign_id=campaign_id)
+    if next_campaign:
+        Thread(target=_run_whatsapp_dispatch_worker, args=(next_campaign.id,), daemon=True).start()
+
 def _mysql_safe_text(value):
     """
     Evita errores 'Incorrect string value' en MySQL utf8 (3 bytes),
@@ -3784,10 +3974,19 @@ def _normalize_country_list(values):
         return []
     cleaned = []
     for item in values:
-        val = _mysql_safe_text(item).strip().lower()
+        val = _normalize_token(item)
         if val and val not in cleaned:
             cleaned.append(val)
     return cleaned[:20]
+
+
+def _normalize_token(value):
+    raw = _mysql_safe_text(value).strip().lower()
+    if not raw:
+        return ''
+    normalized = unicodedata.normalize('NFD', raw)
+    normalized = ''.join(ch for ch in normalized if unicodedata.category(ch) != 'Mn')
+    return normalized
 
 
 def _infer_audience_strategy(campaign):
@@ -3864,18 +4063,39 @@ def _infer_audience_strategy(campaign):
     strategy['max_total_orders'] = max(strategy['min_total_orders'], min(int(strategy.get('max_total_orders', 9999)), 10000))
     strategy['min_total_revenue'] = max(0.0, float(strategy.get('min_total_revenue', 0.0)))
     strategy['max_active_sales_now'] = max(0, min(int(strategy.get('max_active_sales_now', 999)), 999))
+
+    # Guardrail de coherencia:
+    # si es reactivation y el texto/nota dice no excluir otras ventas activas,
+    # no bloquear por activas globales, solo por servicio objetivo activo.
+    notes_blob = _normalize_token(strategy.get('notes', ''))
+    campaign_blob = _normalize_token(_campaign_text_blob(campaign))
+    hint_no_global_exclusion = any(
+        token in f"{notes_blob} {campaign_blob}"
+        for token in [
+            "no excluir otras ventas activas",
+            "no excluir ventas activas",
+            "solo netflix activo",
+            "solo servicio objetivo activo",
+            "no excluir otras activas",
+        ]
+    )
+    if strategy.get('segment_type') == 'reactivation' and hint_no_global_exclusion:
+        strategy['require_no_active_sales'] = False
+        strategy['max_active_sales_now'] = 999
+        strategy['notes'] = f"{strategy.get('notes', '')} [ajuste: no excluir por activas globales]"
     return strategy
 
 
 def _build_audience_recommendations(campaign, limit=250):
     campaign.recommendations.all().delete()
     now = timezone.now()
-    base_qs = Sale.objects.filter(status=True, created_at__gte=now - timedelta(days=365))
+    # Historial completo de compras (incluye ventas ya no activas) para detectar inactividad real.
+    base_qs = Sale.objects.filter(created_at__gte=now - timedelta(days=2555))
     if campaign.created_by and not campaign.created_by.is_superuser:
         base_qs = base_qs.filter(user_seller=campaign.created_by)
 
     catalog_rows = list(
-        base_qs.values('account_id', 'account__account_name__description')
+        base_qs.values('account__account_name_id', 'account__account_name__description')
         .annotate(total_sales=Count('id'))
         .order_by('-total_sales')[:50]
     )
@@ -3884,17 +4104,32 @@ def _build_audience_recommendations(campaign, limit=250):
     for item in catalog_rows:
         desc = str(item.get('account__account_name__description') or '').strip().lower()
         if desc and desc in search_text:
-            target_service_ids.add(item['account_id'])
+            target_service_ids.add(item['account__account_name_id'])
     if not target_service_ids and catalog_rows:
-        target_service_ids.add(catalog_rows[0]['account_id'])
+        target_service_ids.add(catalog_rows[0]['account__account_name_id'])
     strategy = _infer_audience_strategy(campaign)
     for keyword in strategy.get('service_keywords', []):
         for item in catalog_rows:
             desc = str(item.get('account__account_name__description') or '').strip().lower()
             if keyword and keyword in desc:
-                target_service_ids.add(item['account_id'])
+                target_service_ids.add(item['account__account_name_id'])
     countries_include = set(strategy.get('countries_include', []))
     countries_exclude = set(strategy.get('countries_exclude', []))
+    filter_stats = {
+        'total_candidates': 0,
+        'selected': 0,
+        'excluded_country_include': 0,
+        'excluded_country_exclude': 0,
+        'excluded_days_inactive': 0,
+        'excluded_orders_range': 0,
+        'excluded_revenue': 0,
+        'excluded_active_global': 0,
+        'excluded_active_cap': 0,
+        'excluded_service_history': 0,
+        'excluded_target_active': 0,
+        'excluded_recent_same_service': 0,
+        'excluded_no_phone': 0,
+    }
 
     rows = (
         base_qs.values(
@@ -3915,6 +4150,7 @@ def _build_audience_recommendations(campaign, limit=250):
 
     objective = (campaign.objective or '').lower()
     for row in rows:
+        filter_stats['total_candidates'] += 1
         total_revenue = float(row.get('total_revenue') or 0)
         total_orders = int(row.get('total_orders') or 0)
         last_purchase = row.get('last_purchase')
@@ -3939,56 +4175,64 @@ def _build_audience_recommendations(campaign, limit=250):
         if target_service_ids:
             recent_same_service = Sale.objects.filter(
                 customer_id=row['customer_id'],
-                account_id__in=target_service_ids,
-                status=True,
-                created_at__gte=now - timedelta(days=2),
+                account__account_name_id__in=target_service_ids,
+                created_at__gte=now - timedelta(days=strategy.get('exclude_recent_same_service_days', 2)),
             ).exists()
             service_history = Sale.objects.filter(
                 customer_id=row['customer_id'],
-                account_id__in=target_service_ids,
-                status=True,
-                created_at__lt=now - timedelta(days=2),
+                account__account_name_id__in=target_service_ids,
             ).count()
             target_last_purchase = Sale.objects.filter(
                 customer_id=row['customer_id'],
-                account_id__in=target_service_ids,
+                account__account_name_id__in=target_service_ids,
             ).aggregate(last=Max('created_at')).get('last')
             if target_last_purchase:
                 target_days_inactive = (now - target_last_purchase).days
             target_active_now = Sale.objects.filter(
                 customer_id=row['customer_id'],
-                account_id__in=target_service_ids,
+                account__account_name_id__in=target_service_ids,
                 status=True,
                 expiration_date__gte=now,
             ).exists()
             score += min(service_history * 4, 32)
 
         eligible = True
-        country_value = _mysql_safe_text(row.get('customer__userdetail__country') or '').strip().lower()
+        country_value = _normalize_token(row.get('customer__userdetail__country') or '')
         if countries_include and country_value not in countries_include:
             eligible = False
+            filter_stats['excluded_country_include'] += 1
         if country_value and country_value in countries_exclude:
             eligible = False
+            filter_stats['excluded_country_exclude'] += 1
         if days_inactive < strategy.get('min_days_inactive', 0) or days_inactive > strategy.get('max_days_inactive', 3650):
             eligible = False
+            filter_stats['excluded_days_inactive'] += 1
         if total_orders < strategy.get('min_total_orders', 0) or total_orders > strategy.get('max_total_orders', 9999):
             eligible = False
+            filter_stats['excluded_orders_range'] += 1
         if total_revenue < strategy.get('min_total_revenue', 0):
             eligible = False
+            filter_stats['excluded_revenue'] += 1
         if strategy.get('require_no_active_sales') and active_sales_now > 0:
             eligible = False
+            filter_stats['excluded_active_global'] += 1
         if active_sales_now > strategy.get('max_active_sales_now', 999):
             eligible = False
+            filter_stats['excluded_active_cap'] += 1
         if strategy.get('require_service_history') and service_history <= 0 and not target_last_purchase:
             eligible = False
+            filter_stats['excluded_service_history'] += 1
         if strategy.get('require_target_service_inactive') and target_active_now:
             eligible = False
+            filter_stats['excluded_target_active'] += 1
         if recent_same_service and strategy.get('exclude_recent_same_service_days', 0) > 0:
             eligible = False
+            filter_stats['excluded_recent_same_service'] += 1
 
         has_phone = bool(row.get('customer__userdetail__lada')) and bool(row.get('customer__userdetail__phone_number'))
         if campaign.channel in ('whatsapp', 'sms') and not has_phone:
             eligible = False
+            filter_stats['excluded_no_phone'] += 1
 
         segment_type = strategy.get('segment_type', 'general')
         if segment_type == 'reactivation':
@@ -4027,6 +4271,8 @@ def _build_audience_recommendations(campaign, limit=250):
             reason=reason,
             selected=eligible and score > 0,
         )
+        if eligible and score > 0:
+            filter_stats['selected'] += 1
 
     keep_ids = list(
         campaign.recommendations.filter(selected=True).order_by('-score').values_list('id', flat=True)[:limit]
@@ -4034,6 +4280,7 @@ def _build_audience_recommendations(campaign, limit=250):
     campaign.recommendations.exclude(id__in=keep_ids).delete()
     campaign.audience_filters = campaign.audience_filters or {}
     campaign.audience_filters['audience_strategy'] = strategy
+    campaign.audience_filters['audience_filter_stats'] = filter_stats
     campaign.save(update_fields=['audience_filters', 'updated_at'])
 
 
@@ -4352,6 +4599,7 @@ def marketing_campaign_create(request):
 def marketing_campaign_detail(request, pk):
     campaign = MarketingCampaign.objects.get(pk=pk)
     meta = campaign.audience_filters or {}
+    dispatch_meta = meta.get('dispatch') if isinstance(meta.get('dispatch'), dict) else {}
     return render(
         request,
         'adm/marketing/campaign_detail.html',
@@ -4361,8 +4609,17 @@ def marketing_campaign_detail(request, pk):
             'deliveries': campaign.deliveries.order_by('-created_at')[:350],
             'stats': campaign.stats_snapshot or {},
             'audience_strategy': meta.get('audience_strategy', {}),
+            'whatsapp_group_options': _get_whatsapp_group_options(),
+            'dispatch_meta': dispatch_meta,
         },
     )
+
+
+@permission_required('is_superuser', 'adm:no-permission')
+def marketing_whatsapp_groups(request):
+    force = request.GET.get('force') in ('1', 'true', 'yes')
+    groups = _fetch_whatsapp_group_options(force_refresh=force)
+    return JsonResponse({'success': True, 'groups': groups, 'count': len(groups)})
 
 
 @permission_required('is_superuser', 'adm:no-permission')
@@ -4526,43 +4783,104 @@ def marketing_campaign_regenerate(request, pk):
 
 @permission_required('is_superuser', 'adm:no-permission')
 def marketing_campaign_send(request, pk):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
     campaign = MarketingCampaign.objects.get(pk=pk)
+    delivery_channel = (request.POST.get('delivery_channel') or campaign.channel or 'whatsapp').strip().lower()
+    if delivery_channel not in ('whatsapp', 'sms', 'email'):
+        delivery_channel = 'whatsapp'
+    selected_group_ids = request.POST.getlist('group_ids')
+    messages_per_hour = int(request.POST.get('messages_per_hour') or 20)
+    messages_per_hour = max(1, min(messages_per_hour, 500))
+    schedule_start = (request.POST.get('schedule_start') or '').strip()
+    schedule_end = (request.POST.get('schedule_end') or '').strip()
+
     selected = campaign.recommendations.filter(selected=True).order_by('-score')[:350]
     actual_send_enabled = os.getenv('AI_MARKETING_ACTUAL_SEND', 'false').lower() in ('1', 'true', 'yes', 'on')
     send_now = request.POST.get('send_now', 'false') == 'true'
     sent_count = 0
     failed_count = 0
 
-    for rec in selected:
-        if campaign.channel == 'whatsapp':
-            destination = f"+{rec.lada}{rec.phone_number}" if rec.lada and rec.phone_number else rec.customer.email
+    # 1) Envío a grupos (WhatsApp) inmediato si se seleccionaron.
+    if send_now and delivery_channel == 'whatsapp' and selected_group_ids:
+        for gid in selected_group_ids:
+            gid_clean = _mysql_safe_text(gid).strip()
+            if not gid_clean:
+                continue
             status_value = 'queued'
-            response_message = 'Registrado en histórico'
-            if send_now and actual_send_enabled and rec.lada and rec.phone_number and campaign.message_text:
+            response_message = 'Grupo registrado en histórico'
+            if actual_send_enabled and campaign.message_text:
                 try:
-                    Notification.send_whatsapp_notification(campaign.message_text, rec.lada, rec.phone_number)
+                    Notification.send_whatsapp_group_notification(campaign.message_text, gid_clean)
                     status_value = 'sent'
-                    response_message = 'WhatsApp enviado'
+                    response_message = 'WhatsApp grupo enviado'
                     sent_count += 1
                 except Exception as exc:
                     status_value = 'failed'
-                    response_message = str(exc)
+                    response_message = _error_to_text(exc)
                     failed_count += 1
             else:
                 sent_count += 1
-
             MarketingCampaignDelivery.objects.create(
                 campaign=campaign,
-                recommendation=rec,
                 channel='whatsapp',
-                destination=destination,
+                destination=f"group:{gid_clean}",
                 payload_text=campaign.message_text or '',
                 payload_image_url=campaign.creative_image.url if campaign.creative_image else '',
                 status=status_value,
                 provider_response=response_message,
                 sent_at=timezone.now() if status_value in ('sent', 'queued') else None,
             )
+
+    # 2) Envío por contactos según canal.
+    if send_now and delivery_channel == 'whatsapp':
+        if not actual_send_enabled:
+            # Sin envío real habilitado: solo historial
+            for rec in selected:
+                destination = f"+{rec.lada}{rec.phone_number}" if rec.lada and rec.phone_number else rec.customer.email
+                sent_count += 1
+                MarketingCampaignDelivery.objects.create(
+                    campaign=campaign,
+                    recommendation=rec,
+                    channel='whatsapp',
+                    destination=destination,
+                    payload_text=campaign.message_text or '',
+                    payload_image_url=campaign.creative_image.url if campaign.creative_image else '',
+                    status='queued',
+                    provider_response='WhatsApp registrado en histórico (AI_MARKETING_ACTUAL_SEND=false).',
+                    sent_at=timezone.now(),
+                )
+            campaign.status = 'sent'
+            campaign.sent_at = timezone.now()
+            campaign.save(update_fields=['status', 'sent_at', 'updated_at'])
         else:
+            # Cola de WhatsApp contactos: sólo una campaña ejecutando a la vez.
+            running = _is_whatsapp_campaign_running(exclude_campaign_id=campaign.id)
+            meta = campaign.audience_filters or {}
+            dispatch = meta.get('dispatch') if isinstance(meta.get('dispatch'), dict) else {}
+            dispatch.update(
+                {
+                    'channel': 'whatsapp',
+                    'status': 'queued' if running else 'running',
+                    'queued_at': timezone.now().isoformat(),
+                    'status_note': (
+                        f'En cola. Ejecutándose campaña #{running.id}' if running else 'Iniciando envío'
+                    ),
+                    'config': {
+                        'messages_per_hour': messages_per_hour,
+                        'start_hour': schedule_start,
+                        'end_hour': schedule_end,
+                        'group_ids': selected_group_ids,
+                    },
+                }
+            )
+            meta['dispatch'] = dispatch
+            campaign.audience_filters = meta
+            campaign.save(update_fields=['audience_filters', 'updated_at'])
+            if not running:
+                Thread(target=_run_whatsapp_dispatch_worker, args=(campaign.id,), daemon=True).start()
+    elif send_now and delivery_channel == 'sms':
+        for rec in selected:
             destination = f"+{rec.lada}{rec.phone_number}" if rec.lada and rec.phone_number else rec.customer.email
             sent_count += 1
             MarketingCampaignDelivery.objects.create(
@@ -4575,13 +4893,60 @@ def marketing_campaign_send(request, pk):
                 provider_response='SMS registrado en histórico (sin proveedor configurado).',
                 sent_at=timezone.now(),
             )
-
-    campaign.status = 'sent'
-    campaign.sent_at = timezone.now()
-    campaign.save(update_fields=['status', 'sent_at', 'updated_at'])
+        campaign.status = 'sent'
+        campaign.sent_at = timezone.now()
+        campaign.save(update_fields=['status', 'sent_at', 'updated_at'])
+    elif send_now and delivery_channel == 'email':
+        for rec in selected:
+            destination = rec.customer.email
+            sent_count += 1
+            MarketingCampaignDelivery.objects.create(
+                campaign=campaign,
+                recommendation=rec,
+                channel='sms',
+                destination=destination,
+                payload_text=(campaign.message_text or '')[:5000],
+                status='queued',
+                provider_response='Email listo para integración futura (pendiente proveedor).',
+                sent_at=timezone.now(),
+            )
+        campaign.status = 'sent'
+        campaign.sent_at = timezone.now()
+        campaign.save(update_fields=['status', 'sent_at', 'updated_at'])
+    else:
+        # Registrar histórico sin envío real
+        for rec in selected:
+            destination = f"+{rec.lada}{rec.phone_number}" if rec.lada and rec.phone_number else rec.customer.email
+            sent_count += 1
+            MarketingCampaignDelivery.objects.create(
+                campaign=campaign,
+                recommendation=rec,
+                channel='whatsapp' if delivery_channel == 'whatsapp' else 'sms',
+                destination=destination,
+                payload_text=(campaign.sms_text or campaign.message_text or '')[:1600],
+                status='queued',
+                provider_response='Registrado en histórico',
+                sent_at=timezone.now(),
+            )
+        campaign.status = 'sent'
+        campaign.sent_at = timezone.now()
+        campaign.save(update_fields=['status', 'sent_at', 'updated_at'])
 
     if request.headers.get('x-requested-with') == 'XMLHttpRequest':
-        return JsonResponse({'success': True, 'sent_count': sent_count, 'failed_count': failed_count})
+        queue_state = None
+        if delivery_channel == 'whatsapp':
+            meta = campaign.audience_filters or {}
+            dispatch = meta.get('dispatch') if isinstance(meta.get('dispatch'), dict) else {}
+            queue_state = dispatch.get('status')
+        return JsonResponse(
+            {
+                'success': True,
+                'sent_count': sent_count,
+                'failed_count': failed_count,
+                'delivery_channel': delivery_channel,
+                'queue_state': queue_state,
+            }
+        )
     return redirect('adm:marketing_campaign_detail', campaign.id)
 
 
@@ -4610,3 +4975,38 @@ def marketing_campaign_recommendations_csv(request, pk):
             r.reason or '',
         ])
     return response
+
+
+@permission_required('is_superuser', 'adm:no-permission')
+def marketing_campaign_refresh_recommendations(request, pk):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
+    campaign = MarketingCampaign.objects.get(pk=pk)
+    try:
+        _build_audience_recommendations(campaign, limit=300)
+    except Exception as exc:
+        return JsonResponse({'success': False, 'error': _error_to_text(exc)}, status=500)
+    selected_qs = campaign.recommendations.filter(selected=True).order_by('-score')[:350]
+    count_selected = selected_qs.count()
+    rows = []
+    for r in selected_qs:
+        rows.append(
+            {
+                'username': r.customer.username,
+                'email': r.customer.email,
+                'country': r.country or '-',
+                'phone': f"+{r.lada} {r.phone_number}" if r.lada and r.phone_number else '-',
+                'total_orders': r.total_orders,
+                'total_revenue': str(r.total_revenue),
+                'score': str(r.score),
+                'reason': r.reason or '',
+            }
+        )
+    return JsonResponse(
+        {
+            'success': True,
+            'selected_count': count_selected,
+            'message': f'Audiencia refrescada. Clientes recomendados: {count_selected}',
+            'rows': rows,
+        }
+    )

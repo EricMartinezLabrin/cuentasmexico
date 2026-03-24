@@ -1,4 +1,13 @@
 (function () {
+  function escapeHtml(str) {
+    return String(str || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
   function initCreatePage() {
     const form = document.getElementById('marketing-campaign-form');
     const statusBox = document.getElementById('marketing-generate-status');
@@ -59,6 +68,155 @@
   }
 
   function initDetailPage() {
+    const refreshAudienceForm = document.getElementById('refresh-recommendations-form');
+    const refreshAudienceStatus = document.getElementById('refresh-recommendations-status');
+    const recommendationsTbody = document.getElementById('recommendations-tbody');
+    const recommendationsCount = document.getElementById('recommendations-count');
+    if (refreshAudienceForm && refreshAudienceStatus) {
+      refreshAudienceForm.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        refreshAudienceStatus.className = 'alert alert-info m-2 py-2';
+        refreshAudienceStatus.classList.remove('d-none');
+        refreshAudienceStatus.textContent = 'Recalculando clientes recomendados...';
+        const formData = new FormData(refreshAudienceForm);
+        try {
+          const res = await fetch(refreshAudienceForm.getAttribute('action'), {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+          });
+          const data = await res.json();
+          if (!data.success) {
+            refreshAudienceStatus.className = 'alert alert-danger m-2 py-2';
+            refreshAudienceStatus.textContent = data.error || 'No se pudo refrescar la audiencia.';
+            return;
+          }
+          if (recommendationsCount) {
+            recommendationsCount.textContent = String(data.selected_count || 0);
+          }
+          if (recommendationsTbody) {
+            const rows = Array.isArray(data.rows) ? data.rows : [];
+            if (!rows.length) {
+              recommendationsTbody.innerHTML =
+                '<tr><td colspan="7" class="text-center text-muted py-3">Sin recomendaciones aún.</td></tr>';
+            } else {
+              recommendationsTbody.innerHTML = rows
+                .map(
+                  (r) => `
+                  <tr>
+                    <td>${escapeHtml(r.username)}<br><small class="text-muted">${escapeHtml(r.email)}</small></td>
+                    <td>${escapeHtml(r.country)}</td>
+                    <td>${escapeHtml(r.phone)}</td>
+                    <td>${escapeHtml(r.total_orders)}</td>
+                    <td>$${escapeHtml(r.total_revenue)}</td>
+                    <td><strong>${escapeHtml(r.score)}</strong></td>
+                    <td class="small">${escapeHtml(r.reason)}</td>
+                  </tr>
+                `
+                )
+                .join('');
+            }
+          }
+          refreshAudienceStatus.className = 'alert alert-success m-2 py-2';
+          refreshAudienceStatus.textContent = data.message || 'Audiencia actualizada.';
+        } catch (err) {
+          refreshAudienceStatus.className = 'alert alert-danger m-2 py-2';
+          refreshAudienceStatus.textContent = 'Error de red al refrescar clientes.';
+        }
+      });
+    }
+
+    const refreshBtn = document.getElementById('refresh-whatsapp-groups-btn');
+    const groupsStatus = document.getElementById('whatsapp-groups-status');
+    const groupsContainer = document.getElementById('whatsapp-groups-container');
+    if (refreshBtn && groupsContainer) {
+      refreshBtn.addEventListener('click', async function () {
+        const baseUrl = refreshBtn.getAttribute('data-url');
+        const url = `${baseUrl}?force=1`;
+        if (groupsStatus) {
+          groupsStatus.textContent = 'Actualizando grupos desde Evolution API...';
+        }
+        try {
+          const res = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+          const data = await res.json();
+          if (!data.success) {
+            if (groupsStatus) groupsStatus.textContent = 'No fue posible actualizar grupos.';
+            return;
+          }
+          const groups = Array.isArray(data.groups) ? data.groups : [];
+          if (!groups.length) {
+            groupsContainer.innerHTML =
+              '<div class="small text-muted">No se encontraron grupos desde Evolution API ni fallback.</div>';
+            if (groupsStatus) groupsStatus.textContent = 'Sin grupos disponibles.';
+            return;
+          }
+          const rows = groups
+            .map((g, idx) => {
+              const id = String(g.id || '').replace(/"/g, '&quot;');
+              const name = String(g.name || g.id || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+              return `
+                <div class="col-12 col-md-6">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="group_ids" id="group_dyn_${idx}" value="${id}">
+                    <label class="form-check-label" for="group_dyn_${idx}">
+                      ${name} <small class="text-muted">(${id})</small>
+                    </label>
+                  </div>
+                </div>
+              `;
+            })
+            .join('');
+          groupsContainer.innerHTML = `<div class="row g-2">${rows}</div>`;
+          if (groupsStatus) groupsStatus.textContent = `Grupos actualizados: ${groups.length}`;
+        } catch (err) {
+          if (groupsStatus) groupsStatus.textContent = 'Error de red al actualizar grupos.';
+        }
+      });
+    }
+
+    const sendForm = document.getElementById('marketing-send-real-form');
+    const sendStatus = document.getElementById('marketing-send-modal-status');
+    const waControls = document.getElementById('marketing-whatsapp-controls');
+    if (sendForm && sendStatus) {
+      function toggleChannelControls() {
+        const channel = (sendForm.querySelector('input[name="delivery_channel"]:checked') || {}).value || 'whatsapp';
+        if (waControls) {
+          waControls.style.display = channel === 'whatsapp' ? '' : 'none';
+        }
+      }
+      sendForm.querySelectorAll('input[name="delivery_channel"]').forEach((el) => {
+        el.addEventListener('change', toggleChannelControls);
+      });
+      toggleChannelControls();
+
+      sendForm.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        sendStatus.className = 'alert alert-info mt-3';
+        sendStatus.classList.remove('d-none');
+        sendStatus.textContent = 'Procesando envío...';
+        const formData = new FormData(sendForm);
+        try {
+          const res = await fetch(sendForm.getAttribute('action'), {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+          });
+          const data = await res.json();
+          if (!data.success) {
+            sendStatus.className = 'alert alert-danger mt-3';
+            sendStatus.textContent = data.error || 'No se pudo iniciar el envío.';
+            return;
+          }
+          sendStatus.className = 'alert alert-success mt-3';
+          sendStatus.textContent = `Proceso iniciado. enviados=${data.sent_count || 0}, fallidos=${data.failed_count || 0}`;
+          setTimeout(() => window.location.reload(), 1200);
+        } catch (err) {
+          sendStatus.className = 'alert alert-danger mt-3';
+          sendStatus.textContent = 'Error de red al iniciar envío.';
+        }
+      });
+    }
+
     const imgForm = document.getElementById('marketing-image-regenerate-form');
     const imgStatus = document.getElementById('marketing-image-regenerate-status');
     const imgPreview = document.getElementById('marketing-image-preview');
