@@ -220,6 +220,11 @@ class CartView(TemplateView):
         # Stripe Publishable Key para el SDK de JavaScript
         context['stripe_publishable_key'] = os.environ.get('STRIPE_PUBLISHABLE_KEY', '')
 
+        # Valores seguros para evitar errores cuando la sesion aun no tiene carrito inicializado
+        context['cart_items'] = self.request.session.get('cart_number', {})
+        context['cart_total'] = self.request.session.get('cart_total', 0)
+        context['cart_quantity'] = self.request.session.get('cart_quantity', 0)
+
         # Inicializar valores de pago
         context["init_point"] = None  # MercadoPago
         context["paypal_data"] = None  # PayPal
@@ -363,43 +368,85 @@ class RedeemView(UserAccessMixin, FormView):
         return False
 
     def get_code(self):
-        if self.request.GET.get('name'):
-            code = self.request.GET.get('name')
+        if hasattr(self, '_cached_code'):
+            return self._cached_code
+
+        self._cached_code = None
+        code_name = self.request.GET.get('name')
+        if code_name:
             try:
-                return get_coupon_by_name_or_raise(code)
+                self._cached_code = get_coupon_by_name_or_raise(code_name)
             except CouponRedeemError:
-                return None
-        else:
-            code = None
+                self._cached_code = None
+        return self._cached_code
 
     def get_active_acc(self):
+        if hasattr(self, '_cached_active_acc'):
+            return self._cached_active_acc
+
+        self._cached_active_acc = []
         if self.request.user:
             user = self.request.user
-            active_acc = Sale.objects.filter(customer=user, status=True)
+            active_acc = Sale.objects.filter(
+                customer=user,
+                status=True
+            ).select_related('account', 'account__account_name')
             code = self.get_code()
             if code:
                 excluded_ids = code.excluded_services.values_list('id', flat=True)
                 active_acc = active_acc.exclude(account__account_name_id__in=excluded_ids)
-            return active_acc
+            self._cached_active_acc = active_acc
+        return self._cached_active_acc
 
     def get_error(self):
+        if hasattr(self, '_cached_error'):
+            return self._cached_error
+
         code = self.get_code()
         if not code:
-            return None
+            self._cached_error = None
+            return self._cached_error
         try:
             validate_coupon_for_customer(code, self.request.user)
         except CouponRedeemError as exc:
-            return str(exc)
+            self._cached_error = str(exc)
+            return self._cached_error
+        self._cached_error = None
+        return self._cached_error
+
+    def get_redeem_flow(self):
+        flow = (self.request.GET.get('flow') or '').strip().lower()
+        if flow == 'renew':
+            return flow
         return None
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        code = self.get_code()
+        error = self.get_error()
+        customer_data = list(self.get_active_acc() or [])
+        has_active_accounts = len(customer_data) > 0
+        redeem_flow = self.get_redeem_flow()
+        show_renew_accounts = bool(code and not error and has_active_accounts and redeem_flow == 'renew')
+        show_choice_modal = bool(code and not error and has_active_accounts and not show_renew_accounts)
+
+        renew_accounts_url = ''
+        new_account_url = ''
+        if code:
+            encoded_name = quote(code.name)
+            renew_accounts_url = f"{reverse('redeem')}?name={encoded_name}&flow=renew"
+            new_account_url = f"{reverse('select_acc')}?name={encoded_name}"
+
         context["business"] = BusinessInfo.data()
         context["credits"] = BusinessInfo.credits(self.request)
         context['services'] = Service.objects.filter(status=True)
-        context["error"] = self.get_error()
-        context["code"] = self.get_code()
-        context["customer_data"] = self.get_active_acc()
+        context["error"] = error
+        context["code"] = code
+        context["customer_data"] = customer_data
+        context["show_choice_modal"] = show_choice_modal
+        context["show_renew_accounts"] = show_renew_accounts
+        context["renew_accounts_url"] = renew_accounts_url
+        context["new_account_url"] = new_account_url
         return context
 
 
@@ -500,6 +547,19 @@ class RedeemRenewDoneView(TemplateView):
 
         try:
             renew = Sales.redeem_renew(self.request, service, code, customer)
+            if isinstance(renew, (list, tuple)) and len(renew) > 1 and renew[0] is True:
+                latest_sale = (
+                    Sale.objects.filter(
+                        customer_id=customer,
+                        account=service,
+                        invoice__iexact=code,
+                    )
+                    .only('expiration_date')
+                    .order_by('-id')
+                    .first()
+                )
+                if latest_sale:
+                    renew[1].expiration_date = latest_sale.expiration_date
             return renew
         except (Account.DoesNotExist, CouponRedeemError) as exc:
             return False, str(exc)
@@ -525,11 +585,75 @@ class RedeemRenewDoneView(TemplateView):
 class RedeemDoneView(TemplateView):
     template_name = "index/redeem_done.html"
 
+    def _is_no_stock_result(self, account_result):
+        if not isinstance(account_result, (list, tuple)) or len(account_result) < 2:
+            return False
+        if account_result[0]:
+            return False
+        message = account_result[1]
+        if not isinstance(message, str):
+            return False
+        normalized = message.lower()
+        return (
+            'no hay cuentas disponibles' in normalized
+            or 'sin stock' in normalized
+            or 'sin disponibilidad' in normalized
+        )
+
+    def _notify_no_stock_admin(self, cupon, service):
+        session_key = f"redeem_no_stock_notified_v2:{self.request.user.id}:{cupon.id}:{service.id}"
+        if self.request.session.get(session_key):
+            return
+
+        try:
+            import logging
+            from adm.functions.resend_notifications import ResendEmail
+
+            customer_info = {
+                'username': self.request.user.username,
+                'email': self.request.user.email,
+                'user_id': self.request.user.id
+            }
+            items_without_stock = [{
+                'service_name': service.description,
+                'months': cupon.duration_in_months_approx(),
+                'profiles': 1,
+                'price': cupon.price
+            }]
+            payment_info = {
+                'payment_id': f"coupon-{cupon.name}",
+                'amount': cupon.price,
+                'payment_type': 'coupon_redeem',
+                'cart_id': f"redeem-{self.request.user.id}-{cupon.id}-{service.id}"
+            }
+
+            notified = ResendEmail.notify_no_stock(
+                customer_info,
+                items_without_stock,
+                payment_info
+            )
+            if notified:
+                # Evita correos duplicados por refresh del usuario en la misma sesión.
+                self.request.session[session_key] = True
+            else:
+                logging.getLogger(__name__).error(
+                    "No se pudo notificar sin stock para canje de cupon. "
+                    "Se permitira reintento en la siguiente solicitud."
+                )
+        except Exception:
+            logging.getLogger(__name__).exception(
+                "Error enviando notificacion de sin stock para canje de cupon"
+            )
+
     def complete_redeem(self):
+        if hasattr(self, '_cached_redeem_result'):
+            return self._cached_redeem_result
+
         code = self.request.GET.get('name')
         service_id = self.request.GET.get('service')
         try:
             cupon = get_coupon_by_name_or_raise(code)
+            self._cached_code = cupon
             service = Service.objects.get(pk=service_id)
             validate_coupon_for_customer(cupon, self.request.user, service=service)
             end_date = cupon.get_expiration_date(timezone.now())
@@ -538,18 +662,39 @@ class RedeemDoneView(TemplateView):
             account = Sales.search_better_acc(service_id, end_date, code)
 
             if account[0] == True:
-                Sales.redeem(self.request, account[1], code, customer)
-            return account
+                Sales.redeem(self.request, account[1], code, customer, validated_coupon=cupon)
+                latest_sale = (
+                    Sale.objects.filter(
+                        customer_id=customer,
+                        account=account[1],
+                        invoice=cupon.name,
+                    )
+                    .only('expiration_date')
+                    .order_by('-id')
+                    .first()
+                )
+                if latest_sale:
+                    account[1].expiration_date = latest_sale.expiration_date
+            elif self._is_no_stock_result(account):
+                self._notify_no_stock_admin(cupon, service)
+            self._cached_redeem_result = account
+            return self._cached_redeem_result
         except CouponRedeemError as exc:
-            return False, str(exc)
+            self._cached_redeem_result = (False, str(exc))
+            return self._cached_redeem_result
 
     def get_code(self):
+        if hasattr(self, '_cached_code'):
+            return self._cached_code
+
+        self._cached_code = None
         if self.request.GET.get('name'):
             code = self.request.GET.get('name')
             try:
-                return get_coupon_by_name_or_raise(code)
+                self._cached_code = get_coupon_by_name_or_raise(code)
             except CouponRedeemError:
-                return None
+                self._cached_code = None
+        return self._cached_code
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)

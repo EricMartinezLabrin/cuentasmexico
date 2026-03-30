@@ -1,14 +1,30 @@
-from adm.models import Sale,Service
+from adm.models import Sale, Service
 from datetime import datetime, timedelta
-import operator
+from django.db.models import Count
 
 class Best():
-    def best_sellers(actual=None,limit=None):
+    def best_sellers(actual=None, limit=None):
         start_date = datetime.now() - timedelta(days=30)
-        service_name = Service.objects.all().exclude(id=actual)
-        service_count = {}
-        for name in service_name:
-            sales = Sale.objects.filter(created_at__gte=start_date,account__account_name=name).count()
-            service_count[name]=sales
-        best_sellers=sorted(service_count.items(),key=operator.itemgetter(1), reverse=True)
+        services = list(Service.objects.exclude(id=actual))
+        if not services:
+            return []
+
+        service_ids = [service.id for service in services]
+        sales_by_service = {
+            row['account__account_name']: row['total']
+            for row in (
+                Sale.objects.filter(
+                    created_at__gte=start_date,
+                    account__account_name_id__in=service_ids,
+                )
+                .values('account__account_name')
+                .annotate(total=Count('id'))
+            )
+        }
+
+        best_sellers = sorted(
+            [(service, sales_by_service.get(service.id, 0)) for service in services],
+            key=lambda item: item[1],
+            reverse=True,
+        )
         return best_sellers[:limit]

@@ -4,6 +4,9 @@ Notificaciones por email usando Resend.com
 import os
 import requests
 import logging
+from django.conf import settings
+from django.core.mail import send_mail
+from django.utils.html import strip_tags
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +37,7 @@ class ResendEmail:
             return False
 
         if not from_email:
-            from_email = os.environ.get('RESEND_FROM_EMAIL', 'Cuentas México <noreply@planux.dev>')
+            from_email = os.environ.get('RESEND_FROM_EMAIL', 'Cuentas Mexico <noreply@cuentasmexico.com>')
 
         headers = {
             "Authorization": f"Bearer {api_key}",
@@ -56,7 +59,7 @@ class ResendEmail:
                 timeout=10
             )
 
-            if response.status_code == 200:
+            if 200 <= response.status_code < 300:
                 logger.info(f"Email enviado exitosamente a {to}")
                 return True
             else:
@@ -68,6 +71,46 @@ class ResendEmail:
             return False
 
     @staticmethod
+    def _send_email_fallback(to, subject: str, html: str) -> bool:
+        """
+        Fallback con backend SMTP de Django cuando Resend falla.
+        """
+        recipients = [to] if isinstance(to, str) else list(to or [])
+        if not recipients:
+            return False
+        try:
+            from_email = getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@cuentasmexico.com")
+            sent = send_mail(
+                subject=subject,
+                message=strip_tags(html),
+                from_email=from_email,
+                recipient_list=recipients,
+                html_message=html,
+                fail_silently=False,
+            )
+            if sent:
+                logger.info(f"Email fallback enviado por SMTP a {recipients}")
+                return True
+            logger.error(f"Fallback SMTP no envió correos a {recipients}")
+            return False
+        except Exception:
+            logger.exception("Error enviando fallback SMTP")
+            return False
+
+    @staticmethod
+    def _get_support_whatsapp() -> str:
+        """
+        Obtiene el WhatsApp de soporte desde configuración y usa un fallback seguro.
+        """
+        support_whatsapp = (
+            os.environ.get('SUPPORT_WHATSAPP')
+            or os.environ.get('WHATSAPP_SUPPORT')
+            or getattr(settings, 'SUPPORT_WHATSAPP', None)
+            or '+521 833 535 5863'
+        )
+        return str(support_whatsapp).strip()
+
+    @staticmethod
     def notify_no_stock(customer_info: dict, cart_details: list, payment_info: dict) -> bool:
         """
         Notifica al admin que no hay stock y se requiere entrega manual
@@ -77,7 +120,16 @@ class ResendEmail:
             cart_details: Lista de productos comprados
             payment_info: Información del pago (payment_id, amount, etc)
         """
-        admin_email = os.environ.get('ADMIN_EMAIL', 'eric@fadetechs.com')
+        admin_email_raw = (
+            os.environ.get('ADMIN_EMAILS')
+            or os.environ.get('ADMIN_EMAIL')
+            or getattr(settings, 'ADMIN_EMAIL', None)
+            or 'contacto@cuentasmexico.com'
+        )
+        admin_email = [email.strip() for email in str(admin_email_raw).split(',') if email.strip()]
+        support_whatsapp = ResendEmail._get_support_whatsapp()
+        support_whatsapp_digits = ''.join(ch for ch in support_whatsapp if ch.isdigit())
+        wa_link = f"https://wa.me/{support_whatsapp_digits}" if support_whatsapp_digits else ""
 
         # Construir tabla de productos
         products_html = ""
@@ -159,6 +211,11 @@ class ResendEmail:
                     Por favor, entrega las cuentas manualmente al cliente lo antes posible.
                     El cliente ha sido notificado que recibirá sus claves dentro de 24 horas.
                 </div>
+                
+                <div style="background: #e7f5ec; border: 1px solid #8fd19e; padding: 15px; margin-top: 14px; border-radius: 4px;">
+                    <strong>📱 WhatsApp de soporte:</strong> {support_whatsapp}<br>
+                    {'<a href="' + wa_link + '" style="display:inline-block; margin-top:10px; background:#25D366; color:#fff; text-decoration:none; padding:8px 14px; border-radius:4px;">Abrir WhatsApp</a>' if wa_link else ''}
+                </div>
             </div>
 
             <div style="background: #333; color: white; padding: 15px; text-align: center; border-radius: 0 0 8px 8px;">
@@ -168,9 +225,19 @@ class ResendEmail:
         </html>
         """
 
-        return ResendEmail.send_email(
+        subject = f"🚨 Sin Stock - Entrega Manual Requerida - {customer_info.get('username', 'Cliente')}"
+        sent = ResendEmail.send_email(
             to=admin_email,
-            subject=f"🚨 Sin Stock - Entrega Manual Requerida - {customer_info.get('username', 'Cliente')}",
+            subject=subject,
+            html=html
+        )
+        if sent:
+            return True
+
+        logger.warning("Reintentando notificación sin stock por SMTP fallback")
+        return ResendEmail._send_email_fallback(
+            to=admin_email,
+            subject=subject,
             html=html
         )
 

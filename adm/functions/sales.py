@@ -34,9 +34,12 @@ from django.db.models import Min
 from math import ceil, floor
 import re
 import unicodedata
+import logging
 
 
 class Sales():
+    logger = logging.getLogger(__name__)
+
     @staticmethod
     def _normalize_token(value):
         raw = str(value or '').strip().lower()
@@ -116,6 +119,46 @@ class Sales():
                 pass
         base = campaign.sent_at or campaign.created_at or timezone.now()
         return base + timedelta(days=30)
+
+    @staticmethod
+    def _send_account_delivery_whatsapp(customer, sale):
+        """
+        Envia por WhatsApp las credenciales de la cuenta entregada.
+        Nunca rompe el flujo de venta/canje si falla.
+        """
+        try:
+            detail = UserDetail.objects.get(user=customer)
+            lada = ''.join(ch for ch in str(detail.lada or '') if ch.isdigit())
+            phone_number = ''.join(ch for ch in str(detail.phone_number or '') if ch.isdigit())
+
+            if not lada or not phone_number:
+                return False
+
+            # Evita duplicar lada cuando el numero ya viene completo.
+            if phone_number.startswith(lada) and len(phone_number) > (len(lada) + 6):
+                phone_number = phone_number[len(lada):]
+
+            account = sale.account
+            pin = account.pin if account.pin else "No tiene Pin"
+            message = f"E-Mail: {account.email}\n"
+            message += f"Clave: {account.password}\n"
+            message += f"Perfil: {account.profile}\n"
+            message += f"Pin: {pin}\n"
+            message += f"Vencimiento: {sale.expiration_date.date()}\n\n"
+            message += f"Tu cuenta {account.account_name.description} fue entregada correctamente.\n"
+            message += "Inicia sesion con el EMAIL y CLAVE recibidos.\n\n"
+            message += "* Usa SOLO el perfil asignado\n"
+            message += "* No cambies claves, pin o perfiles\n\n"
+            message += "Soporte oficial: WhatsApp 833 535 5863 y cuentasmexico.com"
+
+            status_code = Notification.send_whatsapp_notification(message, lada, phone_number)
+            return status_code in (200, 201)
+        except Exception as exc:
+            Sales.logger.error(
+                f"Error enviando WhatsApp de entrega para user_id={getattr(customer, 'id', 'N/A')}: {str(exc)}",
+                exc_info=True
+            )
+            return False
 
     @staticmethod
     def customer_marketing_offers(customer):
@@ -200,52 +243,63 @@ class Sales():
         Returns:
             Account object o None si no hay cuentas disponibles
         """
-        from django.db.models import Min
-
-        try:
-            service = Service.objects.get(pk=service_id)
-        except Service.DoesNotExist:
-            return None
-
         # Obtener todas las cuentas disponibles (sin cliente asignado)
-        available_accounts = Account.objects.filter(
-            account_name=service,
-            status=True,
-            customer=None,
-            external_status='Disponible'
-        ).select_related('account_name')
+        # y materializarlas una sola vez para evitar dobles recorridos/consultas.
+        available_accounts = list(
+            Account.objects.filter(
+                account_name_id=service_id,
+                status=True,
+                customer=None,
+                external_status='Disponible'
+            ).select_related('account_name')
+        )
 
-        if not available_accounts.exists():
+        if not available_accounts:
             return None
 
         # Calcular días totales de la suscripción
         dias_totales = months_requested * 30
         now = timezone.now()
 
+        # Agrupar cuentas por email+password para calcular perfiles vacíos
+        # y extraer llaves para buscar próximos cortes en una sola consulta.
+        group_sizes = {}
+        emails = set()
+        passwords = set()
+        for account in available_accounts:
+            key = f"{account.email}|{account.password}"
+            group_sizes[key] = group_sizes.get(key, 0) + 1
+            emails.add(account.email)
+            passwords.add(account.password)
+
+        # Obtener en una sola consulta el próximo vencimiento por credencial.
+        next_sale_by_key = {}
+        if emails and passwords:
+            next_sales = (
+                Sale.objects.filter(
+                    account__account_name_id=service_id,
+                    status=True,
+                    expiration_date__gte=now,
+                    account__email__in=emails,
+                    account__password__in=passwords,
+                )
+                .values('account__email', 'account__password')
+                .annotate(next_expiration=Min('expiration_date'))
+            )
+            for row in next_sales:
+                key = f"{row['account__email']}|{row['account__password']}"
+                next_sale_by_key[key] = row['next_expiration']
+
         # Lista para almacenar cuentas con sus métricas calculadas
         candidates = []
 
-        # Agrupar cuentas por email+password para calcular perfiles vacíos
-        email_groups = {}
         for account in available_accounts:
             key = f"{account.email}|{account.password}"
-            if key not in email_groups:
-                email_groups[key] = []
-            email_groups[key].append(account)
-
-        for account in available_accounts:
-            # Buscar la venta activa más próxima a vencer para este email
-            next_sale = Sale.objects.filter(
-                account__email=account.email,
-                account__password=account.password,
-                account__account_name=service,
-                status=True,
-                expiration_date__gte=now
-            ).order_by('expiration_date').first()
+            next_expiration = next_sale_by_key.get(key)
 
             # Calcular días hasta el próximo corte
-            if next_sale:
-                dias_hasta_corte = (next_sale.expiration_date - now).days
+            if next_expiration:
+                dias_hasta_corte = (next_expiration - now).days
             else:
                 # Si no hay ventas activas, asumimos que es una cuenta "nueva"
                 # Le damos un valor muy alto para que sea preferida
@@ -262,8 +316,7 @@ class Sales():
                 cortes = 1 + floor((dias_totales - dias_hasta_corte) / 30)
 
             # Criterio 3: Contar perfiles vacíos en el mismo email|password
-            key = f"{account.email}|{account.password}"
-            perfiles_vacios = len(email_groups[key])
+            perfiles_vacios = group_sizes[key]
 
             candidates.append({
                 'account': account,
@@ -849,17 +902,19 @@ class Sales():
         else:
             return False, "El código ya fue utilizado, si no lo canjeó usted contacte a su vendedor y pidale uno nuevo."
 
-    def redeem(request, acc, code, customer_id):
+    def redeem(request, acc, code, customer_id, validated_coupon=None):
         customer = User.objects.get(pk=customer_id)
-        cupon = validate_coupon_from_code(code, customer, service=acc.account_name)
+        cupon = validated_coupon or validate_coupon_from_code(code, customer, service=acc.account_name)
         service = acc
         price = cupon.price
         ticket = cupon.name
+        business = Business.objects.get(pk=1)
+        system_user = User.objects.get(pk=1)
         try:
             bank_selected = Bank.objects.get(bank_name='Shops')
         except Bank.DoesNotExist:
             bank_selected = Bank.objects.create(
-                business=Business.objects.get(pk=1),
+                business=business,
                 bank_name='Shops',
                 headline='Cuentas Mexico',
                 card_number='0',
@@ -872,8 +927,8 @@ class Sales():
 
         with transaction.atomic():
             sale = Sale.objects.create(
-                business=Business.objects.get(pk=1),
-                user_seller=User.objects.get(pk=1),
+                business=business,
+                user_seller=system_user,
                 bank=bank_selected,
                 customer=customer,
                 account=service,
@@ -884,12 +939,12 @@ class Sales():
                 invoice=ticket
             )
             service.customer = customer
-            service.modified_by = User.objects.get(pk=1)
+            service.modified_by = system_user
             service.save()
             consume_coupon(
                 code_name=cupon.name,
                 customer=customer,
-                seller=User.objects.get(pk=1),
+                seller=system_user,
                 sale=sale,
                 channel=CouponRedemption.CHANNEL_WEB,
                 account=service,
@@ -904,6 +959,8 @@ class Sales():
         except Exception:
             pass
 
+        Sales._send_account_delivery_whatsapp(customer, sale)
+
         if customer.email != 'example@example.com':
             Email.email_passwords(request, customer.email, (sale,))
 
@@ -914,11 +971,13 @@ class Sales():
         cupon = validate_coupon_from_code(code, customer, service=acc.account_name)
         price = cupon.price
         ticket = cupon.name
+        business = Business.objects.get(pk=1)
+        system_user = User.objects.get(pk=1)
         try:
             bank_selected = Bank.objects.get(bank_name='Shops')
         except Bank.DoesNotExist:
             bank_selected = Bank.objects.create(
-                business=Business.objects.get(pk=1),
+                business=business,
                 bank_name='Shops',
                 headline='Cuentas Mexico',
                 card_number='0',
@@ -937,8 +996,8 @@ class Sales():
 
         with transaction.atomic():
             new_sale = Sale.objects.create(
-                business=Business.objects.get(pk=1),
-                user_seller=User.objects.get(pk=1),
+                business=business,
+                user_seller=system_user,
                 bank=bank_selected,
                 customer=customer,
                 account=acc,
@@ -949,7 +1008,7 @@ class Sales():
                 invoice=ticket,
                 old_acc=old_acc.id
             )
-            acc.modified_by = User.objects.get(pk=1)
+            acc.modified_by = system_user
             acc.save()
 
             new_sale_id = new_sale.id
@@ -960,7 +1019,7 @@ class Sales():
             consume_coupon(
                 code_name=cupon.name,
                 customer=customer,
-                seller=User.objects.get(pk=1),
+                seller=system_user,
                 sale=new_sale,
                 channel=CouponRedemption.CHANNEL_WEB,
                 account=acc,
@@ -974,6 +1033,8 @@ class Sales():
             send_push_notification(token, title, body, url)
         except Exception:
             pass
+
+        Sales._send_account_delivery_whatsapp(customer, new_sale)
 
         if customer.email != 'example@example.com':
             Email.email_passwords(request, customer.email, (new_sale,))
@@ -1037,6 +1098,8 @@ class Sales():
         service_obj.customer = customer
         service_obj.modified_by = customer
         service_obj.save()
+
+        Sales._send_account_delivery_whatsapp(customer, sale)
 
         # Enviar email con las claves del servicio si tenemos email del cliente y no es un email de ejemplo
         if customer.email and customer.email != 'example@example.com':

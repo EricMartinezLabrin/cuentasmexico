@@ -1,6 +1,62 @@
 {% extends 'index/base/base.html' %}
 {% block title %}Canjear Cupón{% endblock title %}
 {% block body %}
+<style>
+  .select-acc-hero {
+    padding: 0.85rem 1rem;
+    gap: 0.8rem;
+  }
+
+  .select-acc-hero-title {
+    margin: 0;
+    font-size: 1.5rem;
+    line-height: 1.2;
+  }
+
+  .select-acc-hero-illustration img {
+    max-height: 80px;
+    max-width: 180px;
+    width: 100%;
+    object-fit: contain;
+  }
+
+  .select-acc-grid {
+    margin-left: 0;
+    margin-right: 0;
+  }
+
+  .select-acc-card {
+    height: 100%;
+    margin: 0;
+  }
+
+  .select-acc-card .card-body {
+    padding: 0.9rem;
+  }
+
+  @media (max-width: 767.98px) {
+    .select-acc-hero {
+      flex-direction: column;
+      text-align: center;
+      padding: 0.8rem;
+    }
+
+    .select-acc-hero-title {
+      font-size: 1.25rem;
+    }
+
+    .select-acc-hero-illustration img {
+      max-height: 62px;
+      max-width: 120px;
+      margin: 0 auto;
+    }
+
+    .select-acc-grid {
+      --bs-gutter-x: 0.75rem;
+      --bs-gutter-y: 0.75rem;
+    }
+  }
+</style>
 <div class="mt-4">
     <div class="container">
        <!-- row -->
@@ -26,15 +82,13 @@
       <div class="row ">
         <div class="col-12 ">
           <!-- heading -->
-          <div class="bg-light rounded-3 d-flex justify-content-between ps-md-10 ps-3">
+          <div class="bg-light rounded-3 d-flex justify-content-between align-items-center select-acc-hero">
             <div class="d-flex align-items-center">
-              <h1 class="mb-0 fw-bold p-5">Canjear Código</h1>
-
+              <h1 class="fw-bold select-acc-hero-title">Canjear Código</h1>
             </div>
-            <div class="py-6">
-              <!-- img -->
-              <!-- img -->
-              <img src="https://freshcart.codescandy.com/assets/images/svg-graphics/store-graphics.svg" alt="" class="img-fluid"></div>
+            <div class="select-acc-hero-illustration">
+              <img src="https://freshcart.codescandy.com/assets/images/svg-graphics/store-graphics.svg" alt="Ilustración de canje de código" class="img-fluid">
+            </div>
           </div>
         </div>
       </div>
@@ -45,22 +99,24 @@
         <div class="row">
             <div class="col-12">
                 <h1>Selecciona la cuenta que quieras canjear</h1>
-                <div class="row row-cols-lg-4">
+                <div class="row row-cols-1 row-cols-md-2 row-cols-lg-4 g-3 select-acc-grid">
                     {% for accounts in available %}
-                        <div class="card m-3 p-2" style="max-width: 540px;">
-                            <a href="#!" onclick="abrir_modal_edicion('{% url 'redeem_confirm' %}?name={{code.name}}&service={{accounts.id}}')" class="no-decoration">
-                                <div class="row g-0">
-                                <div class="col-md-4">
-                                    {% if accounts.logo %}<img src="{{ accounts.logo.url }}" class="img-fluid rounded-start" alt="{{accounts.description}}">{% endif %}
-                                </div>
-                                <div class="col-md-8">
-                                    <div class="card-body">
-                                    <h5 class="card-title">{{ code.duration_text }} de {{accounts.description}}</h5>
-                                    <p class="card-text"><small class="text-muted">Recibiras inmediatamente tus claves de acceso</small></p>
+                        <div class="col">
+                            <div class="card p-2 select-acc-card">
+                                <a href="#!" onclick="abrir_modal_edicion('{% url 'redeem_confirm' %}?name={{code.name}}&service={{accounts.id}}')" class="no-decoration">
+                                    <div class="row g-0">
+                                    <div class="col-md-4">
+                                        {% if accounts.logo %}<img src="{{ accounts.logo.url }}" class="img-fluid rounded-start" alt="{{accounts.description}}">{% endif %}
                                     </div>
-                                </div>
-                                </div>
-                            </a>
+                                    <div class="col-md-8">
+                                        <div class="card-body">
+                                        <h5 class="card-title">{{ code.duration_text }} de {{accounts.description}}</h5>
+                                        <p class="card-text"><small class="text-muted">Recibiras inmediatamente tus claves de acceso</small></p>
+                                        </div>
+                                    </div>
+                                    </div>
+                                </a>
+                            </div>
                         </div>
                     {% empty %}
                         <div class="alert alert-warning m-3" role="alert">

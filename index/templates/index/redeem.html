@@ -2,37 +2,173 @@
 {% block title %}Canjear Cupón{% endblock title %}
 {% block body %}
 <style>
+  .redeem-content-wrap {
+    padding-bottom: 1rem;
+  }
+
   .redeem-create-card {
-    max-width: 280px;
+    width: 100%;
+    max-width: 320px;
     margin: 0 auto;
-    padding: 0.85rem !important;
+    padding: 0.95rem !important;
   }
 
   .redeem-create-card .icon-shape {
-    width: 86px !important;
-    height: 86px !important;
+    width: 92px !important;
+    height: 92px !important;
   }
 
   .redeem-create-card .btn {
-    padding: 0.45rem 0.75rem;
+    padding: 0.5rem 0.8rem;
     font-size: 0.9rem;
+    white-space: normal;
   }
 
   .redeem-hero {
-    min-height: 92px;
-    padding: 0.35rem 0.75rem;
+    min-height: 0;
+    padding: 0.8rem 1rem;
+    gap: 0.8rem;
   }
 
   .redeem-hero-title {
     margin: 0;
-    font-size: 1.35rem;
+    font-size: 1.5rem;
     line-height: 1.2;
-    padding: 0.25rem 0;
+    padding: 0;
+  }
+
+  .redeem-hero-illustration {
+    flex-shrink: 0;
   }
 
   .redeem-hero-illustration img {
-    max-height: 78px;
-    width: auto;
+    max-height: 84px;
+    max-width: 180px;
+    width: 100%;
+    object-fit: contain;
+  }
+
+  .redeem-form-card {
+    border-radius: 0.85rem;
+  }
+
+  .redeem-form-card .input-group .btn {
+    min-width: 48px;
+  }
+
+  .redeem-grid .card-product {
+    height: 100%;
+  }
+
+  .redeem-account-meta span {
+    display: block;
+    word-break: break-word;
+  }
+
+  .redeem-card-actions .btn {
+    width: 100%;
+  }
+
+  .redeem-choice-card {
+    border-radius: 0.85rem;
+  }
+
+  .redeem-choice-modal .modal-content {
+    border-radius: 1rem;
+    border: 0;
+  }
+
+  .redeem-choice-modal .modal-header {
+    border-bottom: 0;
+    padding-bottom: 0.35rem;
+  }
+
+  .redeem-choice-modal .modal-body {
+    padding-top: 0.35rem;
+  }
+
+  .redeem-choice-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.9rem;
+    width: 100%;
+    text-align: left;
+    border: 1px solid #e9ecef;
+    border-radius: 0.9rem;
+    background: #fff;
+    padding: 0.95rem;
+    text-decoration: none;
+    color: inherit;
+    transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .redeem-choice-option:hover {
+    border-color: #0aad0a;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.08);
+    color: inherit;
+  }
+
+  .redeem-choice-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f8f9fa;
+    color: #0aad0a;
+    flex-shrink: 0;
+    font-size: 1.2rem;
+  }
+
+  .redeem-choice-text h3 {
+    margin: 0;
+    font-size: 1.02rem;
+  }
+
+  .redeem-choice-text p {
+    margin: 0.15rem 0 0 0;
+    color: #6c757d;
+    font-size: 0.9rem;
+  }
+
+  @media (max-width: 575.98px) {
+    .redeem-hero {
+      text-align: center;
+      padding: 0.75rem;
+    }
+
+    .redeem-hero-title {
+      font-size: 1.25rem;
+    }
+
+    .redeem-hero-illustration img {
+      max-height: 64px;
+      max-width: 120px;
+      margin: 0 auto;
+    }
+
+    .redeem-create-card {
+      max-width: 100%;
+    }
+
+    .redeem-create-card .icon-shape {
+      width: 84px !important;
+      height: 84px !important;
+    }
+
+    .redeem-account-meta {
+      font-size: 0.82rem;
+    }
+
+    .redeem-form-card {
+      padding: 0.8rem !important;
+    }
+
+    .redeem-choice-option {
+      padding: 0.8rem;
+    }
   }
 </style>
 <div class="mt-4">
@@ -60,42 +196,43 @@
       <div class="row ">
         <div class="col-12 ">
           <!-- heading -->
-          <div class="bg-light rounded-3 d-flex justify-content-between align-items-center redeem-hero">
+          <div class="bg-light rounded-3 d-flex flex-column flex-sm-row justify-content-between align-items-center redeem-hero">
             <div class="d-flex align-items-center">
-              <h1 class="fw-bold redeem-hero-title">Canjear Código</h1>
-
+              <h1 class="fw-bold redeem-hero-title text-center text-sm-start">Canjear Código</h1>
             </div>
             <div class="redeem-hero-illustration">
-              <!-- img -->
-              <!-- img -->
-              <img src="https://freshcart.codescandy.com/assets/images/svg-graphics/store-graphics.svg" alt="" class="img-fluid"></div>
+              <img src="https://freshcart.codescandy.com/assets/images/svg-graphics/store-graphics.svg" alt="Ilustración de canje de código" class="img-fluid">
+            </div>
           </div>
         </div>
       </div>
     </div>
 </section>
-<section class="mt-4">
+<section class="mt-4 redeem-content-wrap">
+  <div class="container">
     {% if error %}
-        <div class="alert alert-danger m-3" role="alert">
+        <div class="alert alert-danger" role="alert">
           <i class="bi bi-exclamation-triangle-fill"></i> {{error}}
         </div>   
     {% else %}
       {% if not code %}
-        <!-- heading -->
-        <div class="p-3">
+        <div class="card p-3 p-sm-4 redeem-form-card">
             <form method="get" class="col-12">
-                <label for="code" class="m-1">Ingresa el Codigo Obtenido en la Tienda:</label>
-                <div class="input-group mb-3">
-                    <input type="text" class="form-control" name="{{form.name.name}}" id="code" placeholder="Ingresa el Codigo Obtenido en la Tienda" aria-label="Ingresa el Codigo Obtenido en la Tienda" aria-describedby="button-addon2">
-                    <button class="btn bg-white border" type="button" id=""><i class="bi bi-search"></i></button>
+                <label for="code" class="mb-2">Ingresa el código obtenido en la tienda:</label>
+                <div class="input-group">
+                    <input type="text" class="form-control" name="{{form.name.name}}" id="code" placeholder="Ejemplo: 7FREE" aria-label="Ingresa el código obtenido en la tienda" autocomplete="off">
+                    <button class="btn bg-white border" type="submit" aria-label="Buscar código"><i class="bi bi-search"></i></button>
                 </div>
             </form>
         </div>
-      {% elif customer_data %}
+      {% elif show_renew_accounts %}
         <div class="col-12">
-          <h1>Cuentas Disponibles Para Renovar</h1>
+          <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-2 mb-3">
+            <h2 class="h3 mb-0">Cuentas disponibles para renovar</h2>
+            <a href="{{ new_account_url }}" class="btn btn-outline-secondary">Prefiero crear una cuenta nueva</a>
+          </div>
 
-          <div class="row row-cols-lg-4 row-cols-md-3 g-4 g-lg-4">
+          <div class="row row-cols-1 row-cols-md-2 row-cols-lg-4 g-3 g-lg-4 redeem-grid">
                 {% for data in customer_data %}
                   <div class="col">
                     <!-- card -->
@@ -107,12 +244,12 @@
                             <div class="mt-4">
                                 <!-- content -->
                                 <h2 class="mb-1 h5 cm">{{data.account.email}}</h2>
-                                <div class="small text-muted">
-                                    <span class="me-2">Password: {{data.account.password}}</span>
-                                    <span class="me-2">Perfil: {{data.account.profile}}</span>
+                                <div class="small text-muted redeem-account-meta">
+                                    <span>Password: {{data.account.password}}</span>
+                                    <span>Perfil: {{data.account.profile}}</span>
                                 </div>
                                 <br>
-                                <div>
+                                <div class="redeem-card-actions">
                                     <!-- badge --> 
                                     <a href="#!" onclick="abrir_modal_edicion('{% url 'redeem_confirm' %}?name={{code.name}}&service={{data.account.id}}')" class="btn btn-cm">Renovar {{ code.duration_text }}</a>
                             </div>
@@ -120,33 +257,20 @@
                     </div>
                   </div>
                 {% endfor %}
-                <div class="col">
-                  <!-- card -->
-                  <div class="card p-3 card-product redeem-create-card">
-                      <div>
-                        <!-- img -->
-                        <img src="https://numismaticamartell.com/wp-content/uploads/2016/12/nuevo.png" alt="Crear cuenta Nueva" loading="lazy" class="rounded-circle icon-shape icon-xl">
-                      </div>
-                      <div class="mt-4">
-                        <!-- content -->
-                        <h2 class="mb-1 h5 cm">Crea una cuenta nueva</h2>
-                        <div class="small text-muted">
-                          <span class="me-2">Servicios disponibles</span>
-                          <span class="me-2">Duración {{ code.duration_text }}</span>
-                        </div>
-                        <br>
-                        <div>
-                          <!-- badge -->
-                          <a href="{% url 'select_acc' %}?name={{code.name}}" class="btn btn-cm">Crear cuenta de {{ code.duration_text }}</a>
-                        </div>
-                      </div>
-                  </div>
-                </div>
+          </div>
+        </div>
+      {% elif customer_data %}
+        <div class="card p-3 p-sm-4 redeem-choice-card">
+          <h2 class="h4 mb-2">Tienes cuentas activas</h2>
+          <p class="text-muted mb-3">Elige qué quieres hacer con tu código para continuar.</p>
+          <div class="d-flex flex-column gap-2">
+            <a href="{{ renew_accounts_url }}" class="btn btn-cm">Quiero renovar una cuenta</a>
+            <a href="{{ new_account_url }}" class="btn btn-outline-secondary">Quiero crear una cuenta nueva</a>
           </div>
         </div>
         {% else %}
         <div class="col-12">
-          <h1 class="text-center">Crea una cuenta Nueva</h1>
+          <h2 class="h3 text-center mb-3">Crea una cuenta nueva</h2>
           <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4 g-lg-4 justify-content-center">
             <div class="col d-flex justify-content-center">
               <!-- card -->
@@ -163,7 +287,7 @@
                           <span class="me-2">Duración {{ code.duration_text }}</span>
                       </div>
                       <br>
-                      <div>
+                      <div class="redeem-card-actions">
                           <!-- badge -->
                           <a href="{% url 'select_acc' %}?name={{code.name}}" class="btn btn-cm">Crear cuenta de {{ code.duration_text }}</a>
                       </div>
@@ -174,6 +298,54 @@
         </div>
       {% endif %} 
     {% endif %}
+  </div>
 </section>
 
+{% if show_choice_modal %}
+<div class="modal fade redeem-choice-modal" id="redeemChoiceModal" tabindex="-1" aria-labelledby="redeemChoiceModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="redeemChoiceModalLabel">¿Qué quieres hacer con este código?</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted mb-3">Detectamos cuentas activas en tu perfil. Puedes renovarlas o usar el cupón para crear una nueva.</p>
+        <div class="d-flex flex-column gap-2">
+          <a href="{{ renew_accounts_url }}" class="redeem-choice-option">
+            <span class="redeem-choice-icon"><i class="bi bi-arrow-repeat"></i></span>
+            <div class="redeem-choice-text">
+              <h3>Renovar una cuenta</h3>
+              <p>Ver mis cuentas activas y renovar la que elija.</p>
+            </div>
+          </a>
+          <a href="{{ new_account_url }}" class="redeem-choice-option">
+            <span class="redeem-choice-icon"><i class="bi bi-plus-circle"></i></span>
+            <div class="redeem-choice-text">
+              <h3>Crear cuenta nueva</h3>
+              <p>Empezar el flujo para seleccionar un servicio nuevo.</p>
+            </div>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
 {% endblock body %}
+
+{% block extrajs %}
+  {% if show_choice_modal %}
+    <script>
+      document.addEventListener('DOMContentLoaded', function () {
+        var modalEl = document.getElementById('redeemChoiceModal');
+        if (!modalEl || typeof bootstrap === 'undefined') {
+          return;
+        }
+        var choiceModal = new bootstrap.Modal(modalEl);
+        choiceModal.show();
+      });
+    </script>
+  {% endif %}
+{% endblock extrajs %}
