@@ -368,34 +368,51 @@ class RedeemView(UserAccessMixin, FormView):
         return False
 
     def get_code(self):
-        if self.request.GET.get('name'):
-            code = self.request.GET.get('name')
+        if hasattr(self, '_cached_code'):
+            return self._cached_code
+
+        self._cached_code = None
+        code_name = self.request.GET.get('name')
+        if code_name:
             try:
-                return get_coupon_by_name_or_raise(code)
+                self._cached_code = get_coupon_by_name_or_raise(code_name)
             except CouponRedeemError:
-                return None
-        else:
-            code = None
+                self._cached_code = None
+        return self._cached_code
 
     def get_active_acc(self):
+        if hasattr(self, '_cached_active_acc'):
+            return self._cached_active_acc
+
+        self._cached_active_acc = []
         if self.request.user:
             user = self.request.user
-            active_acc = Sale.objects.filter(customer=user, status=True)
+            active_acc = Sale.objects.filter(
+                customer=user,
+                status=True
+            ).select_related('account', 'account__account_name')
             code = self.get_code()
             if code:
                 excluded_ids = code.excluded_services.values_list('id', flat=True)
                 active_acc = active_acc.exclude(account__account_name_id__in=excluded_ids)
-            return active_acc
+            self._cached_active_acc = active_acc
+        return self._cached_active_acc
 
     def get_error(self):
+        if hasattr(self, '_cached_error'):
+            return self._cached_error
+
         code = self.get_code()
         if not code:
-            return None
+            self._cached_error = None
+            return self._cached_error
         try:
             validate_coupon_for_customer(code, self.request.user)
         except CouponRedeemError as exc:
-            return str(exc)
-        return None
+            self._cached_error = str(exc)
+            return self._cached_error
+        self._cached_error = None
+        return self._cached_error
 
     def get_redeem_flow(self):
         flow = (self.request.GET.get('flow') or '').strip().lower()
@@ -530,6 +547,19 @@ class RedeemRenewDoneView(TemplateView):
 
         try:
             renew = Sales.redeem_renew(self.request, service, code, customer)
+            if isinstance(renew, (list, tuple)) and len(renew) > 1 and renew[0] is True:
+                latest_sale = (
+                    Sale.objects.filter(
+                        customer_id=customer,
+                        account=service,
+                        invoice__iexact=code,
+                    )
+                    .only('expiration_date')
+                    .order_by('-id')
+                    .first()
+                )
+                if latest_sale:
+                    renew[1].expiration_date = latest_sale.expiration_date
             return renew
         except (Account.DoesNotExist, CouponRedeemError) as exc:
             return False, str(exc)
@@ -616,10 +646,14 @@ class RedeemDoneView(TemplateView):
             )
 
     def complete_redeem(self):
+        if hasattr(self, '_cached_redeem_result'):
+            return self._cached_redeem_result
+
         code = self.request.GET.get('name')
         service_id = self.request.GET.get('service')
         try:
             cupon = get_coupon_by_name_or_raise(code)
+            self._cached_code = cupon
             service = Service.objects.get(pk=service_id)
             validate_coupon_for_customer(cupon, self.request.user, service=service)
             end_date = cupon.get_expiration_date(timezone.now())
@@ -628,20 +662,39 @@ class RedeemDoneView(TemplateView):
             account = Sales.search_better_acc(service_id, end_date, code)
 
             if account[0] == True:
-                Sales.redeem(self.request, account[1], code, customer)
+                Sales.redeem(self.request, account[1], code, customer, validated_coupon=cupon)
+                latest_sale = (
+                    Sale.objects.filter(
+                        customer_id=customer,
+                        account=account[1],
+                        invoice=cupon.name,
+                    )
+                    .only('expiration_date')
+                    .order_by('-id')
+                    .first()
+                )
+                if latest_sale:
+                    account[1].expiration_date = latest_sale.expiration_date
             elif self._is_no_stock_result(account):
                 self._notify_no_stock_admin(cupon, service)
-            return account
+            self._cached_redeem_result = account
+            return self._cached_redeem_result
         except CouponRedeemError as exc:
-            return False, str(exc)
+            self._cached_redeem_result = (False, str(exc))
+            return self._cached_redeem_result
 
     def get_code(self):
+        if hasattr(self, '_cached_code'):
+            return self._cached_code
+
+        self._cached_code = None
         if self.request.GET.get('name'):
             code = self.request.GET.get('name')
             try:
-                return get_coupon_by_name_or_raise(code)
+                self._cached_code = get_coupon_by_name_or_raise(code)
             except CouponRedeemError:
-                return None
+                self._cached_code = None
+        return self._cached_code
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
