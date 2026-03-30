@@ -147,6 +147,7 @@ staticfiles/
 !*/migrations/__init__.py
 !cupon/migrations/0002_coupon_multiuse.py
 !cupon/migrations/0003_coupon_backfill_multiuse_data.py
+!cupon/migrations/0005_cupon_image.py
 
 # Dokploy
 .dokploy/

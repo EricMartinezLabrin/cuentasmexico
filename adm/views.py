@@ -1999,7 +1999,7 @@ def CuponCreateView(request):
     if request.method != 'POST':
         return redirect(reverse('adm:cupon'))
 
-    form = CuponForm(request.POST)
+    form = CuponForm(request.POST, request.FILES)
     if form.is_valid():
         cupon = form.save(commit=False)
         cupon.long = _legacy_long_from_duration(cupon.duration_unit, cupon.duration_quantity)
@@ -2024,7 +2024,7 @@ def CuponCreateView(request):
 def CuponUpdateView(request, pk):
     cupon = Cupon.objects.get(pk=pk)
     if request.method == 'POST':
-        form = CuponForm(request.POST, instance=cupon)
+        form = CuponForm(request.POST, request.FILES, instance=cupon)
         if form.is_valid():
             updated = form.save(commit=False)
             updated.long = _legacy_long_from_duration(updated.duration_unit, updated.duration_quantity)

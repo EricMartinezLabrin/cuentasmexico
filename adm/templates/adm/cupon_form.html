@@ -4,8 +4,19 @@
 {% endblock title %}
 {% block body %}
     <h1>Editar Código {{ cupon.name }}</h1>
-    <form method="post" class="card p-3">
+    <form method="post" class="card p-3" enctype="multipart/form-data">
         {% csrf_token %}
+        {% if cupon.image %}
+            <div class="mb-3">
+                <label class="form-label">Imagen actual</label>
+                <div>
+                    <img src="{{ cupon.image.url }}" alt="Imagen del código {{ cupon.name }}" style="max-width: 280px; width: 100%; height: auto; border-radius: 8px;">
+                </div>
+                <small class="text-muted">La imagen del código debe ser 1:1 (cuadrada).</small>
+            </div>
+        {% else %}
+            <p class="text-muted">Si agregas imagen, debe ser 1:1 (cuadrada).</p>
+        {% endif %}
         {{ form.as_p }}
         <div class="d-flex gap-2">
             <button type="submit" class="btn btn-cm">Guardar</button>

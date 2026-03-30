@@ -1,4 +1,5 @@
 from django import forms
+from django.core.files.images import get_image_dimensions
 
 from adm.models import Service
 from cupon.models import Cupon
@@ -19,6 +20,7 @@ class CuponForm(forms.ModelForm):
             'one_use_per_phone',
             'duration_unit',
             'duration_quantity',
+            'image',
             'excluded_services',
         ]
         widgets = {
@@ -28,6 +30,7 @@ class CuponForm(forms.ModelForm):
             'one_use_per_phone': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'duration_unit': forms.Select(attrs={'class': 'form-select'}),
             'duration_quantity': forms.NumberInput(attrs={'class': 'form-control', 'min': 1}),
+            'image': forms.ClearableFileInput(attrs={'class': 'form-control', 'accept': 'image/*'}),
             'excluded_services': forms.SelectMultiple(attrs={'class': 'form-select', 'size': 6}),
         }
 
@@ -46,3 +49,26 @@ class CuponForm(forms.ModelForm):
     def clean_max_uses(self):
         max_uses = self.cleaned_data.get('max_uses')
         return 0 if max_uses is None else max_uses
+
+    def clean_image(self):
+        image = self.cleaned_data.get('image')
+        if not image:
+            return image
+
+        # Validamos proporción 1:1 (ancho == alto).
+        try:
+            width, height = get_image_dimensions(image)
+        except Exception:
+            raise forms.ValidationError('No se pudo procesar la imagen. Sube un archivo válido.')
+        finally:
+            if hasattr(image, 'seek'):
+                try:
+                    image.seek(0)
+                except Exception:
+                    pass
+
+        if not width or not height:
+            raise forms.ValidationError('No se pudo leer el tamaño de la imagen.')
+        if width != height:
+            raise forms.ValidationError('La imagen debe tener proporción 1:1 (ancho y alto iguales).')
+        return image

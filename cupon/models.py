@@ -54,6 +54,7 @@ class Cupon(models.Model):
     status_payment = models.BooleanField(default=False)
     status_sale = models.BooleanField(default=False)  
     shop = models.ForeignKey(Shop,on_delete=models.CASCADE, null=True, blank=True)
+    image = models.ImageField(upload_to="cupon/", null=True, blank=True)
     excluded_services = models.ManyToManyField(
         Service,
         blank=True,

@@ -3,6 +3,7 @@ from django.shortcuts import render
 from django.http import HttpResponse, JsonResponse
 from django.contrib.auth.views import LoginView, LogoutView, PasswordResetView, PasswordResetDoneView, PasswordResetConfirmView, PasswordResetCompleteView
 from django.contrib.auth.models import User, Group
+from django.contrib.auth import login as auth_login, get_backends
 from django.contrib.auth.decorators import login_required
 from django.urls import reverse_lazy, reverse
 from django.shortcuts import redirect
@@ -39,6 +40,8 @@ from cupon.models import Shop
 from cupon.services import (
     CouponRedeemError,
     get_coupon_by_name_or_raise,
+    validate_coupon_availability,
+    validate_coupon_service_rule,
     validate_coupon_for_customer,
 )
 from adm.functions.permissions import UserAccessMixin
@@ -59,6 +62,7 @@ from .utils_affiliates import procesar_venta_afiliado_desde_carrito
 # Index
 POST_LOGIN_REDIRECT_SESSION_KEY = 'post_login_redirect_to'
 WHATSAPP_LOGIN_NEXT_CACHE_SUFFIX = ':next'
+PENDING_REDEEM_CODE_SESSION_KEY = 'pending_redeem_coupon_code'
 
 
 def _sanitize_post_login_redirect(request, target_url):
@@ -114,6 +118,25 @@ def _get_next_from_referer(request):
     except Exception:
         return None
     return _sanitize_post_login_redirect(request, raw_next)
+
+
+def _store_pending_redeem_code(request, code):
+    normalized = str(code or '').strip()
+    if normalized:
+        request.session[PENDING_REDEEM_CODE_SESSION_KEY] = normalized
+    return normalized or None
+
+
+def _get_pending_redeem_redirect(request, pop=False):
+    if pop:
+        code = request.session.pop(PENDING_REDEEM_CODE_SESSION_KEY, None)
+    else:
+        code = request.session.get(PENDING_REDEEM_CODE_SESSION_KEY)
+
+    code = str(code or '').strip()
+    if not code:
+        return None
+    return f"{reverse('redeem')}?name={quote(code)}"
 
 
 def index(request):
@@ -339,45 +362,25 @@ class ShopListView(ListView):
             return super().get_queryset().exclude(status=False)
 
 
-class RedeemView(UserAccessMixin, FormView):
-    permission_required = 'customer'
+class RedeemView(FormView):
     template_name = "index/redeem.html"
     form_class = RedeemForm
     success_url = reverse_lazy('redeem')
     customer = None
-
-    def has_permission(self):
-        """
-        Compatibilidad para acceso de clientes:
-        - Grupo Django: "Cliente"
-        - Nivel en UserDetail: "Cliente"
-        """
-        user = self.request.user
-        if not user or not user.is_authenticated:
-            return False
-        if user.is_superuser:
-            return True
-        if user.groups.filter(name__iexact='Cliente').exists():
-            return True
-        try:
-            detail = UserDetail.objects.select_related('level').get(user=user)
-            if detail.level and str(detail.level.name or '').strip().lower() == 'cliente':
-                return True
-        except UserDetail.DoesNotExist:
-            pass
-        return False
 
     def get_code(self):
         if hasattr(self, '_cached_code'):
             return self._cached_code
 
         self._cached_code = None
-        code_name = self.request.GET.get('name')
+        code_name = self.request.GET.get('name') or self.request.session.get(PENDING_REDEEM_CODE_SESSION_KEY)
         if code_name:
             try:
                 self._cached_code = get_coupon_by_name_or_raise(code_name)
+                self.request.session.pop(PENDING_REDEEM_CODE_SESSION_KEY, None)
             except CouponRedeemError:
                 self._cached_code = None
+                self.request.session.pop(PENDING_REDEEM_CODE_SESSION_KEY, None)
         return self._cached_code
 
     def get_active_acc(self):
@@ -385,7 +388,7 @@ class RedeemView(UserAccessMixin, FormView):
             return self._cached_active_acc
 
         self._cached_active_acc = []
-        if self.request.user:
+        if self.request.user.is_authenticated:
             user = self.request.user
             active_acc = Sale.objects.filter(
                 customer=user,
@@ -407,7 +410,10 @@ class RedeemView(UserAccessMixin, FormView):
             self._cached_error = None
             return self._cached_error
         try:
-            validate_coupon_for_customer(code, self.request.user)
+            if self.request.user.is_authenticated:
+                validate_coupon_for_customer(code, self.request.user)
+            else:
+                validate_coupon_availability(code)
         except CouponRedeemError as exc:
             self._cached_error = str(exc)
             return self._cached_error
@@ -443,6 +449,7 @@ class RedeemView(UserAccessMixin, FormView):
         context["error"] = error
         context["code"] = code
         context["customer_data"] = customer_data
+        context["show_coupon_image_modal"] = bool(code and code.image)
         context["show_choice_modal"] = show_choice_modal
         context["show_renew_accounts"] = show_renew_accounts
         context["renew_accounts_url"] = renew_accounts_url
@@ -450,11 +457,11 @@ class RedeemView(UserAccessMixin, FormView):
         return context
 
 
-@login_required
 def redeem_code_shortcut(request, code):
     normalized = (code or '').strip()
     if not normalized:
         return redirect('redeem')
+    _store_pending_redeem_code(request, normalized)
     return redirect(f"{reverse('redeem')}?name={quote(normalized)}")
 
 
@@ -509,18 +516,28 @@ class RedeemConfirmView(TemplateView):
                 account = Service.objects.get(
                     pk=self.request.GET.get('service'))
             except Service.DoesNotExist:
-                account = Account.objects.get(
-                    pk=self.request.GET.get('service'))
+                try:
+                    account = Account.objects.get(
+                        pk=self.request.GET.get('service'))
+                except Account.DoesNotExist:
+                    return None
             return account
+        return None
 
     def get_error(self):
         code = self.get_code()
         if not code:
             return "El código no existe."
         account = self.account()
+        if not account:
+            return "El servicio seleccionado no existe."
         service = account.account_name if isinstance(account, Account) else account
         try:
-            validate_coupon_for_customer(code, self.request.user, service=service)
+            if self.request.user.is_authenticated:
+                validate_coupon_for_customer(code, self.request.user, service=service)
+            else:
+                validate_coupon_availability(code)
+                validate_coupon_service_rule(code, service)
         except CouponRedeemError as exc:
             return f"Error. {str(exc)}"
         return None
@@ -771,6 +788,12 @@ class LoginPageView(LoginView):
         context["business"] = BusinessInfo.data()
         context["credits"] = BusinessInfo.credits(self.request)
         context['services'] = Service.objects.filter(status=True)
+        context['post_login_redirect'] = (
+            _sanitize_post_login_redirect(self.request, self.request.GET.get(self.redirect_field_name))
+            or _get_post_login_redirect(self.request)
+            or _get_pending_redeem_redirect(self.request, pop=False)
+            or ''
+        )
         return context
 
 
@@ -797,6 +820,7 @@ class WhatsAppLoginView(TemplateView):
         context['post_login_redirect'] = (
             _sanitize_post_login_redirect(self.request, self.request.GET.get('next'))
             or _get_post_login_redirect(self.request)
+            or _get_pending_redeem_redirect(self.request, pop=False)
             or ''
         )
         return context
@@ -817,11 +841,24 @@ class RegisterCustomerView(CreateView):
     form_class = RegisterUserForm
     success_url = reverse_lazy("index")
 
+    def dispatch(self, request, *args, **kwargs):
+        _store_post_login_redirect(
+            request,
+            request.GET.get('next') or request.POST.get('next')
+        )
+        return super().dispatch(request, *args, **kwargs)
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["business"] = BusinessInfo.data()
         context["credits"] = BusinessInfo.credits(self.request)
         context['services'] = Service.objects.filter(status=True)
+        context['post_login_redirect'] = (
+            _sanitize_post_login_redirect(self.request, self.request.GET.get('next'))
+            or _get_post_login_redirect(self.request)
+            or _get_pending_redeem_redirect(self.request, pop=False)
+            or ''
+        )
         return context
 
     def form_valid(self, form):
@@ -886,7 +923,18 @@ class RegisterCustomerView(CreateView):
             form.add_error(None, 'Error en la configuración del sistema')
             return self.form_invalid(form)
 
-        return HttpResponseRedirect(self.get_success_url())
+        # Auto-login al registrarse para continuar el flujo pendiente (ej: canje de cupón).
+        backend = get_backends()[0]
+        user.backend = f'{backend.__module__}.{backend.__class__.__name__}'
+        auth_login(self.request, user)
+
+        redirect_url = (
+            _sanitize_post_login_redirect(self.request, self.request.POST.get('next'))
+            or _get_post_login_redirect(self.request, pop=True)
+            or _get_pending_redeem_redirect(self.request, pop=True)
+            or self.get_success_url()
+        )
+        return HttpResponseRedirect(redirect_url)
 
 
 class ChangePasswordView(PasswordResetView):
@@ -966,6 +1014,10 @@ def RedirectOnLogin(request):
     )
     if pending_redirect:
         return redirect(pending_redirect)
+
+    pending_redeem_redirect = _get_pending_redeem_redirect(request, pop=True)
+    if pending_redeem_redirect:
+        return redirect(pending_redeem_redirect)
 
     admin_list = ['superadmin', 'admin', 'supervisor', 'salesman']
     # Verify Details
@@ -2129,6 +2181,7 @@ def whatsapp_login_verify_and_auth(request):
                 or _get_next_from_referer(request)
                 or _sanitize_post_login_redirect(request, cached_next)
                 or _get_post_login_redirect(request, pop=True)
+                or _get_pending_redeem_redirect(request, pop=True)
                 or reverse('redirect_on_login')
             )
 

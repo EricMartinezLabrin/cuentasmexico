@@ -34,7 +34,8 @@
                 </a>
             </div>
             <span class="text-muted small">
-                Ya tienes una cuenta? <a href="{% url 'login' %}" class="cm">Inicia Sesión</a>
+                Ya tienes una cuenta?
+                <a href="{% url 'login' %}{% if post_login_redirect %}?next={{ post_login_redirect|urlencode }}{% endif %}" class="cm">Inicia Sesión</a>
             </span>
         </div>
     </div>
@@ -54,6 +55,9 @@
                 <form method="post">
                     <div class="row g-3">
                         {% csrf_token %}
+                        {% if post_login_redirect %}
+                        <input type="hidden" name="next" value="{{ post_login_redirect }}">
+                        {% endif %}
 
                         {% if form.non_field_errors %}
                         <div class="col-12">
