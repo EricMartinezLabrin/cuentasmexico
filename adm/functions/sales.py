@@ -34,9 +34,12 @@ from django.db.models import Min
 from math import ceil, floor
 import re
 import unicodedata
+import logging
 
 
 class Sales():
+    logger = logging.getLogger(__name__)
+
     @staticmethod
     def _normalize_token(value):
         raw = str(value or '').strip().lower()
@@ -116,6 +119,46 @@ class Sales():
                 pass
         base = campaign.sent_at or campaign.created_at or timezone.now()
         return base + timedelta(days=30)
+
+    @staticmethod
+    def _send_account_delivery_whatsapp(customer, sale):
+        """
+        Envia por WhatsApp las credenciales de la cuenta entregada.
+        Nunca rompe el flujo de venta/canje si falla.
+        """
+        try:
+            detail = UserDetail.objects.get(user=customer)
+            lada = ''.join(ch for ch in str(detail.lada or '') if ch.isdigit())
+            phone_number = ''.join(ch for ch in str(detail.phone_number or '') if ch.isdigit())
+
+            if not lada or not phone_number:
+                return False
+
+            # Evita duplicar lada cuando el numero ya viene completo.
+            if phone_number.startswith(lada) and len(phone_number) > (len(lada) + 6):
+                phone_number = phone_number[len(lada):]
+
+            account = sale.account
+            pin = account.pin if account.pin else "No tiene Pin"
+            message = f"E-Mail: {account.email}\n"
+            message += f"Clave: {account.password}\n"
+            message += f"Perfil: {account.profile}\n"
+            message += f"Pin: {pin}\n"
+            message += f"Vencimiento: {sale.expiration_date.date()}\n\n"
+            message += f"Tu cuenta {account.account_name.description} fue entregada correctamente.\n"
+            message += "Inicia sesion con el EMAIL y CLAVE recibidos.\n\n"
+            message += "* Usa SOLO el perfil asignado\n"
+            message += "* No cambies claves, pin o perfiles\n\n"
+            message += "Soporte oficial: WhatsApp 833 535 5863 y cuentasmexico.com"
+
+            status_code = Notification.send_whatsapp_notification(message, lada, phone_number)
+            return status_code in (200, 201)
+        except Exception as exc:
+            Sales.logger.error(
+                f"Error enviando WhatsApp de entrega para user_id={getattr(customer, 'id', 'N/A')}: {str(exc)}",
+                exc_info=True
+            )
+            return False
 
     @staticmethod
     def customer_marketing_offers(customer):
@@ -904,6 +947,8 @@ class Sales():
         except Exception:
             pass
 
+        Sales._send_account_delivery_whatsapp(customer, sale)
+
         if customer.email != 'example@example.com':
             Email.email_passwords(request, customer.email, (sale,))
 
@@ -975,6 +1020,8 @@ class Sales():
         except Exception:
             pass
 
+        Sales._send_account_delivery_whatsapp(customer, new_sale)
+
         if customer.email != 'example@example.com':
             Email.email_passwords(request, customer.email, (new_sale,))
 
@@ -1037,6 +1084,8 @@ class Sales():
         service_obj.customer = customer
         service_obj.modified_by = customer
         service_obj.save()
+
+        Sales._send_account_delivery_whatsapp(customer, sale)
 
         # Enviar email con las claves del servicio si tenemos email del cliente y no es un email de ejemplo
         if customer.email and customer.email != 'example@example.com':

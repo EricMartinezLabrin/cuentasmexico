@@ -63,6 +63,18 @@
         animation: promoPulse 1.9s ease-in-out infinite;
         font-weight: 700;
       }
+      .cm-site-footer {
+        position: relative;
+        z-index: 1;
+      }
+      @media (max-width: 767.98px) {
+        .cm-site-footer {
+          display: block !important;
+          visibility: visible !important;
+          opacity: 1 !important;
+          padding-bottom: 84px;
+        }
+      }
       @keyframes promoPulse {
         0% { transform: scale(1); }
         50% { transform: scale(1.03); }
@@ -306,7 +318,7 @@
     {% endif %}
     {% endif %}
 
-    <footer class="bg-light">
+    <footer class="bg-light cm-site-footer">
       {% comment %} <div class="border-bottom d-flex justify-content-evenly w-100 align-items-center p-5">
         <div>
           <h6 class="fw-bolder">Categories</h6>

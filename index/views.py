@@ -220,6 +220,11 @@ class CartView(TemplateView):
         # Stripe Publishable Key para el SDK de JavaScript
         context['stripe_publishable_key'] = os.environ.get('STRIPE_PUBLISHABLE_KEY', '')
 
+        # Valores seguros para evitar errores cuando la sesion aun no tiene carrito inicializado
+        context['cart_items'] = self.request.session.get('cart_number', {})
+        context['cart_total'] = self.request.session.get('cart_total', 0)
+        context['cart_quantity'] = self.request.session.get('cart_quantity', 0)
+
         # Inicializar valores de pago
         context["init_point"] = None  # MercadoPago
         context["paypal_data"] = None  # PayPal
@@ -392,14 +397,39 @@ class RedeemView(UserAccessMixin, FormView):
             return str(exc)
         return None
 
+    def get_redeem_flow(self):
+        flow = (self.request.GET.get('flow') or '').strip().lower()
+        if flow == 'renew':
+            return flow
+        return None
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        code = self.get_code()
+        error = self.get_error()
+        customer_data = list(self.get_active_acc() or [])
+        has_active_accounts = len(customer_data) > 0
+        redeem_flow = self.get_redeem_flow()
+        show_renew_accounts = bool(code and not error and has_active_accounts and redeem_flow == 'renew')
+        show_choice_modal = bool(code and not error and has_active_accounts and not show_renew_accounts)
+
+        renew_accounts_url = ''
+        new_account_url = ''
+        if code:
+            encoded_name = quote(code.name)
+            renew_accounts_url = f"{reverse('redeem')}?name={encoded_name}&flow=renew"
+            new_account_url = f"{reverse('select_acc')}?name={encoded_name}"
+
         context["business"] = BusinessInfo.data()
         context["credits"] = BusinessInfo.credits(self.request)
         context['services'] = Service.objects.filter(status=True)
-        context["error"] = self.get_error()
-        context["code"] = self.get_code()
-        context["customer_data"] = self.get_active_acc()
+        context["error"] = error
+        context["code"] = code
+        context["customer_data"] = customer_data
+        context["show_choice_modal"] = show_choice_modal
+        context["show_renew_accounts"] = show_renew_accounts
+        context["renew_accounts_url"] = renew_accounts_url
+        context["new_account_url"] = new_account_url
         return context
 
 
@@ -525,6 +555,66 @@ class RedeemRenewDoneView(TemplateView):
 class RedeemDoneView(TemplateView):
     template_name = "index/redeem_done.html"
 
+    def _is_no_stock_result(self, account_result):
+        if not isinstance(account_result, (list, tuple)) or len(account_result) < 2:
+            return False
+        if account_result[0]:
+            return False
+        message = account_result[1]
+        if not isinstance(message, str):
+            return False
+        normalized = message.lower()
+        return (
+            'no hay cuentas disponibles' in normalized
+            or 'sin stock' in normalized
+            or 'sin disponibilidad' in normalized
+        )
+
+    def _notify_no_stock_admin(self, cupon, service):
+        session_key = f"redeem_no_stock_notified_v2:{self.request.user.id}:{cupon.id}:{service.id}"
+        if self.request.session.get(session_key):
+            return
+
+        try:
+            import logging
+            from adm.functions.resend_notifications import ResendEmail
+
+            customer_info = {
+                'username': self.request.user.username,
+                'email': self.request.user.email,
+                'user_id': self.request.user.id
+            }
+            items_without_stock = [{
+                'service_name': service.description,
+                'months': cupon.duration_in_months_approx(),
+                'profiles': 1,
+                'price': cupon.price
+            }]
+            payment_info = {
+                'payment_id': f"coupon-{cupon.name}",
+                'amount': cupon.price,
+                'payment_type': 'coupon_redeem',
+                'cart_id': f"redeem-{self.request.user.id}-{cupon.id}-{service.id}"
+            }
+
+            notified = ResendEmail.notify_no_stock(
+                customer_info,
+                items_without_stock,
+                payment_info
+            )
+            if notified:
+                # Evita correos duplicados por refresh del usuario en la misma sesión.
+                self.request.session[session_key] = True
+            else:
+                logging.getLogger(__name__).error(
+                    "No se pudo notificar sin stock para canje de cupon. "
+                    "Se permitira reintento en la siguiente solicitud."
+                )
+        except Exception:
+            logging.getLogger(__name__).exception(
+                "Error enviando notificacion de sin stock para canje de cupon"
+            )
+
     def complete_redeem(self):
         code = self.request.GET.get('name')
         service_id = self.request.GET.get('service')
@@ -539,6 +629,8 @@ class RedeemDoneView(TemplateView):
 
             if account[0] == True:
                 Sales.redeem(self.request, account[1], code, customer)
+            elif self._is_no_stock_result(account):
+                self._notify_no_stock_admin(cupon, service)
             return account
         except CouponRedeemError as exc:
             return False, str(exc)
