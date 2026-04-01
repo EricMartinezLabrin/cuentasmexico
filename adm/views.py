@@ -882,7 +882,9 @@ def AccountsView(request):
     account_name = request.POST.get('account_name') or request.GET.get('account_name', '')
     email = (request.POST.get('email') or request.GET.get('email', '')).replace(" ", "")
     status = request.POST.get('status') or request.GET.get('status', '')
+    renovable = request.POST.get('renovable') or request.GET.get('renovable', '')
     external_status = request.POST.get('external_status') or request.GET.get('external_status', '')
+    without_customer = request.POST.get('without_customer') or request.GET.get('without_customer', '')
     ignore_external_status = external_status == '__ignore__'
     page = request.GET.get('page', 1)
     
@@ -897,7 +899,7 @@ def AccountsView(request):
     ).filter(business=business_id)
     
     # Si hay filtros aplicados
-    if request.method == 'POST' or any([account_name, email, status, external_status]):
+    if request.method == 'POST' or any([account_name, email, status, renovable, external_status, without_customer]):
         # Aplicar filtros de manera eficiente
         if account_name:
             base_queryset = base_queryset.filter(account_name=account_name)
@@ -905,6 +907,10 @@ def AccountsView(request):
             base_queryset = base_queryset.filter(email__icontains=email)
         if status:
             base_queryset = base_queryset.filter(status=status == 'True')
+        if renovable:
+            base_queryset = base_queryset.filter(renovable=renovable == 'True')
+        if without_customer:
+            base_queryset = base_queryset.filter(customer__isnull=without_customer == 'True')
         if external_status and not ignore_external_status:
             base_queryset = base_queryset.filter(external_status=external_status)
         
@@ -916,7 +922,9 @@ def AccountsView(request):
             'account_name': account_name,
             'email': email,
             'status': status,
-            'external_status': external_status
+            'renovable': renovable,
+            'external_status': external_status,
+            'without_customer': without_customer,
         }
         
         # Paginación optimizada
@@ -935,6 +943,10 @@ def AccountsView(request):
             filter_params.append(f'email={email}')
         if status:
             filter_params.append(f'status={status}')
+        if renovable:
+            filter_params.append(f'renovable={renovable}')
+        if without_customer:
+            filter_params.append(f'without_customer={without_customer}')
         if external_status:
             filter_params.append(f'external_status={external_status}')
 
@@ -973,6 +985,15 @@ def AccountsView(request):
             "form": FilterAccountForm(),
             "external_status_choices": Account._meta.get_field('external_status').choices,
             "today": today,
+            "form_data": {
+                'account_name': '',
+                'email': '',
+                'status': '',
+                'renovable': '',
+                'external_status': '',
+                'without_customer': '',
+            },
+            "filter_query": "",
             "has_filters": False
         }
         

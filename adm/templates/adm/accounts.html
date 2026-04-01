@@ -8,89 +8,112 @@
     <a href="{% url 'adm:accounts_create' %}" class="btn btn-cm mb-3">Crear Nueva</a>
     <a href="{% url 'adm:accounts_expired' %}" class="btn btn-primary mb-3">Vencidos</a>
     <a href="{% url 'adm:SearchRenewAcc' %}" class="btn btn-cm-cancel mb-3">Renovaciones</a>
-    {% if not venues.object_list %}
-        <p>
-            <strong>No Hay Cuentas Disponibles</strong>
-        </p>
-        <a href=" {% url 'adm:accounts' %} ">Volver</a>
-    {% else %}
-        {% if messages %}
-            {% for message in messages %}
-                <div class="alert alert-success {% if message.tags %}alert-{{ message.tags }}{% endif %}"
-                     role="alert">{{ message }}</div>
-            {% endfor %}
-        {% endif %}
-        {% comment %} Form Filters {% endcomment %}
-        <section>
-            <form class="row row-cols-lg-auto g-3 align-items-center filter"
-                  method="post">
-                {% csrf_token %}
-                {% comment %} Account {% endcomment %}
-                <div class="col-12">
-                    <label class="visually-hidden" for="account_name_select">{{ form.account_name.label }}</label>
-                    <div class="input-group">
-                        <div class="input-group-text">{{ form.account_name.label }}</div>
-                        {% if form_data.account_name %}
-                            <select name="account_name" class="form-select" id="account_name_select">
-                                {% for choice in form.account_name.field.choices %}
-                                    <option value="{{ choice.0 }}"
-                                            {% if form_data.account_name == choice.0|stringformat:"s" %}selected{% endif %}>
-                                        {{ choice.1 }}
-                                    </option>
-                                {% endfor %}
-                            </select>
-                        {% else %}
-                            {{ form.account_name }}
-                        {% endif %}
-                    </div>
-                </div>
-                {% comment %} E-Mail {% endcomment %}
-                <div class="col-12">
-                    <label class="visually-hidden" for="email_input">{{ form.email.label }}</label>
-                    <div class="input-group">
-                        <div class="input-group-text">{{ form.email.label }}</div>
-                        <input type="text"
-                               id="email_input"
-                               name="{{ form.email.name }}"
-                               value="{% if form_data.email %}{{ form_data.email }}{% endif %}"
-                               autocomplete="off">
-                    </div>
-                </div>
-                {% comment %} Status {% endcomment %}
-                <div class="col-12">
-                    <label class="visually-hidden" for="status_select">Estado</label>
-                    <div class="input-group">
-                        <div class="input-group-text">Estado</div>
-                        <select name="status" class="form-control" id="status_select">
-                            <option value="">------</option>
-                            <option value="True" {% if form_data.status == "True" %}selected{% endif %}>Activa</option>
-                            <option value="False" {% if form_data.status == "False" %}selected{% endif %}>Inactiva</option>
-                        </select>
-                    </div>
-                </div>
-                {% comment %} External Status {% endcomment %}
-                <div class="col-12">
-                    <label class="visually-hidden" for="external_status_select">{{ form.external_status.label }}</label>
-                    <div class="input-group">
-                        <div class="input-group-text">{{ form.external_status.label }}</div>
-                        <select name="external_status" class="form-select" id="external_status_select">
-                            <option value="">------</option>
-                            <option value="__ignore__" {% if form_data.external_status == "__ignore__" %}selected{% endif %}>Ignorar estado externo</option>
-                            {% for choice in form.external_status.field.choices %}
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-success {% if message.tags %}alert-{{ message.tags }}{% endif %}"
+                 role="alert">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+    {% comment %} Form Filters {% endcomment %}
+    <section>
+        <form class="row row-cols-lg-auto g-3 align-items-center filter"
+              method="post">
+            {% csrf_token %}
+            {% comment %} Account {% endcomment %}
+            <div class="col-12">
+                <label class="visually-hidden" for="account_name_select">{{ form.account_name.label }}</label>
+                <div class="input-group">
+                    <div class="input-group-text">{{ form.account_name.label }}</div>
+                    {% if form_data.account_name %}
+                        <select name="account_name" class="form-select" id="account_name_select">
+                            {% for choice in form.account_name.field.choices %}
                                 <option value="{{ choice.0 }}"
-                                        {% if form_data.external_status == choice.0|stringformat:"s" %}selected{% endif %}>
+                                        {% if form_data.account_name == choice.0|stringformat:"s" %}selected{% endif %}>
                                     {{ choice.1 }}
                                 </option>
                             {% endfor %}
                         </select>
-                    </div>
+                    {% else %}
+                        {{ form.account_name }}
+                    {% endif %}
                 </div>
-                <div class="col-12">
-                    <input type="submit" class="btn btn-info" value="Filtrar">
-                    <a href="{% url 'adm:accounts' %}" class="btn btn-cm-cancel">Limpiar Filtro</a>
+            </div>
+            {% comment %} E-Mail {% endcomment %}
+            <div class="col-12">
+                <label class="visually-hidden" for="email_input">{{ form.email.label }}</label>
+                <div class="input-group">
+                    <div class="input-group-text">{{ form.email.label }}</div>
+                    <input type="text"
+                           id="email_input"
+                           name="{{ form.email.name }}"
+                           value="{% if form_data.email %}{{ form_data.email }}{% endif %}"
+                           autocomplete="off">
                 </div>
-            </form>
-        </section>
+            </div>
+            {% comment %} Status {% endcomment %}
+            <div class="col-12">
+                <label class="visually-hidden" for="status_select">Estado</label>
+                <div class="input-group">
+                    <div class="input-group-text">Estado</div>
+                    <select name="status" class="form-control" id="status_select">
+                        <option value="">------</option>
+                        <option value="True" {% if form_data.status == "True" %}selected{% endif %}>Activa</option>
+                        <option value="False" {% if form_data.status == "False" %}selected{% endif %}>Inactiva</option>
+                    </select>
+                </div>
+            </div>
+            {% comment %} Customer Filter {% endcomment %}
+            <div class="col-12">
+                <label class="visually-hidden" for="without_customer_select">Cliente</label>
+                <div class="input-group">
+                    <div class="input-group-text">Cliente</div>
+                    <select name="without_customer" class="form-control" id="without_customer_select">
+                        <option value="">------</option>
+                        <option value="True" {% if form_data.without_customer == "True" %}selected{% endif %}>Sin cliente</option>
+                        <option value="False" {% if form_data.without_customer == "False" %}selected{% endif %}>Con cliente</option>
+                    </select>
+                </div>
+            </div>
+            {% comment %} Renewable Filter {% endcomment %}
+            <div class="col-12">
+                <label class="visually-hidden" for="renovable_select">Renovable</label>
+                <div class="input-group">
+                    <div class="input-group-text">Renovable</div>
+                    <select name="renovable" class="form-control" id="renovable_select">
+                        <option value="">------</option>
+                        <option value="True" {% if form_data.renovable == "True" %}selected{% endif %}>Si</option>
+                        <option value="False" {% if form_data.renovable == "False" %}selected{% endif %}>No</option>
+                    </select>
+                </div>
+            </div>
+            {% comment %} External Status {% endcomment %}
+            <div class="col-12">
+                <label class="visually-hidden" for="external_status_select">{{ form.external_status.label }}</label>
+                <div class="input-group">
+                    <div class="input-group-text">{{ form.external_status.label }}</div>
+                    <select name="external_status" class="form-select" id="external_status_select">
+                        <option value="">------</option>
+                        <option value="__ignore__" {% if form_data.external_status == "__ignore__" %}selected{% endif %}>Ignorar estado externo</option>
+                        {% for choice in form.external_status.field.choices %}
+                            <option value="{{ choice.0 }}"
+                                    {% if form_data.external_status == choice.0|stringformat:"s" %}selected{% endif %}>
+                                {{ choice.1 }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="col-12">
+                <input type="submit" class="btn btn-info" value="Filtrar">
+                <a href="{% url 'adm:accounts' %}" class="btn btn-cm-cancel">Limpiar Filtro</a>
+            </div>
+        </form>
+    </section>
+    {% if not venues.object_list %}
+        <p>
+            <strong>{% if has_filters %}No se encontraron cuentas con los filtros actuales{% else %}No Hay Cuentas Disponibles{% endif %}</strong>
+        </p>
+    {% else %}
         <table class="table table-striped table-hover details">
             <thead>
                 <tr>
@@ -288,11 +311,11 @@
                         </ul>
                     </nav>
                 {% endif %}
-            {% endif %}
         </div>
+    {% endif %}
 
-        <!-- Toast Container -->
-        <div id="toast-container" style="position: fixed; bottom: 20px; right: 20px; z-index: 9999;"></div>
+    <!-- Toast Container -->
+    <div id="toast-container" style="position: fixed; bottom: 20px; right: 20px; z-index: 9999;"></div>
     {% endblock body %}
     {% block extrajs %}
         <script>
