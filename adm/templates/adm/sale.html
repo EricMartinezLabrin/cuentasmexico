@@ -113,6 +113,9 @@
                                 <a href="{% url 'adm:user_change_phone' customer.id %}" class="btn btn-sm btn-outline-secondary" title="Cambiar teléfono">
                                     <i class="bi bi-telephone-fill me-2"></i> Cambiar Teléfono
                                 </a>
+                                <button type="button" class="btn btn-sm btn-outline-warning" title="Combinar cliente por email" data-bs-toggle="modal" data-bs-target="#mergeCustomerModal">
+                                    <i class="bi bi-person-lines-fill me-2"></i> Combinar con Email
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -230,10 +233,50 @@
 
     <!-- Error Message -->
     {% if message %}
-        <div class="alert alert-danger alert-dismissible fade show mb-4" role="alert">
-            <i class="bi bi-exclamation-circle-fill me-2"></i>
+        <div class="alert alert-{{ message_type|default:'danger' }} alert-dismissible fade show mb-4" role="alert">
+            {% if message_type == 'success' %}
+                <i class="bi bi-check-circle-fill me-2"></i>
+            {% else %}
+                <i class="bi bi-exclamation-circle-fill me-2"></i>
+            {% endif %}
             {{ message }}
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    {% endif %}
+    {% if customer %}
+        <div class="modal fade" id="mergeCustomerModal" tabindex="-1" aria-labelledby="mergeCustomerModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <form method="post" action="{% url 'adm:user_merge_email' customer.id %}">
+                        {% csrf_token %}
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="mergeCustomerModalLabel">Combinar Cliente con Email</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p class="mb-2">
+                                Cliente actual:
+                                <strong>{{ customer.username }}</strong>
+                                · Tel: <strong>{{ customer.userdetail.phone_number }}</strong>
+                            </p>
+                            <label for="target_email" class="form-label">Email destino registrado en la web</label>
+                            <input type="email"
+                                   class="form-control"
+                                   id="target_email"
+                                   name="target_email"
+                                   placeholder="cliente@dominio.com"
+                                   required>
+                            <small class="text-muted d-block mt-2">
+                                Se moverán ventas, cuentas, cupones y datos comerciales al usuario de ese email.
+                            </small>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="submit" class="btn btn-warning">Combinar Ahora</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
         </div>
     {% endif %}
     {% if customer %}

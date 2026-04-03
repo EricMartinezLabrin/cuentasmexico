@@ -355,17 +355,20 @@ class Sales():
             if len(cm) > 13:
                 raise NameError
             else:
+                current_business = request.user.userdetail.business
+                user_detail = Sales.resolve_userdetail_by_phone(
+                    phone_number=cm,
+                    business=current_business,
+                )
+                if user_detail is not None:
+                    return user_detail.user
                 try:
-                    pk = UserDetail.objects.get(phone_number=cm).user
-                    return User.objects.get(pk=pk.id)
-                except UserDetail.DoesNotExist:
-                    try:
-                        user = User.objects.get(username=cm)
-                        user_detail = UserDetail.objects.create(
-                            business=request.user.userdetail.business, user=user, phone_number=cm, lada=0, country="??")
-                        return user_detail
-                    except User.DoesNotExist:
-                        return 'phone'
+                    user = User.objects.get(username=cm)
+                    user_detail = UserDetail.objects.create(
+                        business=request.user.userdetail.business, user=user, phone_number=cm, lada=0, country="??")
+                    return user_detail
+                except User.DoesNotExist:
+                    return 'phone'
 
         else:
             if '@' in cm:
@@ -381,6 +384,73 @@ class Sales():
                     return user_detail
             else:
                 raise TypeError
+
+    @staticmethod
+    def resolve_userdetail_by_phone(phone_number, business=None):
+        """
+        Resuelve duplicados de teléfono eligiendo el cliente con mayor historial.
+        Prioriza el business actual cuando existe.
+        """
+        phone = str(phone_number or '').replace(' ', '')
+        if not phone:
+            return None
+
+        base_qs = UserDetail.objects.filter(phone_number=phone).select_related('user')
+        scoped_qs = base_qs.filter(business=business) if business else base_qs
+
+        candidates = list(scoped_qs)
+        if not candidates:
+            candidates = list(base_qs)
+        if not candidates:
+            return None
+        if len(candidates) == 1:
+            return candidates[0]
+
+        user_ids = [c.user_id for c in candidates]
+
+        sales_counts = dict(
+            Sale.objects.filter(customer_id__in=user_ids)
+            .values('customer_id')
+            .annotate(total=Count('id'))
+            .values_list('customer_id', 'total')
+        )
+        account_counts = dict(
+            Account.objects.filter(customer_id__in=user_ids)
+            .values('customer_id')
+            .annotate(total=Count('id'))
+            .values_list('customer_id', 'total')
+        )
+        credits_counts = dict(
+            Credits.objects.filter(customer_id__in=user_ids)
+            .values('customer_id')
+            .annotate(total=Count('id'))
+            .values_list('customer_id', 'total')
+        )
+        changes_counts = dict(
+            AccountChangeHistory.objects.filter(customer_id__in=user_ids)
+            .values('customer_id')
+            .annotate(total=Count('id'))
+            .values_list('customer_id', 'total')
+        )
+        coupon_counts = dict(
+            CouponRedemption.objects.filter(customer_id__in=user_ids)
+            .values('customer_id')
+            .annotate(total=Count('id'))
+            .values_list('customer_id', 'total')
+        )
+
+        def score(detail):
+            uid = detail.user_id
+            return (
+                sales_counts.get(uid, 0),
+                account_counts.get(uid, 0),
+                credits_counts.get(uid, 0),
+                changes_counts.get(uid, 0),
+                coupon_counts.get(uid, 0),
+                -detail.id,  # empate: conservar el registro más antiguo
+            )
+
+        return max(candidates, key=score)
 
     def new_sale(request):
         service = request.POST.getlist('serv')
@@ -771,7 +841,7 @@ class Sales():
             
         return inactive_page
 
-    def render_view(request, customer=None, message=None, copy=None):
+    def render_view(request, customer=None, message=None, copy=None, message_type='danger'):
         # Obtener parámetro de página para inactivos
         inactive_page = request.GET.get('inactive_page', 1)
         
@@ -779,6 +849,7 @@ class Sales():
             my_dict = {
                 'availables': Sales.availables()[0],
                 'message': message,
+                'message_type': message_type,
                 'active': Sales.customer_sales_active(customer),
                 'inactive': Sales.customer_sales_inactive(customer, inactive_page),
                 'marketing_offers': [],
@@ -794,6 +865,7 @@ class Sales():
                 'availables': Sales.availables()[0],
                 'customer': customer,
                 'message': message,
+                'message_type': message_type,
                 'copy': copy,
                 'active': Sales.customer_sales_active(customer),
                 'inactive': Sales.customer_sales_inactive(customer, inactive_page),

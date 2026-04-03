@@ -18,6 +18,7 @@ from django.contrib.auth.models import User
 from django.shortcuts import redirect
 from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
 from django.http import JsonResponse
+from django.db import transaction
 from django.db.models import Sum, Prefetch, Case, When, IntegerField, Q, Count
 from django.db.models import Max
 from django.utils import timezone
@@ -44,7 +45,8 @@ from .models import (
     Business, PaymentMethod, Sale, UserDetail, Service, Account, Bank,
     Status, Supplier, Credits, Promocion, AccountChangeHistory,
     Affiliate, AffiliateCommission, AffiliateWithdrawal, AffiliateSettings, AffiliateSale, AISettings,
-    MarketingCampaign, MarketingCampaignRecommendation, MarketingCampaignDelivery, MarketingCampaignRedemption
+    MarketingCampaign, MarketingCampaignRecommendation, MarketingCampaignDelivery, MarketingCampaignRedemption,
+    MarketingUserTag
 )
 from cupon.models import Cupon, CouponRedemption
 from cupon.forms import CuponForm
@@ -766,6 +768,198 @@ def ChangeUserPhone(request, pk):
     }
     return render(request, 'adm/user_phone_change.html', context)
 
+
+@permission_required('is_staff', 'adm:no-permission')
+def MergeCustomerByEmailView(request, pk):
+    """
+    Combina un cliente actual (normalmente creado por teléfono en /adm)
+    con un usuario existente por email (normalmente creado en la web).
+    """
+    if request.method != 'POST':
+        return redirect(f"{reverse('adm:sales')}?customer={pk}")
+
+    try:
+        source_user = User.objects.get(pk=pk)
+        source_detail = UserDetail.objects.get(user=source_user)
+    except (User.DoesNotExist, UserDetail.DoesNotExist):
+        return Sales.render_view(request, message='No se encontró el cliente origen para combinar.')
+
+    target_email = (request.POST.get('target_email') or '').strip().lower()
+    if not target_email or '@' not in target_email:
+        return Sales.render_view(
+            request,
+            customer=source_user.id,
+            message='Debes ingresar un email válido para combinar.',
+        )
+
+    target_user = User.objects.filter(email__iexact=target_email).first()
+    if not target_user:
+        return Sales.render_view(
+            request,
+            customer=source_user.id,
+            message=f'No existe un usuario registrado con el email {target_email}.',
+        )
+
+    if target_user.id == source_user.id:
+        return Sales.render_view(
+            request,
+            customer=source_user.id,
+            message='Ese email ya pertenece al cliente actual.',
+        )
+
+    try:
+        target_detail = UserDetail.objects.get(user=target_user)
+    except UserDetail.DoesNotExist:
+        target_detail = UserDetail.objects.create(
+            business=source_detail.business,
+            user=target_user,
+            phone_number=0,
+            lada=0,
+            country='??'
+        )
+
+    source_phone = str(source_detail.phone_number or '').strip()
+    target_phone = str(target_detail.phone_number or '').strip()
+    if (
+        source_phone and source_phone != '0'
+        and target_phone not in ('', '0', source_phone)
+    ):
+        return Sales.render_view(
+            request,
+            customer=source_user.id,
+            message=(
+                f'No se pudo combinar: el usuario {target_email} ya tiene '
+                f'otro teléfono ({target_phone}). Límpialo o cámbialo primero.'
+            ),
+        )
+
+    try:
+        with transaction.atomic():
+            if source_phone and source_phone != '0':
+                target_detail.phone_number = source_phone
+            if not target_detail.lada and source_detail.lada:
+                target_detail.lada = source_detail.lada
+            if (not target_detail.country or target_detail.country == '??') and source_detail.country and source_detail.country != '??':
+                target_detail.country = source_detail.country
+            if source_detail.free_days:
+                target_detail.free_days = (target_detail.free_days or 0) + source_detail.free_days
+            if not target_detail.token and source_detail.token:
+                target_detail.token = source_detail.token
+            if not target_detail.reference and source_detail.reference:
+                target_detail.reference = source_detail.reference
+            target_detail.save()
+
+            moved_sales = Sale.objects.filter(customer=source_user).update(customer=target_user)
+            moved_accounts = Account.objects.filter(customer=source_user).update(customer=target_user)
+            moved_credits = Credits.objects.filter(customer=source_user).update(customer=target_user)
+            moved_cupons = Cupon.objects.filter(customer=source_user).update(customer=target_user)
+            moved_coupon_redemptions = CouponRedemption.objects.filter(customer=source_user).update(customer=target_user)
+            moved_account_history = AccountChangeHistory.objects.filter(customer=source_user).update(customer=target_user)
+
+            moved_recommendations = 0
+            removed_recommendations = 0
+            for recommendation in MarketingCampaignRecommendation.objects.filter(customer=source_user).select_related('campaign'):
+                existing_recommendation = MarketingCampaignRecommendation.objects.filter(
+                    campaign=recommendation.campaign,
+                    customer=target_user
+                ).first()
+                if existing_recommendation:
+                    MarketingCampaignDelivery.objects.filter(recommendation=recommendation).update(
+                        recommendation=existing_recommendation
+                    )
+                    recommendation.delete()
+                    removed_recommendations += 1
+                else:
+                    recommendation.customer = target_user
+                    recommendation.save(update_fields=['customer'])
+                    moved_recommendations += 1
+
+            moved_redemptions = 0
+            removed_redemptions = 0
+            for redemption in MarketingCampaignRedemption.objects.filter(customer=source_user).select_related('campaign'):
+                existing_redemption = MarketingCampaignRedemption.objects.filter(
+                    campaign=redemption.campaign,
+                    customer=target_user
+                ).first()
+                if existing_redemption:
+                    updated_fields = []
+                    if not existing_redemption.sale and redemption.sale:
+                        existing_redemption.sale = redemption.sale
+                        updated_fields.append('sale')
+                    if not existing_redemption.promo_code and redemption.promo_code:
+                        existing_redemption.promo_code = redemption.promo_code
+                        updated_fields.append('promo_code')
+                    if (not existing_redemption.details) and redemption.details:
+                        existing_redemption.details = redemption.details
+                        updated_fields.append('details')
+                    if updated_fields:
+                        existing_redemption.save(update_fields=updated_fields)
+                    redemption.delete()
+                    removed_redemptions += 1
+                else:
+                    redemption.customer = target_user
+                    redemption.save(update_fields=['customer'])
+                    moved_redemptions += 1
+
+            moved_tags = 0
+            removed_tags = 0
+            for tag in MarketingUserTag.objects.filter(user=source_user):
+                existing_tag = MarketingUserTag.objects.filter(
+                    user=target_user,
+                    tag_key=tag.tag_key
+                ).first()
+                if existing_tag:
+                    tag.delete()
+                    removed_tags += 1
+                else:
+                    tag.user = target_user
+                    tag.save(update_fields=['user'])
+                    moved_tags += 1
+
+            try:
+                from index.models import IndexCart
+                moved_carts = IndexCart.objects.filter(customer=source_user).update(customer=target_user)
+            except Exception:
+                moved_carts = 0
+
+            source_detail.phone_number = 0
+            source_detail.lada = 0
+            source_detail.country = '??'
+            source_detail.free_days = 0
+            source_detail.reference = None
+            source_detail.reference_used = False
+            source_detail.save(update_fields=[
+                'phone_number', 'lada', 'country',
+                'free_days', 'reference', 'reference_used'
+            ])
+
+            source_user.is_active = False
+            source_user.username = f"merged_{source_user.id}_{source_user.username}"[:150]
+            source_user.email = f"merged_{source_user.id}@example.com"
+            source_user.save(update_fields=['is_active', 'username', 'email'])
+    except Exception as exc:
+        return Sales.render_view(
+            request,
+            customer=source_user.id,
+            message=f'Ocurrió un error al combinar clientes: {str(exc)}',
+        )
+
+    summary = (
+        f'Cliente combinado con éxito en {target_email}. '
+        f'Movidos -> ventas: {moved_sales}, cuentas: {moved_accounts}, '
+        f'créditos: {moved_credits}, cupones: {moved_cupons}, canjes: {moved_coupon_redemptions}, '
+        f'carritos: {moved_carts}, historial cuentas: {moved_account_history}, '
+        f'recomendaciones: {moved_recommendations} ({removed_recommendations} duplicadas), '
+        f'redenciones marketing: {moved_redemptions} ({removed_redemptions} duplicadas), '
+        f'tags marketing: {moved_tags} ({removed_tags} duplicadas).'
+    )
+    return Sales.render_view(
+        request,
+        customer=target_user.id,
+        message=summary,
+        message_type='success',
+    )
+
 @login_required
 @permission_required('is_superuser', 'adm:no-permission')
 def ToggleUserStatus(request, pk):
@@ -1317,18 +1511,19 @@ def SalesView(request, phone_number=None):
     
     # Manejar número de teléfono si existe
     if phone_number:
-        try:
-            # Convertir a entero para la búsqueda en la base de datos
-            phone_number_int = int(phone_number)
-            # Buscar usuario por número de teléfono
-            customer_detail = UserDetail.objects.get(phone_number=phone_number_int)
+        # Buscar usuario por teléfono resolviendo duplicados por historial.
+        current_business = getattr(getattr(request.user, 'userdetail', None), 'business', None)
+        customer_detail = Sales.resolve_userdetail_by_phone(
+            phone_number=str(phone_number),
+            business=current_business,
+        )
+        if customer_detail is not None:
             return Sales.render_view(request, customer=customer_detail.user.id)
-        except (UserDetail.DoesNotExist, ValueError):
-            # Si no existe el usuario o el número no es válido, simular un POST
-            request.method = 'POST'
-            request.POST = request.POST.copy()
-            request.POST['customer'] = str(phone_number)
-            request.POST._mutable = False
+        # Si no existe el usuario, simular un POST para el flujo de alta.
+        request.method = 'POST'
+        request.POST = request.POST.copy()
+        request.POST['customer'] = str(phone_number)
+        request.POST._mutable = False
     if request.method == 'POST':
         try:
             customer = Sales.is_email(request, request.POST.get('customer'))
