@@ -51,6 +51,8 @@ urlpatterns = [
          login_required(views.ToggleUserStatus), name='user_toggle_status'),
     path('user/change-phone/<int:pk>',
          login_required(views.ChangeUserPhone), name='user_change_phone'),
+    path('user/merge-email/<int:pk>',
+         login_required(views.MergeCustomerByEmailView), name='user_merge_email'),
     path('user/update/<int:pk>',
          login_required(views.CustomerUpdateView.as_view()), name='user_update'),
     path('user/reference/<int:pk>',
