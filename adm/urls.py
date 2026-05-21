@@ -142,6 +142,7 @@ urlpatterns = [
     path('receivable/send-cobranza/', login_required(views.TriggerSendDueTodayWhatsApp), name='receivable_send_cobranza'),
     path('receivable/send-due-5-days/', login_required(views.TriggerSendDueIn5DaysWhatsApp), name='receivable_send_due_5_days'),
     path('receivable/send-overdue-pending/', login_required(views.TriggerSendOverduePendingWhatsApp), name='receivable_send_overdue_pending'),
+    path('receivable/notify-all/', login_required(views.TriggerNotifyAllReceivable), name='receivable_notify_all'),
     path('receivable/notifications/status/', login_required(views.ReceivableNotificationStatus), name='receivable_notifications_status'),
     path('receivable/notifications/control/', login_required(views.ReceivableNotificationControl), name='receivable_notifications_control'),
     path('receivable/<int:sale_id>',

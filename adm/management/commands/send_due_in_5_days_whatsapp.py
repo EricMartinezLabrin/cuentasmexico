@@ -27,10 +27,12 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument('--dry-run', action='store_true')
         parser.add_argument('--date', type=str)
+        parser.add_argument('--ignore-schedule', action='store_true')
 
     def handle(self, *args, **options):
         dry_run = options['dry_run']
         target_date = options.get('date')
+        ignore_schedule = options.get('ignore_schedule', False)
         working_start = os.getenv('WORKING_HOURS_START', '09:00')
         working_end = os.getenv('WORKING_HOURS_END', '21:00')
         start_hour, start_minute = [int(v) for v in working_start.split(':')]
@@ -43,10 +45,10 @@ class Command(BaseCommand):
         work_end = timezone.make_aware(datetime.combine(base_day, time(end_hour, end_minute)))
         self.stdout.write(f'[due_5_days] now={timezone.localtime()} start={work_start} end={work_end} dry_run={dry_run}')
 
-        if now < work_start:
+        if (not ignore_schedule) and now < work_start:
             self.stdout.write(f'[due_5_days] Esperando inicio de horario ({work_start})')
             time_module.sleep(int((work_start - now).total_seconds()))
-        if timezone.localtime() > work_end:
+        if (not ignore_schedule) and timezone.localtime() > work_end:
             self.stdout.write('[due_5_days] Fuera de horario, sin ejecucion')
             return
 

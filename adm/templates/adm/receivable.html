@@ -63,9 +63,12 @@
                     </form>
                 </div>
                 <div class="col-12">
-                    <button id="notify-all-button" type="button" class="btn btn-outline-primary w-100">
-                        Notificar todos
-                    </button>
+                    <form id="notify-all-form" method="post" action="{% url 'adm:receivable_notify_all' %}" class="d-grid">
+                        {% csrf_token %}
+                        <button id="notify-all-button" type="submit" class="btn btn-outline-primary w-100">
+                            Notificar todos
+                        </button>
+                    </form>
                 </div>
             </div>
         </div>
@@ -368,6 +371,7 @@
 
     const STATUS_URL = '{% url "adm:receivable_notifications_status" %}';
     const CONTROL_URL = '{% url "adm:receivable_notifications_control" %}';
+    const NOTIFY_ALL_URL = '{% url "adm:receivable_notify_all" %}';
     const modalElement = document.getElementById('notificationProgressModal');
     const progressModal = new bootstrap.Modal(modalElement);
     let activeJobKey = null;
@@ -470,7 +474,7 @@
     modalElement.addEventListener('hidden.bs.modal', stopStatusPolling);
     modalElement.addEventListener('shown.bs.modal', startStatusPolling);
 
-    async function triggerReceivableNotification(formId, statusId, endpointUrl, skipRunningCheck = false) {
+    async function triggerReceivableNotification(formId, statusId, endpointUrl, skipRunningCheck = false, payload = {}) {
         const form = document.getElementById(formId);
         const statusElement = document.getElementById(statusId);
         const csrftoken = form.querySelector('[name=csrfmiddlewaretoken]').value;
@@ -501,6 +505,7 @@
                 'X-Requested-With': 'XMLHttpRequest',
                 'Content-Type': 'application/json'
             },
+            body: JSON.stringify(payload),
         });
         const data = await triggerRes.json();
         if (data.success) {
@@ -537,15 +542,25 @@
             });
     });
 
-    document.getElementById('notify-all-button').addEventListener('click', async function(event) {
+    document.getElementById('notify-all-form').addEventListener('submit', async function(event) {
         event.preventDefault();
         const statusElement = document.getElementById('cobranza-status');
         statusElement.innerHTML = '<div class="alert alert-info">Iniciando los 3 envios masivos...</div>';
         try {
-            await triggerReceivableNotification('send-cobranza-form', 'cobranza-status', '{% url "adm:receivable_send_cobranza" %}', true);
-            await triggerReceivableNotification('send-due-5-days-form', 'cobranza-status', '{% url "adm:receivable_send_due_5_days" %}', true);
-            await triggerReceivableNotification('send-overdue-pending-form', 'cobranza-status', '{% url "adm:receivable_send_overdue_pending" %}', true);
-            statusElement.innerHTML = '<div class="alert alert-success">Se iniciaron los 3 envios masivos.</div>';
+            const csrftoken = getCookie('csrftoken') || document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+            const res = await fetch(NOTIFY_ALL_URL, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrftoken,
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ force: true }),
+            });
+            const data = await res.json();
+            if (!data.success) throw new Error(data.message || 'No se pudo iniciar notificar todos');
+            const details = Array.isArray(data.details) ? `<br>${data.details.join('<br>')}` : '';
+            statusElement.innerHTML = '<div class="alert alert-success">' + data.message + details + '</div>';
             await fetchAndRenderStatus(true);
             startStatusPolling();
         } catch (e) {

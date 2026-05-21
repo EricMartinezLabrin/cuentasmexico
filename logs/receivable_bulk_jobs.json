@@ -2,378 +2,398 @@
   "jobs": {
     "overdue_pending": {
       "job_key": "overdue_pending",
-      "status": "completed",
-      "started_at": "2026-05-20T23:29:23.201730+00:00",
-      "updated_at": "2026-05-21T00:49:47.402656+00:00",
-      "finished_at": "2026-05-21T00:49:47.402656+00:00",
+      "status": "running",
+      "started_at": "2026-05-21T16:32:35.162698+00:00",
+      "updated_at": "2026-05-21T16:32:38.448245+00:00",
+      "finished_at": null,
       "control": {
         "paused": false,
         "stop_requested": false
       },
       "totals": {
-        "total": 22,
-        "sent": 20,
-        "failed": 1,
-        "skipped": 1,
-        "pending": 0
+        "total": 28,
+        "sent": 1,
+        "failed": 0,
+        "skipped": 0,
+        "pending": 27
       },
       "recipients": [
         {
           "sale_id": 112687,
           "customer": "7352380310",
           "phone": "+527352380310",
-          "status": "skipped",
-          "note": "Ya notificado hoy",
-          "updated_at": "2026-05-20T23:29:23.203234+00:00"
+          "status": "sent",
+          "note": "Enviado (201)",
+          "updated_at": "2026-05-21T16:32:38.448245+00:00"
         },
         {
           "sale_id": 113475,
           "customer": "6311938618",
           "phone": "+526311938618",
-          "status": "sent",
-          "note": "Enviado (201)",
-          "updated_at": "2026-05-20T23:29:25.643690+00:00"
+          "status": "pending",
+          "note": ""
         },
         {
           "sale_id": 113742,
           "customer": "6863374585",
           "phone": "+526863374585",
-          "status": "sent",
-          "note": "Enviado (201)",
-          "updated_at": "2026-05-20T23:32:35.990826+00:00"
+          "status": "pending",
+          "note": ""
         },
         {
           "sale_id": 113553,
           "customer": "8332932951",
           "phone": "+528332932951",
-          "status": "sent",
-          "note": "Enviado (201)",
-          "updated_at": "2026-05-20T23:36:08.342850+00:00"
-        },
-        {
-          "sale_id": 113478,
-          "customer": "8113251325",
-          "phone": "+528113251325",
-          "status": "sent",
-          "note": "Enviado (201)",
-          "updated_at": "2026-05-20T23:40:31.128129+00:00"
-        },
-        {
-          "sale_id": 113827,
-          "customer": "8332668206",
-          "phone": "+528332668206",
-          "status": "sent",
-          "note": "Enviado (201)",
-          "updated_at": "2026-05-20T23:43:55.305237+00:00"
+          "status": "pending",
+          "note": ""
         },
         {
           "sale_id": 113480,
           "customer": "2471325939",
           "phone": "+522471325939",
-          "status": "sent",
-          "note": "Enviado (201)",
-          "updated_at": "2026-05-20T23:48:50.988420+00:00"
+          "status": "pending",
+          "note": ""
         },
         {
           "sale_id": 113543,
           "customer": "8442906241",
           "phone": "+528442906241",
-          "status": "sent",
-          "note": "Enviado (201)",
-          "updated_at": "2026-05-20T23:53:08.164642+00:00"
+          "status": "pending",
+          "note": ""
         },
         {
           "sale_id": 113593,
           "customer": "2214370436",
           "phone": "+522214370436",
-          "status": "sent",
-          "note": "Enviado (201)",
-          "updated_at": "2026-05-20T23:57:49.761322+00:00"
+          "status": "pending",
+          "note": ""
         },
         {
           "sale_id": 113743,
           "customer": "6143585401",
           "phone": "+526143585401",
-          "status": "sent",
-          "note": "Enviado (201)",
-          "updated_at": "2026-05-21T00:01:06.563590+00:00"
+          "status": "pending",
+          "note": ""
         },
         {
           "sale_id": 113483,
           "customer": "57146482",
           "phone": "+5657146482",
-          "status": "failed",
-          "note": "Error (400)",
-          "updated_at": "2026-05-21T00:04:26.385548+00:00"
+          "status": "pending",
+          "note": ""
         },
         {
           "sale_id": 113486,
           "customer": "3312796922",
           "phone": "+523312796922",
-          "status": "sent",
-          "note": "Enviado (201)",
-          "updated_at": "2026-05-21T00:08:52.005721+00:00"
+          "status": "pending",
+          "note": ""
         },
         {
           "sale_id": 113488,
           "customer": "6311248784",
           "phone": "+526311248784",
-          "status": "sent",
-          "note": "Enviado (201)",
-          "updated_at": "2026-05-21T00:13:00.483652+00:00"
+          "status": "pending",
+          "note": ""
         },
         {
           "sale_id": 113491,
           "customer": "6181765012",
           "phone": "+526181765012",
-          "status": "sent",
-          "note": "Enviado (201)",
-          "updated_at": "2026-05-21T00:17:04.082859+00:00"
+          "status": "pending",
+          "note": ""
         },
         {
           "sale_id": 113737,
           "customer": "7713805279",
           "phone": "+527713805279",
-          "status": "sent",
-          "note": "Enviado (201)",
-          "updated_at": "2026-05-21T00:20:15.441914+00:00"
+          "status": "pending",
+          "note": ""
         },
         {
           "sale_id": 113495,
           "customer": "6361442494",
           "phone": "+526361442494",
-          "status": "sent",
-          "note": "Enviado (201)",
-          "updated_at": "2026-05-21T00:23:59.988260+00:00"
+          "status": "pending",
+          "note": ""
         },
         {
           "sale_id": 113493,
           "customer": "6361442494",
           "phone": "+526361442494",
-          "status": "sent",
-          "note": "Enviado (201)",
-          "updated_at": "2026-05-21T00:28:54.622427+00:00"
+          "status": "pending",
+          "note": ""
         },
         {
           "sale_id": 113505,
           "customer": "6182360185",
           "phone": "+526182360185",
-          "status": "sent",
-          "note": "Enviado (201)",
-          "updated_at": "2026-05-21T00:33:11.994035+00:00"
+          "status": "pending",
+          "note": ""
         },
         {
           "sale_id": 113498,
           "customer": "9612753259",
           "phone": "+529612753259",
-          "status": "sent",
-          "note": "Enviado (201)",
-          "updated_at": "2026-05-21T00:36:20.151617+00:00"
+          "status": "pending",
+          "note": ""
         },
         {
           "sale_id": 113597,
           "customer": "3411019011",
           "phone": "+523411019011",
-          "status": "sent",
-          "note": "Enviado (201)",
-          "updated_at": "2026-05-21T00:41:11.892215+00:00"
+          "status": "pending",
+          "note": ""
         },
         {
           "sale_id": 113854,
           "customer": "gpeeder2014@gmail.com",
           "phone": "+528333947786",
-          "status": "sent",
-          "note": "Enviado (201)",
-          "updated_at": "2026-05-21T00:44:53.509116+00:00"
+          "status": "pending",
+          "note": ""
         },
         {
           "sale_id": 113503,
           "customer": "2722301562",
           "phone": "+522722301562",
-          "status": "sent",
-          "note": "Enviado (201)",
-          "updated_at": "2026-05-21T00:49:47.400194+00:00"
-        }
-      ],
-      "message": "Proceso finalizado"
-    },
-    "due_today": {
-      "job_key": "due_today",
-      "status": "completed",
-      "started_at": "2026-05-20T23:29:30.538064+00:00",
-      "updated_at": "2026-05-20T23:54:28.357417+00:00",
-      "finished_at": "2026-05-20T23:54:28.357417+00:00",
-      "control": {
-        "paused": false,
-        "stop_requested": false
-      },
-      "totals": {
-        "total": 8,
-        "sent": 7,
-        "failed": 0,
-        "skipped": 1,
-        "pending": 0
-      },
-      "recipients": [
+          "status": "pending",
+          "note": ""
+        },
         {
           "sale_id": 113509,
           "customer": "6141518051",
           "phone": "+526141518051",
-          "status": "skipped",
-          "note": "Ya notificado hoy",
-          "updated_at": "2026-05-20T23:29:30.539570+00:00"
+          "status": "pending",
+          "note": ""
         },
         {
           "sale_id": 113818,
           "customer": "8616108988",
           "phone": "+528616108988",
-          "status": "sent",
-          "note": "Enviado (201)",
-          "updated_at": "2026-05-20T23:29:32.400859+00:00"
+          "status": "pending",
+          "note": ""
         },
         {
           "sale_id": 113511,
           "customer": "ninimaral83@gmail.com",
           "phone": "+528331882589",
-          "status": "sent",
-          "note": "Enviado (201)",
-          "updated_at": "2026-05-20T23:33:04.847466+00:00"
+          "status": "pending",
+          "note": ""
         },
         {
           "sale_id": 113512,
           "customer": "gpeeder2014@gmail.com",
           "phone": "+528333947786",
-          "status": "sent",
-          "note": "Enviado (201)",
-          "updated_at": "2026-05-20T23:37:23.262582+00:00"
+          "status": "pending",
+          "note": ""
         },
         {
           "sale_id": 113224,
           "customer": "6691523778",
           "phone": "+526691457765",
-          "status": "sent",
-          "note": "Enviado (201)",
-          "updated_at": "2026-05-20T23:42:17.176772+00:00"
+          "status": "pending",
+          "note": ""
         },
         {
           "sale_id": 113517,
           "customer": "4351055955",
           "phone": "+524351055955",
-          "status": "sent",
-          "note": "Enviado (201)",
-          "updated_at": "2026-05-20T23:45:44.160759+00:00"
+          "status": "pending",
+          "note": ""
         },
         {
           "sale_id": 113518,
           "customer": "4351055955",
           "phone": "+524351055955",
-          "status": "sent",
-          "note": "Enviado (201)",
-          "updated_at": "2026-05-20T23:49:41.789634+00:00"
+          "status": "pending",
+          "note": ""
         },
         {
           "sale_id": 112728,
           "customer": "8129160900",
           "phone": "+528129160900",
-          "status": "sent",
-          "note": "Enviado (201)",
-          "updated_at": "2026-05-20T23:54:28.353241+00:00"
+          "status": "pending",
+          "note": ""
         }
       ],
-      "message": "Proceso finalizado"
+      "message": "Enviando a venta 112687"
     },
-    "due_5_days": {
-      "job_key": "due_5_days",
-      "status": "completed",
-      "started_at": "2026-05-20T23:29:31.418333+00:00",
-      "updated_at": "2026-05-21T00:02:07.974911+00:00",
-      "finished_at": "2026-05-21T00:02:07.974911+00:00",
+    "due_today": {
+      "job_key": "due_today",
+      "status": "running",
+      "started_at": "2026-05-21T16:32:35.154093+00:00",
+      "updated_at": "2026-05-21T16:32:39.980692+00:00",
+      "finished_at": null,
       "control": {
         "paused": false,
         "stop_requested": false
       },
       "totals": {
-        "total": 9,
-        "sent": 8,
-        "failed": 1,
+        "total": 5,
+        "sent": 1,
+        "failed": 0,
         "skipped": 0,
-        "pending": 0
+        "pending": 4
       },
       "recipients": [
         {
-          "sale_id": 113625,
-          "customer": "9511755417",
-          "phone": "+529511755417",
+          "sale_id": 113507,
+          "customer": "2294043032",
+          "phone": "+522294043032",
           "status": "sent",
           "note": "Enviado (201)",
-          "updated_at": "2026-05-20T23:29:32.805328+00:00"
+          "updated_at": "2026-05-21T16:32:39.980692+00:00"
         },
         {
-          "sale_id": 113569,
-          "customer": "3338749736",
-          "phone": "+523338749736",
-          "status": "sent",
-          "note": "Enviado (201)",
-          "updated_at": "2026-05-20T23:33:48.575176+00:00"
+          "sale_id": 112871,
+          "customer": "5537150312",
+          "phone": "+525537150312",
+          "status": "pending",
+          "note": ""
         },
         {
-          "sale_id": 113570,
-          "customer": "8332473151",
-          "phone": "+528332473151",
-          "status": "failed",
-          "note": "Error (400)",
-          "updated_at": "2026-05-20T23:38:22.476166+00:00"
+          "sale_id": 113524,
+          "customer": "6611952149",
+          "phone": "+526611952149",
+          "status": "pending",
+          "note": ""
         },
         {
-          "sale_id": 113571,
-          "customer": "6271736541",
-          "phone": "+526271736541",
-          "status": "sent",
-          "note": "Enviado (201)",
-          "updated_at": "2026-05-20T23:42:34.516585+00:00"
+          "sale_id": 113526,
+          "customer": "5575643352",
+          "phone": "+525575643352",
+          "status": "pending",
+          "note": ""
         },
         {
-          "sale_id": 113189,
-          "customer": "2491701551",
-          "phone": "+522491701551",
-          "status": "sent",
-          "note": "Enviado (201)",
-          "updated_at": "2026-05-20T23:46:03.876883+00:00"
-        },
-        {
-          "sale_id": 113579,
-          "customer": "4427908293",
-          "phone": "+524427908293",
-          "status": "sent",
-          "note": "Enviado (201)",
-          "updated_at": "2026-05-20T23:49:41.685294+00:00"
-        },
-        {
-          "sale_id": 113581,
-          "customer": "6674268511",
-          "phone": "+526674268511",
-          "status": "sent",
-          "note": "Enviado (201)",
-          "updated_at": "2026-05-20T23:53:40.321334+00:00"
-        },
-        {
-          "sale_id": 113875,
-          "customer": "8333232980",
-          "phone": "+528333232980",
-          "status": "sent",
-          "note": "Enviado (201)",
-          "updated_at": "2026-05-20T23:57:27.421060+00:00"
-        },
-        {
-          "sale_id": 113769,
-          "customer": "4423236524",
-          "phone": "+524423236524",
-          "status": "sent",
-          "note": "Enviado (201)",
-          "updated_at": "2026-05-21T00:02:07.972169+00:00"
+          "sale_id": 113528,
+          "customer": "9212573720",
+          "phone": "+529212573720",
+          "status": "pending",
+          "note": ""
         }
       ],
-      "message": "Proceso finalizado"
+      "message": "Enviando a venta 113507"
+    },
+    "due_5_days": {
+      "job_key": "due_5_days",
+      "status": "running",
+      "started_at": "2026-05-21T16:32:35.089874+00:00",
+      "updated_at": "2026-05-21T16:32:39.446700+00:00",
+      "finished_at": null,
+      "control": {
+        "paused": false,
+        "stop_requested": false
+      },
+      "totals": {
+        "total": 14,
+        "sent": 1,
+        "failed": 0,
+        "skipped": 0,
+        "pending": 13
+      },
+      "recipients": [
+        {
+          "sale_id": 113585,
+          "customer": "7671138287",
+          "phone": "+527671138287",
+          "status": "sent",
+          "note": "Enviado (201)",
+          "updated_at": "2026-05-21T16:32:39.446700+00:00"
+        },
+        {
+          "sale_id": 113627,
+          "customer": "7716084134",
+          "phone": "+527716084134",
+          "status": "pending",
+          "note": ""
+        },
+        {
+          "sale_id": 113588,
+          "customer": "8715068705",
+          "phone": "+528715068705",
+          "status": "pending",
+          "note": ""
+        },
+        {
+          "sale_id": 113733,
+          "customer": "7828183437",
+          "phone": "+527828183437",
+          "status": "pending",
+          "note": ""
+        },
+        {
+          "sale_id": 113838,
+          "customer": "7822231791",
+          "phone": "+527822231791",
+          "status": "pending",
+          "note": ""
+        },
+        {
+          "sale_id": 113599,
+          "customer": "9983206492",
+          "phone": "+529983206492",
+          "status": "pending",
+          "note": ""
+        },
+        {
+          "sale_id": 113791,
+          "customer": "8332310728",
+          "phone": "+528332310728",
+          "status": "pending",
+          "note": ""
+        },
+        {
+          "sale_id": 113601,
+          "customer": "8714384853",
+          "phone": "+528714384853",
+          "status": "pending",
+          "note": ""
+        },
+        {
+          "sale_id": 113761,
+          "customer": "7775573831",
+          "phone": "+527775573831",
+          "status": "pending",
+          "note": ""
+        },
+        {
+          "sale_id": 113831,
+          "customer": "4931106457",
+          "phone": "+524931106457",
+          "status": "pending",
+          "note": ""
+        },
+        {
+          "sale_id": 113605,
+          "customer": "7731275452",
+          "phone": "+527731275452",
+          "status": "pending",
+          "note": ""
+        },
+        {
+          "sale_id": 113848,
+          "customer": "9671515849",
+          "phone": "+529671515849",
+          "status": "pending",
+          "note": ""
+        },
+        {
+          "sale_id": 113889,
+          "customer": "2214038002",
+          "phone": "+522214038002",
+          "status": "pending",
+          "note": ""
+        },
+        {
+          "sale_id": 113613,
+          "customer": "4931571990",
+          "phone": "+524931571990",
+          "status": "pending",
+          "note": ""
+        }
+      ],
+      "message": "Enviando a venta 113585"
     }
   }
 }

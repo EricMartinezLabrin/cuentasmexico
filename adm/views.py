@@ -162,13 +162,60 @@ def _acquire_job_lockfile(lockfile_path, stale_minutes=20):
         return False
 
 
-def _run_send_due_today_whatsapp():
+def _start_receivable_job(lock_obj, lockfile_path, runner_fn, already_running_message, started_message, ignore_schedule=False, force=False):
+    with lock_obj:
+        if force and os.path.exists(lockfile_path):
+            try:
+                os.remove(lockfile_path)
+            except OSError:
+                pass
+        if not _acquire_job_lockfile(lockfile_path):
+            return {'success': True, 'message': already_running_message, 'started': False}
+
+        thread = Thread(target=runner_fn, kwargs={'ignore_schedule': ignore_schedule}, daemon=True)
+        thread.start()
+        return {'success': True, 'message': started_message, 'started': True}
+
+
+def _run_notify_all_sequence():
+    _start_receivable_job(
+        SEND_DUE_TODAY_WHATSAPP_LOCK,
+        SEND_DUE_TODAY_WHATSAPP_LOCKFILE,
+        _run_send_due_today_whatsapp,
+        'Cobranza: ya estaba en progreso.',
+        'Cobranza iniciada.',
+        ignore_schedule=True,
+        force=True,
+    )
+    time_module.sleep(60)
+    _start_receivable_job(
+        SEND_DUE_IN_5_DAYS_WHATSAPP_LOCK,
+        SEND_DUE_IN_5_DAYS_WHATSAPP_LOCKFILE,
+        _run_send_due_in_5_days_whatsapp,
+        'Vence 5 dias: ya estaba en progreso.',
+        'Vence 5 dias iniciado.',
+        ignore_schedule=True,
+        force=True,
+    )
+    time_module.sleep(60)
+    _start_receivable_job(
+        SEND_OVERDUE_PENDING_WHATSAPP_LOCK,
+        SEND_OVERDUE_PENDING_WHATSAPP_LOCKFILE,
+        _run_send_overdue_pending_whatsapp,
+        'Vencidas pendientes: ya estaba en progreso.',
+        'Vencidas pendientes iniciado.',
+        ignore_schedule=True,
+        force=True,
+    )
+
+
+def _run_send_due_today_whatsapp(ignore_schedule=False):
     global SEND_DUE_TODAY_WHATSAPP_THREAD
     from django.core.management import call_command
 
     logger = logging.getLogger(__name__)
     try:
-        call_command('send_due_today_whatsapp')
+        call_command('send_due_today_whatsapp', ignore_schedule=ignore_schedule)
     except Exception:
         logger.exception('Error al ejecutar send_due_today_whatsapp')
     finally:
@@ -181,13 +228,13 @@ def _run_send_due_today_whatsapp():
             SEND_DUE_TODAY_WHATSAPP_THREAD = None
 
 
-def _run_send_due_in_5_days_whatsapp():
+def _run_send_due_in_5_days_whatsapp(ignore_schedule=False):
     global SEND_DUE_IN_5_DAYS_WHATSAPP_THREAD
     from django.core.management import call_command
 
     logger = logging.getLogger(__name__)
     try:
-        call_command('send_due_in_5_days_whatsapp')
+        call_command('send_due_in_5_days_whatsapp', ignore_schedule=ignore_schedule)
     except Exception:
         logger.exception('Error al ejecutar send_due_in_5_days_whatsapp')
     finally:
@@ -200,13 +247,13 @@ def _run_send_due_in_5_days_whatsapp():
             SEND_DUE_IN_5_DAYS_WHATSAPP_THREAD = None
 
 
-def _run_send_overdue_pending_whatsapp():
+def _run_send_overdue_pending_whatsapp(ignore_schedule=False):
     global SEND_OVERDUE_PENDING_WHATSAPP_THREAD
     from django.core.management import call_command
 
     logger = logging.getLogger(__name__)
     try:
-        call_command('send_overdue_pending_whatsapp')
+        call_command('send_overdue_pending_whatsapp', ignore_schedule=ignore_schedule)
     except Exception:
         logger.exception('Error al ejecutar send_overdue_pending_whatsapp')
     finally:
@@ -226,20 +273,23 @@ def TriggerSendDueTodayWhatsApp(request):
     if request.method != 'POST':
         return JsonResponse({'success': False, 'message': 'Método no permitido'}, status=405)
 
-    with SEND_DUE_TODAY_WHATSAPP_LOCK:
-        if not _acquire_job_lockfile(SEND_DUE_TODAY_WHATSAPP_LOCKFILE):
-            return JsonResponse({
-                'success': True,
-                'message': 'El envío ya se encuentra en progreso. Por favor espera unos minutos.'
-            })
+    payload = {}
+    try:
+        payload = json.loads(request.body or '{}')
+    except Exception:
+        payload = {}
+    ignore_schedule = bool(payload.get('force'))
 
-        SEND_DUE_TODAY_WHATSAPP_THREAD = Thread(target=_run_send_due_today_whatsapp, daemon=True)
-        SEND_DUE_TODAY_WHATSAPP_THREAD.start()
-
-    return JsonResponse({
-        'success': True,
-        'message': 'Envio de cobranza iniciado en segundo plano. Puedes cerrar esta ventana.'
-    })
+    res = _start_receivable_job(
+        SEND_DUE_TODAY_WHATSAPP_LOCK,
+        SEND_DUE_TODAY_WHATSAPP_LOCKFILE,
+        _run_send_due_today_whatsapp,
+        'El envío ya se encuentra en progreso. Por favor espera unos minutos.',
+        'Envio de cobranza iniciado en segundo plano. Puedes cerrar esta ventana.',
+        ignore_schedule=ignore_schedule,
+        force=ignore_schedule,
+    )
+    return JsonResponse({'success': res['success'], 'message': res['message']})
 
 
 @permission_required('is_staff', 'adm:no-permission')
@@ -249,14 +299,23 @@ def TriggerSendDueIn5DaysWhatsApp(request):
     if request.method != 'POST':
         return JsonResponse({'success': False, 'message': 'Método no permitido'}, status=405)
 
-    with SEND_DUE_IN_5_DAYS_WHATSAPP_LOCK:
-        if not _acquire_job_lockfile(SEND_DUE_IN_5_DAYS_WHATSAPP_LOCKFILE):
-            return JsonResponse({'success': True, 'message': 'El envío de por vencer ya está en progreso.'})
+    payload = {}
+    try:
+        payload = json.loads(request.body or '{}')
+    except Exception:
+        payload = {}
+    ignore_schedule = bool(payload.get('force'))
 
-        SEND_DUE_IN_5_DAYS_WHATSAPP_THREAD = Thread(target=_run_send_due_in_5_days_whatsapp, daemon=True)
-        SEND_DUE_IN_5_DAYS_WHATSAPP_THREAD.start()
-
-    return JsonResponse({'success': True, 'message': 'Envio de cuentas por vencer (5 dias) iniciado en segundo plano.'})
+    res = _start_receivable_job(
+        SEND_DUE_IN_5_DAYS_WHATSAPP_LOCK,
+        SEND_DUE_IN_5_DAYS_WHATSAPP_LOCKFILE,
+        _run_send_due_in_5_days_whatsapp,
+        'El envío de por vencer ya está en progreso.',
+        'Envio de cuentas por vencer (5 dias) iniciado en segundo plano.',
+        ignore_schedule=ignore_schedule,
+        force=ignore_schedule,
+    )
+    return JsonResponse({'success': res['success'], 'message': res['message']})
 
 
 @permission_required('is_staff', 'adm:no-permission')
@@ -266,14 +325,48 @@ def TriggerSendOverduePendingWhatsApp(request):
     if request.method != 'POST':
         return JsonResponse({'success': False, 'message': 'Método no permitido'}, status=405)
 
-    with SEND_OVERDUE_PENDING_WHATSAPP_LOCK:
-        if not _acquire_job_lockfile(SEND_OVERDUE_PENDING_WHATSAPP_LOCKFILE):
-            return JsonResponse({'success': True, 'message': 'El envío de vencidas pendientes ya está en progreso.'})
+    payload = {}
+    try:
+        payload = json.loads(request.body or '{}')
+    except Exception:
+        payload = {}
+    ignore_schedule = bool(payload.get('force'))
 
-        SEND_OVERDUE_PENDING_WHATSAPP_THREAD = Thread(target=_run_send_overdue_pending_whatsapp, daemon=True)
-        SEND_OVERDUE_PENDING_WHATSAPP_THREAD.start()
+    res = _start_receivable_job(
+        SEND_OVERDUE_PENDING_WHATSAPP_LOCK,
+        SEND_OVERDUE_PENDING_WHATSAPP_LOCKFILE,
+        _run_send_overdue_pending_whatsapp,
+        'El envío de vencidas pendientes ya está en progreso.',
+        'Envio de vencidas no renovadas iniciado en segundo plano.',
+        ignore_schedule=ignore_schedule,
+        force=ignore_schedule,
+    )
+    return JsonResponse({'success': res['success'], 'message': res['message']})
 
-    return JsonResponse({'success': True, 'message': 'Envio de vencidas no renovadas iniciado en segundo plano.'})
+
+@permission_required('is_staff', 'adm:no-permission')
+def TriggerNotifyAllReceivable(request):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Método no permitido'}, status=405)
+
+    Thread(target=_run_notify_all_sequence, daemon=True).start()
+    detail_messages = [
+        'Cobranza: inicio inmediato.',
+        'Vence 5 dias: inicio programado en 60 segundos.',
+        'Vencidas pendientes: inicio programado en 120 segundos.',
+    ]
+    response_payload = {
+        'success': True,
+        'message': 'Notificar todos ejecutado. Los 3 procesos se iniciaran en secuencia con 60 segundos entre cada uno.',
+        'details': detail_messages,
+    }
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        return JsonResponse(response_payload)
+
+    messages.success(request, response_payload['message'])
+    for detail in response_payload['details']:
+        messages.info(request, detail)
+    return redirect('adm:receivable')
 
 
 @permission_required('is_staff', 'adm:no-permission')
