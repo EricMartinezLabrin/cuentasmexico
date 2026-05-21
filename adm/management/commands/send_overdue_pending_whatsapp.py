@@ -122,9 +122,13 @@ class Command(BaseCommand):
             message = (
                 f'Hola. Te compartimos un recordatorio de tu cuenta {service_name} ({account_email}, perfil {account_profile}).\n\n'
                 f'Vencio el {expired_on.strftime("%d-%m-%Y")} y te hemos mantenido el servicio activo por {grace_days} dia(s) para evitarte interrupciones.\n\n'
-                f'Si renuevas hoy, tienes 20 por ciento de descuento: ${discounted_price} por mes '
-                f'(precio normal ${service_price} por mes). Total por 3 meses: ${discounted_total_3m}.\n\n'
-                f'Cuando gustes te ayudamos a renovarla. Responde aqui: https://wa.me/5218335355863'
+                f'Hoy tienes 2 opciones de renovacion:\n'
+                f'1. Renovar 3 meses con 20 por ciento de descuento:\n'
+                f'- Precio normal: ${service_price} por mes\n'
+                f'- Precio con descuento: ${discounted_price} por mes\n'
+                f'- Total final por 3 meses: ${discounted_total_3m}\n'
+                f'2. Renovar 1 mes a precio normal: ${service_price}\n\n'
+                f'Cuando gustes te ayudamos a renovarla: https://wa.me/5218335355863'
             )
 
             set_job_message(JOB_OVERDUE_PENDING, f'Enviando a venta {sale.id}')

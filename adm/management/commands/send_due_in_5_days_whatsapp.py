@@ -104,9 +104,14 @@ class Command(BaseCommand):
             message = (
                 f'Hola. Tu cuenta {service_name} ({account_email}, perfil {account_profile}) vence en 5 dias '
                 f'({target_day.strftime("%Y-%m-%d")}).\n\n'
-                f'Si renuevas hoy tienes 25 por ciento de descuento: ${discounted_price} por mes '
-                f'(precio normal ${service_price} por mes). Total por 3 meses: ${discounted_total_3m}.\n'
-                f'Responde este mensaje para renovarte hoy: https://wa.me/5218335355863'
+                f'Este descuento aplica solo hoy ({base_day.strftime("%d-%m-%Y")}).\n\n'
+                f'Hoy tienes 2 opciones de renovacion:\n'
+                f'1. Renovar 3 meses con 25 por ciento de descuento:\n'
+                f'- Precio normal: ${service_price} por mes\n'
+                f'- Precio con descuento: ${discounted_price} por mes\n'
+                f'- Total final por 3 meses: ${discounted_total_3m}\n'
+                f'2. Renovar 1 mes a precio normal: ${service_price}\n\n'
+                f'Cuando gustes te ayudamos a renovarla: https://wa.me/5218335355863'
             )
 
             set_job_message(JOB_DUE_5_DAYS, f'Enviando a venta {sale.id}')
