@@ -62,6 +62,11 @@
                         </button>
                     </form>
                 </div>
+                <div class="col-12">
+                    <button id="notify-all-button" type="button" class="btn btn-outline-primary w-100">
+                        Notificar todos
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -465,25 +470,27 @@
     modalElement.addEventListener('hidden.bs.modal', stopStatusPolling);
     modalElement.addEventListener('shown.bs.modal', startStatusPolling);
 
-    async function triggerReceivableNotification(formId, statusId, endpointUrl) {
+    async function triggerReceivableNotification(formId, statusId, endpointUrl, skipRunningCheck = false) {
         const form = document.getElementById(formId);
         const statusElement = document.getElementById(statusId);
         const csrftoken = form.querySelector('[name=csrfmiddlewaretoken]').value;
 
-        try {
-            const statusRes = await fetch(STATUS_URL, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
-            const statusData = await statusRes.json();
-            if (statusData.has_running) {
-                const running = getRunningJob(statusData.jobs || {});
-                activeJobKey = running ? running.job_key : activeJobKey;
-                renderJob(running || null);
-                progressModal.show();
-                startStatusPolling();
-                statusElement.innerHTML = '<div class="alert alert-warning">Hay un proceso en ejecución. Revisa el modal de progreso.</div>';
-                return;
+        if (!skipRunningCheck) {
+            try {
+                const statusRes = await fetch(STATUS_URL, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                const statusData = await statusRes.json();
+                if (statusData.has_running) {
+                    const running = getRunningJob(statusData.jobs || {});
+                    activeJobKey = running ? running.job_key : activeJobKey;
+                    renderJob(running || null);
+                    progressModal.show();
+                    startStatusPolling();
+                    statusElement.innerHTML = '<div class="alert alert-warning">Hay un proceso en ejecución. Revisa el modal de progreso.</div>';
+                    return;
+                }
+            } catch (e) {
+                console.error(e);
             }
-        } catch (e) {
-            console.error(e);
         }
 
         statusElement.innerHTML = '<div class="alert alert-info">Iniciando envio en segundo plano...</div>';
@@ -528,6 +535,23 @@
             .catch(() => {
                 document.getElementById('cobranza-status').innerHTML = '<div class="alert alert-danger">Error al iniciar el envio.</div>';
             });
+    });
+
+    document.getElementById('notify-all-button').addEventListener('click', async function(event) {
+        event.preventDefault();
+        const statusElement = document.getElementById('cobranza-status');
+        statusElement.innerHTML = '<div class="alert alert-info">Iniciando los 3 envios masivos...</div>';
+        try {
+            await triggerReceivableNotification('send-cobranza-form', 'cobranza-status', '{% url "adm:receivable_send_cobranza" %}', true);
+            await triggerReceivableNotification('send-due-5-days-form', 'cobranza-status', '{% url "adm:receivable_send_due_5_days" %}', true);
+            await triggerReceivableNotification('send-overdue-pending-form', 'cobranza-status', '{% url "adm:receivable_send_overdue_pending" %}', true);
+            statusElement.innerHTML = '<div class="alert alert-success">Se iniciaron los 3 envios masivos.</div>';
+            await fetchAndRenderStatus(true);
+            startStatusPolling();
+        } catch (e) {
+            console.error(e);
+            statusElement.innerHTML = '<div class="alert alert-danger">Error al iniciar notificacion masiva completa.</div>';
+        }
     });
 
     fetchAndRenderStatus(false).catch(() => {
