@@ -41,10 +41,13 @@ class Command(BaseCommand):
         base_day = now.date() if target_date is None else datetime.strptime(target_date, '%Y-%m-%d').date()
         work_start = timezone.make_aware(datetime.combine(base_day, time(start_hour, start_minute)))
         work_end = timezone.make_aware(datetime.combine(base_day, time(end_hour, end_minute)))
+        self.stdout.write(f'[overdue_pending] now={timezone.localtime()} start={work_start} end={work_end} dry_run={dry_run}')
 
         if now < work_start:
+            self.stdout.write(f'[overdue_pending] Esperando inicio de horario ({work_start})')
             time_module.sleep(int((work_start - now).total_seconds()))
         if timezone.localtime() > work_end:
+            self.stdout.write('[overdue_pending] Fuera de horario, sin ejecucion')
             return
 
         sent_registry = self._load_registry()
@@ -81,9 +84,11 @@ class Command(BaseCommand):
             ud = getattr(sale.customer, 'userdetail', None)
             recipients.append({'sale_id': sale.id, 'customer': sale.customer.username, 'phone': f"+{getattr(ud, 'lada', '')}{getattr(ud, 'phone_number', '')}", 'status': 'pending', 'note': ''})
         init_job(JOB_OVERDUE_PENDING, recipients)
+        self.stdout.write(f'[overdue_pending] Candidatos: {len(sales)}')
 
         if not sales:
             finish_job(JOB_OVERDUE_PENDING, 'Sin cuentas vencidas pendientes')
+            self.stdout.write('[overdue_pending] Sin cuentas vencidas pendientes')
             return
 
         for idx, sale in enumerate(sales):
@@ -123,24 +128,32 @@ class Command(BaseCommand):
             )
 
             set_job_message(JOB_OVERDUE_PENDING, f'Enviando a venta {sale.id}')
+            self.stdout.write(f'[overdue_pending] Procesando sale_id={sale.id}')
             if dry_run:
                 update_recipient(JOB_OVERDUE_PENDING, sale.id, 'sent', 'Dry run')
+                self.stdout.write(f'[overdue_pending] DRY-RUN enviado sale_id={sale.id}')
             else:
                 status_code = Notification.send_whatsapp_notification(message, userdetail.lada, userdetail.phone_number)
                 if status_code in (200, 201):
                     update_recipient(JOB_OVERDUE_PENDING, sale.id, 'sent', f'Enviado ({status_code})')
+                    self.stdout.write(f'[overdue_pending] OK sale_id={sale.id} status={status_code}')
                     sent_today.add(sale.id)
                     sent_registry[day_key] = sorted(sent_today)
                     self._save_registry(sent_registry)
                 else:
                     update_recipient(JOB_OVERDUE_PENDING, sale.id, 'failed', f'Error ({status_code})')
+                    self.stdout.write(f'[overdue_pending] FAIL sale_id={sale.id} status={status_code}')
 
             if idx < len(sales) - 1:
+                if dry_run:
+                    continue
                 if self._sleep_with_control(random.randint(180, 300), JOB_OVERDUE_PENDING, work_end):
                     stop_job(JOB_OVERDUE_PENDING, 'Detenido por operador')
+                    self.stdout.write('[overdue_pending] Detenido durante espera')
                     return
 
         finish_job(JOB_OVERDUE_PENDING, 'Proceso finalizado')
+        self.stdout.write('[overdue_pending] Proceso finalizado')
 
     def _registry_path(self):
         logs_dir = os.path.join(settings.BASE_DIR, 'logs')
@@ -198,3 +211,4 @@ class Command(BaseCommand):
             time_module.sleep(chunk)
             remaining -= chunk
         return False
+
