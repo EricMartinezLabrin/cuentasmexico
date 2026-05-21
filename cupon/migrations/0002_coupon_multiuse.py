@@ -33,7 +33,7 @@ def migrate_legacy_coupon_data(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('adm', '0011_accountchangehistory'),
+        ('adm', '0011_free_days'),
         ('cupon', '0001_initial'),
     ]
 

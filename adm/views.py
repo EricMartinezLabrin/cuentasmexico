@@ -37,6 +37,16 @@ import sys
 import os
 import pyperclip as clipboard
 from adm.functions.send_whatsapp_notification import Notification
+from adm.functions.receivable_bulk_jobs import (
+    ALL_JOBS,
+    JOB_DUE_5_DAYS,
+    JOB_DUE_TODAY,
+    JOB_OVERDUE_PENDING,
+    get_job_snapshot,
+    get_jobs_snapshot,
+    request_stop,
+    set_pause,
+)
 from api.functions.notifications import send_push_notification
 from django.db.models import DurationField
 # import pandas as pd
@@ -93,9 +103,209 @@ except Exception:  # pragma: no cover
     Image = None
 
 WHATSAPP_DISPATCH_MUTEX = threading.Lock()
+SEND_DUE_TODAY_WHATSAPP_LOCK = threading.Lock()
+SEND_DUE_TODAY_WHATSAPP_THREAD = None
+SEND_DUE_TODAY_WHATSAPP_LOCKFILE = os.path.join(
+    os.path.dirname(os.path.dirname(__file__)),
+    'logs',
+    'send_due_today_whatsapp.lock',
+)
+SEND_DUE_IN_5_DAYS_WHATSAPP_LOCK = threading.Lock()
+SEND_DUE_IN_5_DAYS_WHATSAPP_THREAD = None
+SEND_DUE_IN_5_DAYS_WHATSAPP_LOCKFILE = os.path.join(
+    os.path.dirname(os.path.dirname(__file__)),
+    'logs',
+    'send_due_in_5_days_whatsapp.lock',
+)
+SEND_OVERDUE_PENDING_WHATSAPP_LOCK = threading.Lock()
+SEND_OVERDUE_PENDING_WHATSAPP_THREAD = None
+SEND_OVERDUE_PENDING_WHATSAPP_LOCKFILE = os.path.join(
+    os.path.dirname(os.path.dirname(__file__)),
+    'logs',
+    'send_overdue_pending_whatsapp.lock',
+)
 
 def is_ajax(request):
     return request.META.get('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest'
+
+
+def _acquire_job_lockfile(lockfile_path, stale_minutes=20):
+    os.makedirs(os.path.dirname(lockfile_path), exist_ok=True)
+    now_dt = timezone.now()
+    if os.path.exists(lockfile_path):
+        try:
+            with open(lockfile_path, 'r', encoding='utf-8') as existing:
+                raw = existing.read().strip()
+            started_part = [p for p in raw.split() if p.startswith('started=')]
+            if started_part:
+                started_dt = datetime.fromisoformat(started_part[0].split('=', 1)[1].replace('Z', '+00:00'))
+                if timezone.is_naive(started_dt):
+                    started_dt = timezone.make_aware(started_dt)
+                age_minutes = (now_dt - started_dt).total_seconds() / 60.0
+                if age_minutes > stale_minutes:
+                    os.remove(lockfile_path)
+        except Exception:
+            # Si no se puede parsear/leer, intentamos limpiar lock antiguo por mtime.
+            try:
+                mtime = datetime.fromtimestamp(os.path.getmtime(lockfile_path), tz=timezone.get_current_timezone())
+                age_minutes = (now_dt - mtime).total_seconds() / 60.0
+                if age_minutes > stale_minutes:
+                    os.remove(lockfile_path)
+            except Exception:
+                pass
+
+    try:
+        with open(lockfile_path, 'x', encoding='utf-8') as lockfile:
+            lockfile.write(f'pid={os.getpid()} started={now_dt.isoformat()}')
+        return True
+    except FileExistsError:
+        return False
+
+
+def _run_send_due_today_whatsapp():
+    global SEND_DUE_TODAY_WHATSAPP_THREAD
+    from django.core.management import call_command
+
+    logger = logging.getLogger(__name__)
+    try:
+        call_command('send_due_today_whatsapp')
+    except Exception:
+        logger.exception('Error al ejecutar send_due_today_whatsapp')
+    finally:
+        try:
+            if os.path.exists(SEND_DUE_TODAY_WHATSAPP_LOCKFILE):
+                os.remove(SEND_DUE_TODAY_WHATSAPP_LOCKFILE)
+        except OSError:
+            logger.exception('No se pudo remover lockfile de send_due_today_whatsapp')
+        with SEND_DUE_TODAY_WHATSAPP_LOCK:
+            SEND_DUE_TODAY_WHATSAPP_THREAD = None
+
+
+def _run_send_due_in_5_days_whatsapp():
+    global SEND_DUE_IN_5_DAYS_WHATSAPP_THREAD
+    from django.core.management import call_command
+
+    logger = logging.getLogger(__name__)
+    try:
+        call_command('send_due_in_5_days_whatsapp')
+    except Exception:
+        logger.exception('Error al ejecutar send_due_in_5_days_whatsapp')
+    finally:
+        try:
+            if os.path.exists(SEND_DUE_IN_5_DAYS_WHATSAPP_LOCKFILE):
+                os.remove(SEND_DUE_IN_5_DAYS_WHATSAPP_LOCKFILE)
+        except OSError:
+            logger.exception('No se pudo remover lockfile de send_due_in_5_days_whatsapp')
+        with SEND_DUE_IN_5_DAYS_WHATSAPP_LOCK:
+            SEND_DUE_IN_5_DAYS_WHATSAPP_THREAD = None
+
+
+def _run_send_overdue_pending_whatsapp():
+    global SEND_OVERDUE_PENDING_WHATSAPP_THREAD
+    from django.core.management import call_command
+
+    logger = logging.getLogger(__name__)
+    try:
+        call_command('send_overdue_pending_whatsapp')
+    except Exception:
+        logger.exception('Error al ejecutar send_overdue_pending_whatsapp')
+    finally:
+        try:
+            if os.path.exists(SEND_OVERDUE_PENDING_WHATSAPP_LOCKFILE):
+                os.remove(SEND_OVERDUE_PENDING_WHATSAPP_LOCKFILE)
+        except OSError:
+            logger.exception('No se pudo remover lockfile de send_overdue_pending_whatsapp')
+        with SEND_OVERDUE_PENDING_WHATSAPP_LOCK:
+            SEND_OVERDUE_PENDING_WHATSAPP_THREAD = None
+
+
+@permission_required('is_staff', 'adm:no-permission')
+def TriggerSendDueTodayWhatsApp(request):
+    global SEND_DUE_TODAY_WHATSAPP_THREAD
+
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Método no permitido'}, status=405)
+
+    with SEND_DUE_TODAY_WHATSAPP_LOCK:
+        if not _acquire_job_lockfile(SEND_DUE_TODAY_WHATSAPP_LOCKFILE):
+            return JsonResponse({
+                'success': True,
+                'message': 'El envío ya se encuentra en progreso. Por favor espera unos minutos.'
+            })
+
+        SEND_DUE_TODAY_WHATSAPP_THREAD = Thread(target=_run_send_due_today_whatsapp, daemon=True)
+        SEND_DUE_TODAY_WHATSAPP_THREAD.start()
+
+    return JsonResponse({
+        'success': True,
+        'message': 'Envio de cobranza iniciado en segundo plano. Puedes cerrar esta ventana.'
+    })
+
+
+@permission_required('is_staff', 'adm:no-permission')
+def TriggerSendDueIn5DaysWhatsApp(request):
+    global SEND_DUE_IN_5_DAYS_WHATSAPP_THREAD
+
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Método no permitido'}, status=405)
+
+    with SEND_DUE_IN_5_DAYS_WHATSAPP_LOCK:
+        if not _acquire_job_lockfile(SEND_DUE_IN_5_DAYS_WHATSAPP_LOCKFILE):
+            return JsonResponse({'success': True, 'message': 'El envío de por vencer ya está en progreso.'})
+
+        SEND_DUE_IN_5_DAYS_WHATSAPP_THREAD = Thread(target=_run_send_due_in_5_days_whatsapp, daemon=True)
+        SEND_DUE_IN_5_DAYS_WHATSAPP_THREAD.start()
+
+    return JsonResponse({'success': True, 'message': 'Envio de cuentas por vencer (5 dias) iniciado en segundo plano.'})
+
+
+@permission_required('is_staff', 'adm:no-permission')
+def TriggerSendOverduePendingWhatsApp(request):
+    global SEND_OVERDUE_PENDING_WHATSAPP_THREAD
+
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Método no permitido'}, status=405)
+
+    with SEND_OVERDUE_PENDING_WHATSAPP_LOCK:
+        if not _acquire_job_lockfile(SEND_OVERDUE_PENDING_WHATSAPP_LOCKFILE):
+            return JsonResponse({'success': True, 'message': 'El envío de vencidas pendientes ya está en progreso.'})
+
+        SEND_OVERDUE_PENDING_WHATSAPP_THREAD = Thread(target=_run_send_overdue_pending_whatsapp, daemon=True)
+        SEND_OVERDUE_PENDING_WHATSAPP_THREAD.start()
+
+    return JsonResponse({'success': True, 'message': 'Envio de vencidas no renovadas iniciado en segundo plano.'})
+
+
+@permission_required('is_staff', 'adm:no-permission')
+def ReceivableNotificationStatus(request):
+    jobs = get_jobs_snapshot()
+    running = [j for j in jobs.values() if j.get('status') in ('running', 'paused')]
+    return JsonResponse({'success': True, 'has_running': len(running) > 0, 'jobs': jobs})
+
+
+@permission_required('is_staff', 'adm:no-permission')
+def ReceivableNotificationControl(request):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Método no permitido'}, status=405)
+    try:
+        payload = json.loads(request.body or '{}')
+    except Exception:
+        payload = {}
+    job_key = (payload.get('job_key') or '').strip()
+    action = (payload.get('action') or '').strip()
+    if job_key not in ALL_JOBS:
+        return JsonResponse({'success': False, 'message': 'job_key inválido'}, status=400)
+    if action == 'pause':
+        ok = set_pause(job_key, True)
+    elif action == 'resume':
+        ok = set_pause(job_key, False)
+    elif action == 'stop':
+        ok = request_stop(job_key)
+    else:
+        return JsonResponse({'success': False, 'message': 'Acción inválida'}, status=400)
+    snapshot = get_job_snapshot(job_key)
+    return JsonResponse({'success': ok, 'job': snapshot})
+
 
 def _send_notifications_background(sales_to_report, email, password, data_account, webhook_url):
     """

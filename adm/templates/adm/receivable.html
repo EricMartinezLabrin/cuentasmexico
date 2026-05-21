@@ -1,4 +1,4 @@
-{% extends "adm/base/base.html" %}
+﻿{% extends "adm/base/base.html" %}
 {% load static %}
 {% block title %}
     Por Cobrar
@@ -7,22 +7,98 @@
     <h2 class="mb-4 text-cm">
     Quedan <span class="fw-bold">{{ left }}</span> cuenta{{ left|pluralize:",s" }} por liberar
     </h2>
-    <div class="row mb-3 align-items-end">
-        <div class="col-md-5">
-            <form method="get" class="d-flex gap-2">
-                <label for="date" class="form-label me-2">Fecha de vencimiento</label>
-                <input type="date" name="date" id="date" class="form-control">
-                <button type="submit" class="btn btn-cm">Buscar</button>
-            </form>
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body">
+            <div class="row g-2 align-items-end">
+                <div class="col-12 col-lg-6">
+                    <form method="get" class="d-flex flex-column flex-md-row gap-2 align-items-md-end">
+                        <div class="w-100">
+                            <label for="date" class="form-label mb-1">Fecha de vencimiento</label>
+                            <input type="date" name="date" id="date" class="form-control">
+                        </div>
+                        <button type="submit" class="btn btn-cm">Buscar</button>
+                    </form>
+                </div>
+                <div class="col-6 col-lg-3">
+                    <form method="get" class="d-grid">
+                        <input type="hidden" name="date" value="{{ tomorrow|date:'Y-m-d' }}">
+                        <button type="submit" class="btn btn-primary w-100">Vence Manana</button>
+                    </form>
+                </div>
+                <div class="col-6 col-lg-3">
+                    <a href="{% url 'adm:receivable' %}" class="btn btn-cm-cancel w-100">Limpiar Filtro</a>
+                </div>
+            </div>
         </div>
-        <div class="col-md-3">
-            <form method="get">
-                <input type="hidden" name="date" value="{{ tomorrow|date:'Y-m-d' }}">
-                <button type="submit" class="btn btn-primary w-100">Vence Mañana</button>
-            </form>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body">
+            <div class="row g-2">
+                <div class="col-12">
+                    <h6 class="mb-2">Acciones masivas de notificacion</h6>
+                </div>
+                <div class="col-12 col-md-4">
+                    <form id="send-cobranza-form" method="post" class="d-grid">
+                        {% csrf_token %}
+                        <button id="send-cobranza-button" type="button" class="btn btn-danger w-100">
+                            Enviar cobranza hoy
+                        </button>
+                    </form>
+                </div>
+                <div class="col-12 col-md-4">
+                    <form id="send-due-5-days-form" method="post" class="d-grid">
+                        {% csrf_token %}
+                        <button id="send-due-5-days-button" type="button" class="btn btn-warning w-100">
+                            Avisar vence en 5 dias
+                        </button>
+                    </form>
+                </div>
+                <div class="col-12 col-md-4">
+                    <form id="send-overdue-pending-form" method="post" class="d-grid">
+                        {% csrf_token %}
+                        <button id="send-overdue-pending-button" type="button" class="btn btn-dark w-100">
+                            Avisar vencidas sin renovar
+                        </button>
+                    </form>
+                </div>
+            </div>
         </div>
-        <div class="col-md-2">
-            <a href="{% url 'adm:receivable' %}" class="btn btn-cm-cancel w-100">Limpiar Filtro</a>
+    </div>
+    <div id="cobranza-status" class="mb-3"></div>
+    <div class="modal fade" id="notificationProgressModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Progreso de notificaciones masivas</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="notification-job-summary" class="mb-3"></div>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Venta</th>
+                                    <th>Cliente</th>
+                                    <th>Telefono</th>
+                                    <th>Estado</th>
+                                    <th>Detalle</th>
+                                </tr>
+                            </thead>
+                            <tbody id="notification-job-rows"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer d-flex justify-content-between">
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-warning" id="job-pause-btn">Pausar</button>
+                        <button type="button" class="btn btn-success" id="job-resume-btn">Reanudar</button>
+                        <button type="button" class="btn btn-danger" id="job-stop-btn">Detener</button>
+                    </div>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                </div>
+            </div>
         </div>
     </div>
     <div class="table-responsive">
@@ -33,7 +109,7 @@
                     <th></th>
                     <th>Cliente</th>
                     <th>Email</th>
-                    <th>Contraseña</th>
+                    <th>ContraseÃ±a</th>
                     <th>Perfil</th>
                     <th>Vencimiento Cliente</th>
                     <th>Vencimiento Cuenta</th>
@@ -126,7 +202,7 @@
                             <button type="button"
                                class="btn btn-outline-primary btn-sm quick-release-btn"
                                data-sale-id="{{ rece.id }}"
-                               title="Liberar rápido">
+                               title="Liberar rÃ¡pido">
                                 <i class="bi bi-lightning-fill"></i>
                             </button>
                                      <a href="#"
@@ -141,7 +217,7 @@
                                 <i class="bi bi-eye"></i>
                             </a>
                         </div>
-                        <textarea id="{{ rece.id }}" rows="1" cols="1" readonly class="visually-hidden textarea-copy-message">Buenas tardes amig@, le recuerdo que su cuenta  {{ rece.account.account_name }} ya venció, para seguir utilizándola debe renovar. Por ser cliente frecuente tendrás un 10% de descuento si renuevas por 3 meses o más el día de hoy.</textarea>
+                        <textarea id="{{ rece.id }}" rows="1" cols="1" readonly class="visually-hidden textarea-copy-message">Buenas tardes amig@, le recuerdo que su cuenta  {{ rece.account.account_name }} ya venciÃ³, para seguir utilizÃ¡ndola debe renovar. Por ser cliente frecuente tendrÃ¡s un 10% de descuento si renuevas por 3 meses o mÃ¡s el dÃ­a de hoy.</textarea>
                     </td>
                 </tr>
             {% endfor %}
@@ -192,7 +268,7 @@
                         badge.classList.add('bg-danger');
                         badge.textContent = 'Inactiva';
                     }
-                    // Cambia el data-url para el próximo toggle
+                    // Cambia el data-url para el prÃ³ximo toggle
                     const newUrl = url.replace(/(true|false)/, data.new_status ? 'false' : 'true');
                     form.setAttribute('data-url', newUrl);
 
@@ -241,7 +317,7 @@
         });
     });
 
-    // Liberar cuenta sin recargar la página (Quick Release)
+    // Liberar cuenta sin recargar la pÃ¡gina (Quick Release)
     document.querySelectorAll('.quick-release-btn').forEach(function(btn) {
         btn.addEventListener('click', function(e) {
             e.preventDefault();
@@ -250,7 +326,7 @@
                             document.querySelector('[name=csrfmiddlewaretoken]').value : 
                             getCookie('csrftoken');
             
-            if (confirm('¿Está seguro de que desea liberar esta cuenta?')) {
+            if (confirm('Â¿EstÃ¡ seguro de que desea liberar esta cuenta?')) {
                 fetch(`/adm/receivable/quick-release/${saleId}`, {
                     method: 'POST',
                     headers: {
@@ -285,7 +361,179 @@
         });
     });
 
-    // Función auxiliar para obtener cookie CSRF
+    const STATUS_URL = '{% url "adm:receivable_notifications_status" %}';
+    const CONTROL_URL = '{% url "adm:receivable_notifications_control" %}';
+    const modalElement = document.getElementById('notificationProgressModal');
+    const progressModal = new bootstrap.Modal(modalElement);
+    let activeJobKey = null;
+    let statusPollTimer = null;
+
+    function formatEta(seconds) {
+        if (seconds === null || seconds === undefined) return 'N/D';
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins}m ${secs}s`;
+    }
+
+    function jobTitle(jobKey) {
+        if (jobKey === 'due_today') return 'Cobranza hoy';
+        if (jobKey === 'due_5_days') return 'Vence en 5 dias';
+        if (jobKey === 'overdue_pending') return 'Vencidas sin renovar';
+        return jobKey;
+    }
+
+    function renderJob(job) {
+        const summary = document.getElementById('notification-job-summary');
+        const rows = document.getElementById('notification-job-rows');
+        if (!job) {
+            summary.innerHTML = '<div class="alert alert-info mb-0">No hay proceso activo.</div>';
+            rows.innerHTML = '';
+            return;
+        }
+        const t = job.totals || {};
+        summary.innerHTML = `
+            <div class="alert alert-secondary mb-2">
+                <strong>${jobTitle(job.job_key)}</strong> · Estado: <strong>${job.status}</strong><br>
+                Total: ${t.total || 0} | Enviados: ${t.sent || 0} | Pendientes: ${t.pending || 0} | Fallidos: ${t.failed || 0} | Omitidos: ${t.skipped || 0}<br>
+                ETA: ${formatEta(job.eta_seconds)}<br>
+                Mensaje: ${job.message || '-'}
+            </div>
+        `;
+        rows.innerHTML = (job.recipients || []).map(r => `
+            <tr>
+                <td>${r.sale_id || '-'}</td>
+                <td>${r.customer || '-'}</td>
+                <td>${r.phone || '-'}</td>
+                <td>${r.status || 'pending'}</td>
+                <td>${r.note || ''}</td>
+            </tr>
+        `).join('');
+    }
+
+    function getRunningJob(jobs) {
+        const order = ['due_today', 'due_5_days', 'overdue_pending'];
+        for (const key of order) {
+            const job = jobs[key];
+            if (job && (job.status === 'running' || job.status === 'paused')) return job;
+        }
+        return null;
+    }
+
+    async function fetchAndRenderStatus(forceOpen = false) {
+        try {
+            const res = await fetch(STATUS_URL, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+            const data = await res.json();
+            const jobs = data.jobs || {};
+            let job = activeJobKey ? jobs[activeJobKey] : null;
+            if (!job) job = getRunningJob(jobs);
+            if (job) activeJobKey = job.job_key;
+            renderJob(job || null);
+            if (forceOpen && job) progressModal.show();
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    function startStatusPolling() {
+        if (statusPollTimer) clearInterval(statusPollTimer);
+        statusPollTimer = setInterval(() => fetchAndRenderStatus(false), 4000);
+    }
+
+    function stopStatusPolling() {
+        if (statusPollTimer) clearInterval(statusPollTimer);
+        statusPollTimer = null;
+    }
+
+    async function controlJob(action) {
+        if (!activeJobKey) return;
+        const csrftoken = getCookie('csrftoken');
+        await fetch(CONTROL_URL, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrftoken,
+                'X-Requested-With': 'XMLHttpRequest',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ job_key: activeJobKey, action })
+        });
+        await fetchAndRenderStatus(false);
+    }
+
+    document.getElementById('job-pause-btn').addEventListener('click', () => controlJob('pause'));
+    document.getElementById('job-resume-btn').addEventListener('click', () => controlJob('resume'));
+    document.getElementById('job-stop-btn').addEventListener('click', () => controlJob('stop'));
+    modalElement.addEventListener('hidden.bs.modal', stopStatusPolling);
+    modalElement.addEventListener('shown.bs.modal', startStatusPolling);
+
+    async function triggerReceivableNotification(formId, statusId, endpointUrl) {
+        const form = document.getElementById(formId);
+        const statusElement = document.getElementById(statusId);
+        const csrftoken = form.querySelector('[name=csrfmiddlewaretoken]').value;
+
+        try {
+            const statusRes = await fetch(STATUS_URL, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+            const statusData = await statusRes.json();
+            if (statusData.has_running) {
+                const running = getRunningJob(statusData.jobs || {});
+                activeJobKey = running ? running.job_key : activeJobKey;
+                renderJob(running || null);
+                progressModal.show();
+                startStatusPolling();
+                statusElement.innerHTML = '<div class="alert alert-warning">Hay un proceso en ejecución. Revisa el modal de progreso.</div>';
+                return;
+            }
+        } catch (e) {
+            console.error(e);
+        }
+
+        statusElement.innerHTML = '<div class="alert alert-info">Iniciando envio en segundo plano...</div>';
+        const triggerRes = await fetch(endpointUrl, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrftoken,
+                'X-Requested-With': 'XMLHttpRequest',
+                'Content-Type': 'application/json'
+            },
+        });
+        const data = await triggerRes.json();
+        if (data.success) {
+            statusElement.innerHTML = '<div class="alert alert-success">' + data.message + '</div>';
+            await fetchAndRenderStatus(true);
+            startStatusPolling();
+        } else {
+            statusElement.innerHTML = '<div class="alert alert-danger">' + data.message + '</div>';
+        }
+    }
+
+    // FunciÃ³n auxiliar para obtener cookie CSRF
+    document.getElementById('send-cobranza-button').addEventListener('click', function(event) {
+        event.preventDefault();
+        triggerReceivableNotification('send-cobranza-form', 'cobranza-status', '{% url "adm:receivable_send_cobranza" %}')
+            .catch(() => {
+                document.getElementById('cobranza-status').innerHTML = '<div class="alert alert-danger">Error al iniciar el envio.</div>';
+            });
+    });
+
+    document.getElementById('send-due-5-days-button').addEventListener('click', function(event) {
+        event.preventDefault();
+        triggerReceivableNotification('send-due-5-days-form', 'cobranza-status', '{% url "adm:receivable_send_due_5_days" %}')
+            .catch(() => {
+                document.getElementById('cobranza-status').innerHTML = '<div class="alert alert-danger">Error al iniciar el envio.</div>';
+            });
+    });
+
+    document.getElementById('send-overdue-pending-button').addEventListener('click', function(event) {
+        event.preventDefault();
+        triggerReceivableNotification('send-overdue-pending-form', 'cobranza-status', '{% url "adm:receivable_send_overdue_pending" %}')
+            .catch(() => {
+                document.getElementById('cobranza-status').innerHTML = '<div class="alert alert-danger">Error al iniciar el envio.</div>';
+            });
+    });
+
+    fetchAndRenderStatus(false).catch(() => {
+        document.getElementById('cobranza-status').innerHTML = '<div class="alert alert-danger">Error al iniciar el envio.</div>';
+    });
+
     function getCookie(name) {
         let cookieValue = null;
         if (document.cookie && document.cookie !== '') {
@@ -302,3 +550,4 @@
     }
     </script>
 {% endblock extrajs %}
+

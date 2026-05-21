@@ -15,14 +15,18 @@ from dateutil.relativedelta import relativedelta
 class Dashboard():
 
     def sales_per_country_day():
-        today = datetime.now()
+        today = timezone.localdate()
+        start = timezone.make_aware(datetime.combine(today, datetime.min.time()))
+        end = timezone.make_aware(datetime.combine(today, datetime.max.time()))
         sales_country = {}
         countries = Sale.objects.values('customer__userdetail__country').order_by(
             'customer__userdetail__country').distinct()
         for country in countries:
             for key, value in country.items():
-                sales = Sale.objects.filter(created_at__range=(str(today.date(
-                ))+' 00:00:00', str(today.date())+' 23:59:59'), customer__userdetail__country=value)
+                sales = Sale.objects.filter(
+                    created_at__range=(start, end),
+                    customer__userdetail__country=value
+                )
                 if not value:
                     continue
                 sales_country[value] = sales.aggregate(Sum('payment_amount'))
@@ -30,11 +34,11 @@ class Dashboard():
         return sales_country
 
     def sales_per_country_month():
-        month = datetime.now().month
-        year = datetime.now().year
+        month = timezone.now().month
+        year = timezone.now().year
         last_day = monthrange(year, month)[1]
-        start = f'{year}-{month}-01 00:00:00'
-        end = f'{year}-{month}-{last_day} 23:59:59'
+        start = timezone.make_aware(datetime(year, month, 1, 0, 0, 0))
+        end = timezone.make_aware(datetime(year, month, last_day, 23, 59, 59))
 
         sales_country = {}
         countries = Sale.objects.values('customer__userdetail__country').order_by(
@@ -50,11 +54,11 @@ class Dashboard():
 
     def sales_per_account():
 
-        month = datetime.now().month
-        year = datetime.now().year
+        month = timezone.now().month
+        year = timezone.now().year
         last_day = monthrange(year, month)[1]
-        start = f'{year}-{month}-01 00:00:00'
-        end = f'{year}-{month}-{last_day} 23:59:59'
+        start = timezone.make_aware(datetime(year, month, 1, 0, 0, 0))
+        end = timezone.make_aware(datetime(year, month, last_day, 23, 59, 59))
         acc_name = []
         acc_total = []
         acc = Sale.objects.filter(created_at__range=(start, end)).exclude(payment_amount=0).values(

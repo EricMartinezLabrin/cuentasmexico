@@ -24,3 +24,120 @@ services:
     stdin_open: true
     tty: true
     restart: unless-stopped
+
+  scheduler:
+    build: .
+    container_name: cuentasmexico_scheduler_dev
+    command: >
+      sh -c "while true; do
+        now=$(date +%s);
+        start_time=$(date -d \"$(date +%Y-%m-%d) ${WORKING_HOURS_START:-09:00}\" +%s);
+        end_time=$(date -d \"$(date +%Y-%m-%d) ${WORKING_HOURS_END:-21:00}\" +%s);
+        if [ $now -lt $start_time ]; then
+          sleep $((start_time - now));
+        elif [ $now -ge $end_time ]; then
+          start_time=$(date -d \"tomorrow ${WORKING_HOURS_START:-09:00}\" +%s);
+          sleep $((start_time - now));
+        fi;
+        python manage.py send_due_today_whatsapp;
+        tomorrow_start=$(date -d \"tomorrow ${WORKING_HOURS_START:-09:00}\" +%s);
+        now=$(date +%s);
+        if [ $tomorrow_start -gt $now ]; then
+          sleep $((tomorrow_start - now));
+        else
+          sleep 300;
+        fi;
+      done"
+    environment:
+      DEBUG: 'True'
+      SECRET_KEY: dev-secret-key-not-for-production
+      ALLOWED_HOSTS: localhost,127.0.0.1,0.0.0.0
+      DB_ENGINE: django.db.backends.mysql
+      DB_NAME: cuentasmexico
+      DB_USER: luinmack
+      DB_PASSWORD: Tarkan11.-
+      DB_HOST: 187.136.94.242
+      DB_PORT: 3306
+    volumes:
+      - .:/app
+    depends_on:
+      - web
+    restart: unless-stopped
+
+  scheduler_due_5_days:
+    build: .
+    container_name: cuentasmexico_scheduler_due_5_days_dev
+    command: >
+      sh -c "while true; do
+        now=$(date +%s);
+        start_time=$(date -d \"$(date +%Y-%m-%d) ${WORKING_HOURS_START:-09:00}\" +%s);
+        end_time=$(date -d \"$(date +%Y-%m-%d) ${WORKING_HOURS_END:-21:00}\" +%s);
+        if [ $now -lt $start_time ]; then
+          sleep $((start_time - now));
+        elif [ $now -ge $end_time ]; then
+          start_time=$(date -d \"tomorrow ${WORKING_HOURS_START:-09:00}\" +%s);
+          sleep $((start_time - now));
+        fi;
+        python manage.py send_due_in_5_days_whatsapp;
+        tomorrow_start=$(date -d \"tomorrow ${WORKING_HOURS_START:-09:00}\" +%s);
+        now=$(date +%s);
+        if [ $tomorrow_start -gt $now ]; then
+          sleep $((tomorrow_start - now));
+        else
+          sleep 300;
+        fi;
+      done"
+    environment:
+      DEBUG: 'True'
+      SECRET_KEY: dev-secret-key-not-for-production
+      ALLOWED_HOSTS: localhost,127.0.0.1,0.0.0.0
+      DB_ENGINE: django.db.backends.mysql
+      DB_NAME: cuentasmexico
+      DB_USER: luinmack
+      DB_PASSWORD: Tarkan11.-
+      DB_HOST: 187.136.94.242
+      DB_PORT: 3306
+    volumes:
+      - .:/app
+    depends_on:
+      - web
+    restart: unless-stopped
+
+  scheduler_overdue_pending:
+    build: .
+    container_name: cuentasmexico_scheduler_overdue_pending_dev
+    command: >
+      sh -c "while true; do
+        now=$(date +%s);
+        start_time=$(date -d \"$(date +%Y-%m-%d) ${WORKING_HOURS_START:-09:00}\" +%s);
+        end_time=$(date -d \"$(date +%Y-%m-%d) ${WORKING_HOURS_END:-21:00}\" +%s);
+        if [ $now -lt $start_time ]; then
+          sleep $((start_time - now));
+        elif [ $now -ge $end_time ]; then
+          start_time=$(date -d \"tomorrow ${WORKING_HOURS_START:-09:00}\" +%s);
+          sleep $((start_time - now));
+        fi;
+        python manage.py send_overdue_pending_whatsapp;
+        tomorrow_start=$(date -d \"tomorrow ${WORKING_HOURS_START:-09:00}\" +%s);
+        now=$(date +%s);
+        if [ $tomorrow_start -gt $now ]; then
+          sleep $((tomorrow_start - now));
+        else
+          sleep 300;
+        fi;
+      done"
+    environment:
+      DEBUG: 'True'
+      SECRET_KEY: dev-secret-key-not-for-production
+      ALLOWED_HOSTS: localhost,127.0.0.1,0.0.0.0
+      DB_ENGINE: django.db.backends.mysql
+      DB_NAME: cuentasmexico
+      DB_USER: luinmack
+      DB_PASSWORD: Tarkan11.-
+      DB_HOST: 187.136.94.242
+      DB_PORT: 3306
+    volumes:
+      - .:/app
+    depends_on:
+      - web
+    restart: unless-stopped
