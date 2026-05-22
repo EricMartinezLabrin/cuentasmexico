@@ -17,12 +17,15 @@ class Command(BaseCommand):
                     f"- updated_password: {summary['updated_password']}\n"
                     f"- updated_external_status: {summary['updated_external_status']}\n"
                     f"- updated_profile: {summary['updated_profile']}\n"
+                    f"- reactivated_accounts: {summary.get('reactivated_accounts', 0)}\n"
                     f"- marked_deleted: {summary['marked_deleted']}\n"
+                    f"- ignored_unmapped: {summary.get('ignored_unmapped', 0)}\n"
                     f"- notified_whatsapp: {summary['notified_whatsapp']}\n"
                     f"- notified_email: {summary['notified_email']}\n"
+                    f"- aborted: {summary.get('aborted', False)}\n"
+                    f"- abort_reason: {summary.get('abort_reason', '')}\n"
                     f"- warnings: {len(summary['warnings'])}\n"
                     f"- errors: {len(summary['errors'])}"
                 )
             )
         )
-

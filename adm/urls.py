@@ -218,6 +218,7 @@ urlpatterns = [
     path('api/sync-sheets/status/', api_sync.sync_sheets_status, name='api_sync_sheets_status'),
     path('api/sync-pyc-sheets/', api_sync.sync_pyc_sheets_endpoint, name='api_sync_pyc_sheets'),
     path('api/sync-pyc-sheets/status/', api_sync.sync_pyc_sheets_status, name='api_sync_pyc_sheets_status'),
+    path('api/sync-pyc-sheets/history/', api_sync.sync_pyc_sheets_history, name='api_sync_pyc_sheets_history'),
     path('api/sync-sheets/debug/', api_sync.sync_sheets_debug, name='api_sync_sheets_debug'),
     path('api/verify-accounts/', api_sync.verify_accounts_endpoint, name='api_verify_accounts'),
     path('api/verify-accounts/status/', api_sync.verify_accounts_status, name='api_verify_accounts_status'),

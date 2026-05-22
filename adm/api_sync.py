@@ -9,7 +9,7 @@ from django.http import JsonResponse
 import logging
 
 from adm.functions.sync_google_sheets import sync_google_sheets, SheetsSyncManager
-from adm.functions.sync_pyc_sheets import sync_pyc_sheets
+from adm.functions.sync_pyc_sheets import sync_pyc_sheets, read_password_change_history
 from adm.functions.background_tasks import get_task_manager, TaskStatus
 
 
@@ -419,3 +419,15 @@ def sync_pyc_sheets_status(request):
         {"status": "not_found", "message": "No se encontró la tarea", "task": None},
         status=404,
     )
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def sync_pyc_sheets_history(request):
+    try:
+        limit = int(request.GET.get("limit", "200"))
+    except Exception:
+        limit = 200
+    limit = max(1, min(limit, 1000))
+    rows = read_password_change_history(limit=limit)
+    return JsonResponse({"status": "success", "total": len(rows), "items": rows})

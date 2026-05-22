@@ -159,7 +159,14 @@ class BackgroundTaskManager:
 
         try:
             task.progress = "Ejecutando..."
-            result = func(*args, **kwargs)
+            kwargs_with_progress = dict(kwargs)
+            kwargs_with_progress.setdefault(
+                "progress_callback",
+                lambda message: self.set_task_progress(task_id, message)
+            )
+            kwargs_with_progress.setdefault("task_id", task_id)
+
+            result = func(*args, **kwargs_with_progress)
 
             with self._tasks_lock:
                 task.status = TaskStatus.COMPLETED
@@ -185,6 +192,14 @@ class BackgroundTaskManager:
                     del self._running_types[task.task_type]
 
             logger.error(f"❌ Tarea {task_id} ({task.task_type}) falló: {e}")
+
+    def set_task_progress(self, task_id: str, message: str):
+        """Actualiza el progreso textual de una tarea en ejecución."""
+        with self._tasks_lock:
+            task = self._tasks.get(task_id)
+            if not task:
+                return
+            task.progress = str(message or "")
 
     def get_all_tasks(self) -> Dict[str, BackgroundTask]:
         """Obtiene todas las tareas"""
