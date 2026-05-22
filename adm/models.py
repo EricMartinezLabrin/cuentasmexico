@@ -213,7 +213,7 @@ class Account(models.Model):
         auto_now=False, auto_now_add=False, null=False)
     renewal_date = models.DateTimeField(null=True, blank=True)
     email = models.EmailField(max_length=50, null=False)
-    password = models.CharField(max_length=50, null=False)
+    password = models.CharField(max_length=255, null=False)
     pin = models.IntegerField(blank=True, null=True)
     comments = models.CharField(
         max_length=250, null=True, blank=True, default="")

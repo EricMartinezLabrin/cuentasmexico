@@ -455,7 +455,6 @@ class PycSheetSyncService:
             if password_changed:
                 self._send_notifications(account, row.password)
 
-    @transaction.atomic
     def run(self) -> Dict:
         token = _build_google_access_token()
         tab_index = self._build_tab_index(token)
@@ -468,26 +467,29 @@ class PycSheetSyncService:
 
         for account in pyc_accounts:
             self.summary["processed"] += 1
+            try:
+                tab_name = _tab_from_service(account.account_name.description)
+                if not tab_name:
+                    self.summary["warnings"].append(
+                        f"Servicio sin mapeo a pestaña: account_id={account.id} service={account.account_name.description}"
+                    )
+                    continue
 
-            tab_name = _tab_from_service(account.account_name.description)
-            if not tab_name:
-                self.summary["warnings"].append(
-                    f"Servicio sin mapeo a pestaña: account_id={account.id} service={account.account_name.description}"
-                )
+                row = tab_index.get(tab_name, {}).get(_normalize_text(account.email))
+                if not row:
+                    account.external_status = "deleted"
+                    account.status = False
+                    account.save(update_fields=["external_status", "status"])
+                    self.summary["marked_deleted"] += 1
+                    self._replace_deleted_account_for_customer(account, trigger="missing_in_sheet")
+                    continue
+
+                self._apply_sheet_row(account, row)
+                if _needs_replacement_by_external_status(account.external_status):
+                    self._replace_deleted_account_for_customer(account, trigger="status_from_sheet")
+            except Exception as exc:
+                self.summary["errors"].append(f"Error account_id={account.id}: {exc}")
                 continue
-
-            row = tab_index.get(tab_name, {}).get(_normalize_text(account.email))
-            if not row:
-                account.external_status = "deleted"
-                account.status = False
-                account.save(update_fields=["external_status", "status"])
-                self.summary["marked_deleted"] += 1
-                self._replace_deleted_account_for_customer(account, trigger="missing_in_sheet")
-                continue
-
-            self._apply_sheet_row(account, row)
-            if _needs_replacement_by_external_status(account.external_status):
-                self._replace_deleted_account_for_customer(account, trigger="status_from_sheet")
 
         return self.summary
 
@@ -526,45 +528,50 @@ def sync_customer_active_passwords(customer_id: int) -> Dict:
     replaced_deleted_accounts = 0
 
     for sale in active_sales:
-        account = sale.account
-        tab_name = _tab_from_service(account.account_name.description)
-        if not tab_name:
-            skipped += 1
-            continue
+        try:
+            account = sale.account
+            tab_name = _tab_from_service(account.account_name.description)
+            if not tab_name:
+                skipped += 1
+                continue
 
-        row = tab_index.get(tab_name, {}).get(_normalize_text(account.email))
-        if row and _needs_replacement_by_external_status(row.status):
-            before = service.summary["replaced_deleted_accounts"]
-            service._replace_deleted_account_for_customer(account, trigger="customer_sync_status_from_sheet")
-            replaced_deleted_accounts += service.summary["replaced_deleted_accounts"] - before
-            skipped += 1
-            continue
+            row = tab_index.get(tab_name, {}).get(_normalize_text(account.email))
+            if row and _needs_replacement_by_external_status(row.status):
+                before = service.summary["replaced_deleted_accounts"]
+                service._replace_deleted_account_for_customer(account, trigger="customer_sync_status_from_sheet")
+                replaced_deleted_accounts += service.summary["replaced_deleted_accounts"] - before
+                skipped += 1
+                continue
 
-        if _needs_replacement_by_external_status(account.external_status):
-            before = service.summary["replaced_deleted_accounts"]
-            service._replace_deleted_account_for_customer(account, trigger="customer_sync_account_deleted")
-            replaced_deleted_accounts += service.summary["replaced_deleted_accounts"] - before
-            skipped += 1
-            continue
+            if _needs_replacement_by_external_status(account.external_status):
+                before = service.summary["replaced_deleted_accounts"]
+                service._replace_deleted_account_for_customer(account, trigger="customer_sync_account_deleted")
+                replaced_deleted_accounts += service.summary["replaced_deleted_accounts"] - before
+                skipped += 1
+                continue
 
-        if not row or not row.password:
-            skipped += 1
-            continue
+            if not row or not row.password:
+                skipped += 1
+                continue
 
-        if account.password != row.password:
-            old_password = account.password
-            account.password = row.password
-            account.save(update_fields=["password"])
-            updates.append(
-                {
-                    "sale_id": sale.id,
-                    "account_id": account.id,
-                    "service": account.account_name.description,
-                    "email": account.email,
-                    "old_password": old_password,
-                    "new_password": row.password,
-                }
-            )
+            if account.password != row.password:
+                old_password = account.password
+                account.password = row.password
+                account.save(update_fields=["password"])
+                updates.append(
+                    {
+                        "sale_id": sale.id,
+                        "account_id": account.id,
+                        "service": account.account_name.description,
+                        "email": account.email,
+                        "old_password": old_password,
+                        "new_password": row.password,
+                    }
+                )
+        except Exception as exc:
+            skipped += 1
+            service.summary["errors"].append(f"Error sale_id={sale.id}: {exc}")
+            continue
 
     return {
         "customer_id": customer_id,
