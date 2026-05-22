@@ -112,6 +112,7 @@ urlpatterns = [
     path('supplier/delete/<int:pk>',
          login_required(views.SupplierDeleteView.as_view()), name='supplier_delete'),
     path('sales', views.SalesView, name='sales'),
+    path('sales/sync-active-passwords/<int:customer_id>/', login_required(views.SyncCustomerActivePasswordsView), name='sales_sync_active_passwords'),
     path('sales/create/<int:pk>',
          login_required(views.SalesCreateView), name='sales_create'),
     path('sales/search', login_required(views.SalesSearchView), name='sales_search'),
@@ -215,6 +216,8 @@ urlpatterns = [
     # API - Sincronización Google Sheets (ejecutan en segundo plano)
     path('api/sync-sheets/', api_sync.sync_sheets_endpoint, name='api_sync_sheets'),
     path('api/sync-sheets/status/', api_sync.sync_sheets_status, name='api_sync_sheets_status'),
+    path('api/sync-pyc-sheets/', api_sync.sync_pyc_sheets_endpoint, name='api_sync_pyc_sheets'),
+    path('api/sync-pyc-sheets/status/', api_sync.sync_pyc_sheets_status, name='api_sync_pyc_sheets_status'),
     path('api/sync-sheets/debug/', api_sync.sync_sheets_debug, name='api_sync_sheets_debug'),
     path('api/verify-accounts/', api_sync.verify_accounts_endpoint, name='api_verify_accounts'),
     path('api/verify-accounts/status/', api_sync.verify_accounts_status, name='api_verify_accounts_status'),

@@ -116,6 +116,13 @@
                                 <button type="button" class="btn btn-sm btn-outline-warning" title="Combinar cliente por email" data-bs-toggle="modal" data-bs-target="#mergeCustomerModal">
                                     <i class="bi bi-person-lines-fill me-2"></i> Combinar con Email
                                 </button>
+                                <button type="button"
+                                        id="sync-active-passwords-btn"
+                                        class="btn btn-sm btn-outline-primary"
+                                        data-customer-id="{{ customer.id }}"
+                                        title="Sincronizar contraseñas activas desde Google Sheet">
+                                    <i class="bi bi-arrow-repeat me-2"></i> Sincronizar Claves Activas
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -280,6 +287,7 @@
         </div>
     {% endif %}
     {% if customer %}
+        <div id="customer-sales-sections">
         <!-- Active Accounts Section -->
         <div class="mb-5">
             <div class="d-flex align-items-center mb-3">
@@ -359,7 +367,9 @@ WhatsApp y Telegram al número 833 535 5863.
                                         {% endif %}
                                     </td>
                                     <td>
-                                        <code style="background-color: #f0f0f0; padding: 4px 8px; border-radius: 4px;">
+                                        <code class="js-account-password"
+                                              data-account-id="{{ a.account.id }}"
+                                              style="background-color: #f0f0f0; padding: 4px 8px; border-radius: 4px;">
                                             {{ a.account.password }}
                                         </code>
                                     </td>
@@ -464,7 +474,7 @@ WhatsApp y Telegram al número 833 535 5863.
                             </div>
                             <div class="sales-mobile-grid">
                                 <div><small>Email</small><span>{{ a.account.email }}</span></div>
-                                <div><small>Clave</small><code>{{ a.account.password }}</code></div>
+                                <div><small>Clave</small><code class="js-account-password" data-account-id="{{ a.account.id }}">{{ a.account.password }}</code></div>
                                 <div><small>Pin</small><code>{{ a.account.pin }}</code></div>
                                 <div><small>Perfil</small><span class="badge bg-info">{{ a.account.profile }}</span></div>
                                 <div><small>F. Compra</small><span>{{ a.created_at|date:'d/m/Y' }}</span></div>
@@ -659,7 +669,7 @@ WhatsApp y Telegram al número 833 535 5863.
                             </div>
                             <div class="sales-mobile-grid">
                                 <div><small>Email</small><span>{{ a.account.email }}</span></div>
-                                <div><small>Clave</small><code>{{ a.account.password }}</code></div>
+                                <div><small>Clave</small><code class="js-account-password" data-account-id="{{ a.account.id }}">{{ a.account.password }}</code></div>
                                 <div><small>Pin</small><code>{{ a.account.pin }}</code></div>
                                 <div><small>Perfil</small><span class="badge bg-secondary">{{ a.account.profile }}</span></div>
                                 <div><small>F. Compra</small><span>{{ a.created_at|date:'d/m/Y' }}</span></div>
@@ -738,6 +748,7 @@ WhatsApp y Telegram al número 833 535 5863.
                 {% endif %}
             </div>
         {% endif %}
+        </div>
     {% endif %}
 
 <!-- Coupon Redemption Modal -->
@@ -881,6 +892,93 @@ WhatsApp y Telegram al número 833 535 5863.
             }
         `;
         document.head.appendChild(style);
+
+        function updateClipboardPasswordText(saleId, newPassword) {
+            const textarea = document.getElementById(String(saleId));
+            if (!textarea) return;
+            const current = textarea.value || '';
+            textarea.value = current.replace(/\*Clave:\*\s*.*/i, `*Clave:* ${newPassword}`);
+        }
+
+        function updatePasswordInView(accountId, newPassword) {
+            const targets = document.querySelectorAll(`.js-account-password[data-account-id="${accountId}"]`);
+            targets.forEach(el => {
+                el.textContent = newPassword;
+            });
+        }
+
+        async function refreshCustomerSalesSections(refreshUrl) {
+            const container = document.getElementById('customer-sales-sections');
+            if (!container) return;
+
+            const targetUrl = refreshUrl || window.location.href;
+            const response = await fetch(targetUrl, {
+                method: 'GET',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                cache: 'no-store',
+            });
+            const html = await response.text();
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            const newContainer = doc.getElementById('customer-sales-sections');
+            if (newContainer) {
+                container.outerHTML = newContainer.outerHTML;
+            }
+        }
+
+        const syncActivePasswordsBtn = document.getElementById('sync-active-passwords-btn');
+        if (syncActivePasswordsBtn) {
+            syncActivePasswordsBtn.addEventListener('click', function() {
+                const btn = this;
+                const customerId = btn.dataset.customerId;
+                if (!customerId) {
+                    showToast('No se pudo determinar el cliente actual', 'danger');
+                    return;
+                }
+
+                const originalHtml = btn.innerHTML;
+                btn.disabled = true;
+                btn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i> Sincronizando...';
+
+                fetch(`/adm/sales/sync-active-passwords/${customerId}/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (!data.success) {
+                        showToast(data.message || 'Error al sincronizar claves', 'danger');
+                        return;
+                    }
+
+                    const updates = (data.summary && data.summary.updates) ? data.summary.updates : [];
+                    const replacedCount = (data.summary && data.summary.replaced_deleted_accounts) ? data.summary.replaced_deleted_accounts : 0;
+                    updates.forEach(update => {
+                        updatePasswordInView(update.account_id, update.new_password);
+                        updateClipboardPasswordText(update.sale_id, update.new_password);
+                    });
+
+                    if (replacedCount > 0) {
+                        refreshCustomerSalesSections(data.refresh_url).catch((error) => {
+                            console.error('Error refrescando sección de ventas:', error);
+                            showToast('Se sincronizó, pero no se pudo refrescar la vista automáticamente', 'warning');
+                        });
+                    }
+
+                    showToast(data.message || 'Sincronización completada', 'success');
+                })
+                .catch(error => {
+                    console.error('Error en sync de claves activas:', error);
+                    showToast('Error en sincronización de claves activas', 'danger');
+                })
+                .finally(() => {
+                    btn.disabled = false;
+                    btn.innerHTML = originalHtml;
+                });
+            });
+        }
 
         function fetchHomeCode(email) {
             const url = `https://servertools.bdpyc.cl/api/home-codes-public/active/${encodeURIComponent(email)}`;
@@ -1131,3 +1229,4 @@ document.addEventListener('keydown', function(e) {
 });
     </script>
 {% endblock extrajs %}
+

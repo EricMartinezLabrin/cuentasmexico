@@ -14,6 +14,7 @@ from adm.functions.receivable_bulk_jobs import (
     finish_job,
     get_control,
     init_job,
+    rollover_cleanup_if_stale,
     set_job_message,
     stop_job,
     update_recipient,
@@ -30,6 +31,7 @@ class Command(BaseCommand):
         parser.add_argument('--ignore-schedule', action='store_true')
 
     def handle(self, *args, **options):
+        rollover_cleanup_if_stale(JOB_OVERDUE_PENDING)
         dry_run = options['dry_run']
         target_date = options.get('date')
         ignore_schedule = options.get('ignore_schedule', False)

@@ -29,7 +29,7 @@ class WhatsAppQueue:
 
     Características:
     - Envía mensajes en un hilo separado (no bloquea el proceso principal)
-    - Delay aleatorio entre 7-20 segundos entre TODOS los mensajes
+    - Delay aleatorio entre 3-5 minutos entre TODOS los mensajes
     - Thread-safe usando queue.Queue
     - Singleton para evitar múltiples hilos
     - Rastrea el último envío para garantizar el delay incluso entre requests
@@ -54,26 +54,32 @@ class WhatsAppQueue:
         self._queue: queue.Queue[WhatsAppMessage] = queue.Queue()
         self._worker_thread: Optional[threading.Thread] = None
         self._stop_event = threading.Event()
-        self._min_delay = 7  # segundos
-        self._max_delay = 20  # segundos
+        self._min_delay = 180  # segundos (3 minutos)
+        self._max_delay = 300  # segundos (5 minutos)
+        self._same_recipient_delay = 3  # segundos entre mensajes al mismo cliente
         self._last_send_time: Optional[datetime] = None  # Rastrea último envío
+        self._last_recipient: Optional[str] = None  # Rastrea último destinatario (lada+phone)
         self._send_lock = threading.Lock()  # Lock para el tiempo de envío
         self._initialized = True
         self._is_first_message = True  # Primer mensaje no necesita delay
         logger.info("WhatsAppQueue inicializada")
 
-    def _wait_for_rate_limit(self):
+    def _wait_for_rate_limit(self, current_recipient: str):
         """
         Espera el tiempo necesario para respetar el rate limit.
-        SIEMPRE espera entre 7-20 segundos después del último mensaje.
+        Si es mismo destinatario consecutivo: 3 segundos.
+        Si es destinatario distinto: 3-5 minutos aleatorio.
         """
         with self._send_lock:
             if self._last_send_time is not None:
                 # Calcular tiempo desde último envío
                 elapsed = (datetime.now() - self._last_send_time).total_seconds()
 
-                # Generar delay aleatorio requerido
-                required_delay = random.uniform(self._min_delay, self._max_delay)
+                # Delay según destinatario
+                if self._last_recipient and self._last_recipient == current_recipient:
+                    required_delay = float(self._same_recipient_delay)
+                else:
+                    required_delay = random.uniform(self._min_delay, self._max_delay)
 
                 # Si no ha pasado suficiente tiempo, esperar
                 if elapsed < required_delay:
@@ -86,10 +92,11 @@ class WhatsAppQueue:
                         time.sleep(0.5)
                         waited += 0.5
 
-    def _update_last_send_time(self):
+    def _update_last_send_time(self, recipient: str):
         """Actualiza el timestamp del último envío"""
         with self._send_lock:
             self._last_send_time = datetime.now()
+            self._last_recipient = recipient
 
     def _worker(self):
         """
@@ -109,10 +116,11 @@ class WhatsAppQueue:
                     msg = self._queue.get(timeout=1)
                 except queue.Empty:
                     continue
+                current_recipient = f"{msg.lada}{msg.phone_number}"
 
                 # SIEMPRE esperar rate limit antes de enviar (excepto primer mensaje)
                 if messages_sent > 0:
-                    self._wait_for_rate_limit()
+                    self._wait_for_rate_limit(current_recipient)
 
                 # Enviar mensaje
                 try:
@@ -122,13 +130,13 @@ class WhatsAppQueue:
                         msg.lada,
                         msg.phone_number
                     )
-                    self._update_last_send_time()
+                    self._update_last_send_time(current_recipient)
                     messages_sent += 1
                     logger.info(f"✅ WhatsApp enviado exitosamente a {msg.lada}{msg.phone_number}")
                 except Exception as e:
                     logger.error(f"❌ Error enviando WhatsApp a {msg.lada}{msg.phone_number}: {e}")
                     # Aún así actualizar tiempo para no bombardear en caso de error
-                    self._update_last_send_time()
+                    self._update_last_send_time(current_recipient)
                 finally:
                     self._queue.task_done()
 
@@ -217,3 +225,4 @@ def enqueue_whatsapp(message: str, lada: str, phone_number: str):
         phone_number: Número de teléfono sin código de país
     """
     get_whatsapp_queue().enqueue(message, lada, phone_number)
+

@@ -220,60 +220,64 @@
     },
     "due_today": {
       "job_key": "due_today",
-      "status": "running",
-      "started_at": "2026-05-21T16:32:35.154093+00:00",
-      "updated_at": "2026-05-21T16:32:39.980692+00:00",
-      "finished_at": null,
+      "status": "completed",
+      "started_at": "2026-05-22T17:40:50.755349+00:00",
+      "updated_at": "2026-05-22T17:40:50.770451+00:00",
+      "finished_at": "2026-05-22T17:40:50.770451+00:00",
       "control": {
         "paused": false,
         "stop_requested": false
       },
       "totals": {
         "total": 5,
-        "sent": 1,
+        "sent": 5,
         "failed": 0,
         "skipped": 0,
-        "pending": 4
+        "pending": 0
       },
       "recipients": [
         {
-          "sale_id": 113507,
-          "customer": "2294043032",
-          "phone": "+522294043032",
+          "sale_id": 113680,
+          "customer": "6862285498",
+          "phone": "+526862285498",
           "status": "sent",
-          "note": "Enviado (201)",
-          "updated_at": "2026-05-21T16:32:39.980692+00:00"
+          "note": "Dry run",
+          "updated_at": "2026-05-22T17:40:50.757861+00:00"
         },
         {
-          "sale_id": 112871,
-          "customer": "5537150312",
-          "phone": "+525537150312",
-          "status": "pending",
-          "note": ""
+          "sale_id": 113815,
+          "customer": "8129351553",
+          "phone": "+528129351553",
+          "status": "sent",
+          "note": "Dry run",
+          "updated_at": "2026-05-22T17:40:50.759860+00:00"
         },
         {
-          "sale_id": 113524,
-          "customer": "6611952149",
-          "phone": "+526611952149",
-          "status": "pending",
-          "note": ""
+          "sale_id": 113538,
+          "customer": "89619492",
+          "phone": "+5689619492",
+          "status": "sent",
+          "note": "Dry run",
+          "updated_at": "2026-05-22T17:40:50.762858+00:00"
         },
         {
-          "sale_id": 113526,
-          "customer": "5575643352",
-          "phone": "+525575643352",
-          "status": "pending",
-          "note": ""
+          "sale_id": 113882,
+          "customer": "5518369689",
+          "phone": "+525518369689",
+          "status": "sent",
+          "note": "Dry run",
+          "updated_at": "2026-05-22T17:40:50.765364+00:00"
         },
         {
-          "sale_id": 113528,
-          "customer": "9212573720",
-          "phone": "+529212573720",
-          "status": "pending",
-          "note": ""
+          "sale_id": 113973,
+          "customer": "2231003675",
+          "phone": "+522231003675",
+          "status": "sent",
+          "note": "Dry run",
+          "updated_at": "2026-05-22T17:40:50.768443+00:00"
         }
       ],
-      "message": "Enviando a venta 113507"
+      "message": "Proceso finalizado"
     },
     "due_5_days": {
       "job_key": "due_5_days",

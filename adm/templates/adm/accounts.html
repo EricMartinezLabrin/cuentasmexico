@@ -8,6 +8,12 @@
     <a href="{% url 'adm:accounts_create' %}" class="btn btn-cm mb-3">Crear Nueva</a>
     <a href="{% url 'adm:accounts_expired' %}" class="btn btn-primary mb-3">Vencidos</a>
     <a href="{% url 'adm:SearchRenewAcc' %}" class="btn btn-cm-cancel mb-3">Renovaciones</a>
+    <button type="button" id="force-pyc-sync-btn" class="btn btn-warning mb-3">
+        Forzar Sync
+    </button>
+    <button type="button" id="view-pyc-sync-progress-btn" class="btn btn-outline-warning mb-3">
+        Ver progreso Sync
+    </button>
     {% if messages %}
         {% for message in messages %}
             <div class="alert alert-success {% if message.tags %}alert-{{ message.tags }}{% endif %}"
@@ -314,6 +320,24 @@
         </div>
     {% endif %}
 
+    <!-- Modal progreso sync -->
+    <div class="modal fade" id="pycSyncProgressModal" tabindex="-1" aria-labelledby="pycSyncProgressModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="pycSyncProgressModalLabel">Progreso Sync PYC</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-2"><strong>Task ID:</strong> <span id="pyc-sync-task-id">-</span></p>
+                    <p class="mb-2"><strong>Estado:</strong> <span id="pyc-sync-task-status">-</span></p>
+                    <p class="mb-2"><strong>Inicio:</strong> <span id="pyc-sync-task-started">-</span></p>
+                    <p class="mb-0"><strong>Resultado:</strong> <span id="pyc-sync-task-result">-</span></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast Container -->
     <div id="toast-container" style="position: fixed; bottom: 20px; right: 20px; z-index: 9999;"></div>
     {% endblock body %}
@@ -554,5 +578,128 @@
         }
     `;
     document.head.appendChild(style);
+
+    // Forzar sincronización PYC manual (sin bloquear UI)
+    let pycSyncPollInterval = null;
+    const PYCSYNC_TASK_STORAGE_KEY = 'pyc_sync_last_task_id';
+
+    function setPycSyncModalData(task) {
+        document.getElementById('pyc-sync-task-id').textContent = task && task.task_id ? task.task_id : '-';
+        document.getElementById('pyc-sync-task-status').textContent = task && task.status ? task.status : '-';
+        document.getElementById('pyc-sync-task-started').textContent = task && task.started_at ? task.started_at : '-';
+        if (task && task.result) {
+            document.getElementById('pyc-sync-task-result').textContent = typeof task.result === 'string' ? task.result : JSON.stringify(task.result);
+        } else if (task && task.error) {
+            document.getElementById('pyc-sync-task-result').textContent = task.error;
+        } else {
+            document.getElementById('pyc-sync-task-result').textContent = '-';
+        }
+    }
+
+    function openPycSyncProgressModal(taskId) {
+        if (taskId) {
+            localStorage.setItem(PYCSYNC_TASK_STORAGE_KEY, taskId);
+        }
+
+        const modalEl = document.getElementById('pycSyncProgressModal');
+        const modal = new bootstrap.Modal(modalEl);
+        modal.show();
+
+        if (pycSyncPollInterval) {
+            clearInterval(pycSyncPollInterval);
+            pycSyncPollInterval = null;
+        }
+
+        const fetchStatus = () => {
+            const storedTaskId = localStorage.getItem(PYCSYNC_TASK_STORAGE_KEY);
+            const statusUrl = storedTaskId
+                ? `{% url 'adm:api_sync_pyc_sheets_status' %}?task_id=${encodeURIComponent(storedTaskId)}`
+                : `{% url 'adm:api_sync_pyc_sheets_status' %}`;
+
+            fetch(statusUrl, {
+                method: 'GET',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data && data.task) {
+                    setPycSyncModalData(data.task);
+                    if (data.task.task_id) {
+                        localStorage.setItem(PYCSYNC_TASK_STORAGE_KEY, data.task.task_id);
+                    }
+                    if (['completed', 'failed', 'cancelled'].includes(data.task.status)) {
+                        if (pycSyncPollInterval) {
+                            clearInterval(pycSyncPollInterval);
+                            pycSyncPollInterval = null;
+                        }
+                    }
+                } else {
+                    setPycSyncModalData(null);
+                }
+            })
+            .catch(() => {
+                setPycSyncModalData({ status: 'error', error: 'No se pudo consultar el progreso del sync' });
+            });
+        };
+
+        fetchStatus();
+        pycSyncPollInterval = setInterval(fetchStatus, 3000);
+
+        modalEl.addEventListener('hidden.bs.modal', () => {
+            if (pycSyncPollInterval) {
+                clearInterval(pycSyncPollInterval);
+                pycSyncPollInterval = null;
+            }
+        }, { once: true });
+    }
+
+    const forceSyncBtn = document.getElementById('force-pyc-sync-btn');
+    const viewProgressBtn = document.getElementById('view-pyc-sync-progress-btn');
+
+    if (viewProgressBtn) {
+        viewProgressBtn.addEventListener('click', function() {
+            openPycSyncProgressModal();
+        });
+    }
+
+    if (forceSyncBtn) {
+        forceSyncBtn.addEventListener('click', function() {
+            const btn = this;
+            const originalText = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = 'Iniciando...';
+
+            fetch("{% url 'adm:api_sync_pyc_sheets' %}", {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(async response => {
+                const data = await response.json();
+                return { ok: response.ok, status: response.status, data };
+            })
+            .then(({ ok, status, data }) => {
+                if (status === 202 && data.task) {
+                    showNotification(`Sync PYC iniciado (task: ${data.task.task_id})`, 'success');
+                    openPycSyncProgressModal(data.task.task_id);
+                } else if (status === 409 && data.task) {
+                    showNotification(`Ya hay un Sync PYC en ejecución (task: ${data.task.task_id})`, 'warning');
+                    openPycSyncProgressModal(data.task.task_id);
+                } else {
+                    const message = data && data.message ? data.message : 'No fue posible iniciar Sync PYC';
+                    showNotification(message, ok ? 'info' : 'danger');
+                }
+            })
+            .catch(error => {
+                console.error('Error iniciando Sync PYC:', error);
+                showNotification('Error al iniciar Sync PYC', 'danger');
+            })
+            .finally(() => {
+                btn.disabled = false;
+                btn.textContent = originalText;
+            });
+        });
+    }
         </script>
     {% endblock extrajs %}
