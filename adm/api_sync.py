@@ -9,6 +9,7 @@ from django.http import JsonResponse
 import logging
 
 from adm.functions.sync_google_sheets import sync_google_sheets, SheetsSyncManager
+from adm.functions.sync_pyc_sheets import sync_pyc_sheets
 from adm.functions.background_tasks import get_task_manager, TaskStatus
 
 
@@ -354,3 +355,67 @@ def tasks_list(request):
         "total_tasks": len(tasks_list),
         "tasks": tasks_list
     })
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def sync_pyc_sheets_endpoint(request):
+    """
+    Endpoint manual para sincronizar cuentas PYC contra Google Sheets.
+    Ejecuta en segundo plano.
+    """
+    try:
+        task_manager = get_task_manager()
+        success, message, task = task_manager.start_task(
+            task_type="sync_pyc_sheets",
+            func=sync_pyc_sheets,
+        )
+
+        if success:
+            return JsonResponse(
+                {
+                    "status": "started",
+                    "message": message,
+                    "task": _task_to_dict(task),
+                },
+                status=202,
+            )
+
+        return JsonResponse(
+            {
+                "status": "already_running",
+                "message": message,
+                "task": _task_to_dict(task),
+            },
+            status=409,
+        )
+    except Exception as exc:
+        return JsonResponse(
+            {"status": "error", "message": f"Error iniciando sync PYC: {exc}", "task": None},
+            status=500,
+        )
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def sync_pyc_sheets_status(request):
+    task_manager = get_task_manager()
+    task_id = request.GET.get("task_id")
+
+    if task_id:
+        task = task_manager.get_task(task_id)
+    else:
+        task = task_manager.get_running_task("sync_pyc_sheets")
+        if not task:
+            all_tasks = task_manager.get_all_tasks()
+            pyc_tasks = [t for t in all_tasks.values() if t.task_type == "sync_pyc_sheets"]
+            if pyc_tasks:
+                task = max(pyc_tasks, key=lambda t: t.started_at or t.completed_at)
+
+    if task:
+        return JsonResponse({"status": "found", "task": _task_to_dict(task)})
+
+    return JsonResponse(
+        {"status": "not_found", "message": "No se encontró la tarea", "task": None},
+        status=404,
+    )

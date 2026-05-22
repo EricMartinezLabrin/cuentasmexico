@@ -1,5 +1,8 @@
 import csv
 from datetime import timedelta, datetime
+import base64
+import os
+import time
 from django.db import IntegrityError
 from django.forms import model_to_dict
 from django.shortcuts import render
@@ -14,6 +17,8 @@ from django.db.models import Case, When, Value, CharField
 import json
 import stripe
 import requests
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import padding
 # from pyflowcl import FlowAPI
 # from pyflowcl.utils import genera_parametros
 from dateutil.relativedelta import relativedelta
@@ -35,6 +40,107 @@ except Business.DoesNotExist:
 
 local_url = 'https://cuentasmexico/api'
 pyc_url = 'https://bdpyc.cl/api'
+
+# POST
+def _b64url_encode(payload: bytes) -> str:
+    return base64.urlsafe_b64encode(payload).rstrip(b'=').decode('utf-8')
+
+
+def _build_google_access_token() -> str:
+    service_account_email = os.getenv("GOOGLE_SERVICE_ACCOUNT_EMAIL", "").strip().strip('"')
+    private_key = os.getenv("GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY", "").strip().strip('"')
+
+    if not service_account_email or not private_key:
+        raise ValueError("Google service account variables missing in .env")
+
+    private_key = private_key.replace("\\n", "\n")
+
+    header = {"alg": "RS256", "typ": "JWT"}
+    now = int(time.time())
+    claims = {
+        "iss": service_account_email,
+        "scope": "https://www.googleapis.com/auth/spreadsheets.readonly",
+        "aud": "https://oauth2.googleapis.com/token",
+        "iat": now,
+        "exp": now + 3600,
+    }
+
+    encoded_header = _b64url_encode(json.dumps(header, separators=(',', ':')).encode("utf-8"))
+    encoded_claims = _b64url_encode(json.dumps(claims, separators=(',', ':')).encode("utf-8"))
+    unsigned_jwt = f"{encoded_header}.{encoded_claims}"
+
+    signer = serialization.load_pem_private_key(private_key.encode("utf-8"), password=None)
+    signature = signer.sign(
+        unsigned_jwt.encode("utf-8"),
+        padding.PKCS1v15(),
+        hashes.SHA256(),
+    )
+    signed_jwt = f"{unsigned_jwt}.{_b64url_encode(signature)}"
+
+    token_res = requests.post(
+        "https://oauth2.googleapis.com/token",
+        data={
+            "grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer",
+            "assertion": signed_jwt,
+        },
+        timeout=30,
+    )
+    if token_res.status_code != 200:
+        raise ValueError(f"Google token error: {token_res.text}")
+
+    return token_res.json().get("access_token")
+
+
+def read_google_sheet_api(request):
+    if request.method != "GET":
+        return JsonResponse(status=405, data={"detail": "method not allowed"})
+
+    sheet_id = request.GET.get("sheet_id") or os.getenv("SHEETS_PYC_ID") or "1eY2EWKjarh1a909CLSrL22lP5HVUF5CZzdM9SDHBT3M"
+    value_range = request.GET.get("range", "").strip() or None
+
+    try:
+        access_token = _build_google_access_token()
+    except Exception as exc:
+        return JsonResponse(status=500, data={"detail": str(exc)})
+
+    metadata_only = request.GET.get("metadata", "").strip().lower() in ("1", "true", "yes")
+    if metadata_only:
+        metadata_url = f"https://sheets.googleapis.com/v4/spreadsheets/{sheet_id}"
+        metadata_response = requests.get(
+            metadata_url,
+            headers={"Authorization": f"Bearer {access_token}"},
+            params={"fields": "sheets(properties(title))"},
+            timeout=30,
+        )
+        if metadata_response.status_code != 200:
+            return JsonResponse(status=metadata_response.status_code, data={"detail": metadata_response.text})
+        payload = metadata_response.json()
+        sheet_names = [
+            sheet.get("properties", {}).get("title")
+            for sheet in payload.get("sheets", [])
+            if sheet.get("properties", {}).get("title")
+        ]
+        return JsonResponse(status=200, data={"spreadsheetId": sheet_id, "sheetNames": sheet_names})
+
+    sheets_url = f"https://sheets.googleapis.com/v4/spreadsheets/{sheet_id}/values:batchGet"
+    params = {}
+    if value_range:
+        params["ranges"] = value_range
+    else:
+        params["ranges"] = "A1:ZZ1000"
+
+    response = requests.get(
+        sheets_url,
+        headers={"Authorization": f"Bearer {access_token}"},
+        params=params,
+        timeout=30,
+    )
+
+    if response.status_code != 200:
+        return JsonResponse(status=response.status_code, data={"detail": response.text})
+
+    return JsonResponse(status=200, data=response.json())
+
 
 # POST
 

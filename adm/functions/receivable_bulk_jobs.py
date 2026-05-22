@@ -224,3 +224,42 @@ def _with_estimate(job):
             eta_seconds = None
     item['eta_seconds'] = eta_seconds
     return item
+
+
+def rollover_cleanup_if_stale(job_key):
+    """
+    Si el job quedó 'running/paused' en un día anterior, lo cierra como detenido
+    para evitar estado colgado entre días.
+    """
+    with _STATE_LOCK:
+        state = _load_state()
+        job = state.get('jobs', {}).get(job_key)
+        if not job:
+            return False
+
+        if job.get('status') not in ('running', 'paused'):
+            return False
+
+        started_raw = job.get('started_at')
+        if not started_raw:
+            return False
+
+        try:
+            started = datetime.fromisoformat(str(started_raw).replace('Z', '+00:00'))
+            if timezone.is_naive(started):
+                started = timezone.make_aware(started)
+            started_local_day = timezone.localtime(started).date()
+            now_local_day = timezone.localtime(timezone.now()).date()
+            if started_local_day >= now_local_day:
+                return False
+        except Exception:
+            # Si no se puede parsear, preferimos limpiarlo para evitar bloqueo.
+            pass
+
+        job['status'] = 'stopped'
+        job['control'] = {'paused': False, 'stop_requested': False}
+        job['message'] = 'Proceso anterior limpiado automáticamente por cambio de día.'
+        job['updated_at'] = _iso_now()
+        job['finished_at'] = _iso_now()
+        _save_state(state)
+        return True

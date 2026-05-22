@@ -224,6 +224,14 @@ class ServicesForm(forms.ModelForm):
 
 
 class FilterAccountForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        choices = list(self.fields['external_status'].choices or [])
+        values = {value for value, _ in choices}
+        if 'deleted' not in values:
+            choices.append(('deleted', 'deleted'))
+        self.fields['external_status'].choices = choices
+
     class Meta:
         model = Account
 

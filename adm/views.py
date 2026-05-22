@@ -91,6 +91,7 @@ from adm.functions.marketing_tags import (
     has_active_cooldown,
     users_with_active_cooldown,
 )
+from adm.functions.sync_pyc_sheets import sync_customer_active_passwords
 from CuentasMexico.ai import AIClient
 from CuentasMexico.ai.config import get_active_provider, get_model_for_task, get_db_mcp_config
 from CuentasMexico.ai.mcp_readonly_db import ReadOnlyDatabaseMCP
@@ -1895,6 +1896,41 @@ def SalesView(request, phone_number=None):
         response.xframe_options_exempt = True
         del response['X-Frame-Options']
         return response
+
+
+@csrf_exempt
+@permission_required('is_staff', 'adm:no-permission')
+def SyncCustomerActivePasswordsView(request, customer_id):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Método no permitido'}, status=405)
+
+    try:
+        summary = sync_customer_active_passwords(customer_id)
+        refresh_url = reverse('adm:sales')
+        try:
+            customer_obj = User.objects.select_related('userdetail').get(pk=customer_id)
+            refresh_url = f"{reverse('adm:sales')}?customer={customer_obj.userdetail.id}"
+        except Exception:
+            pass
+        return JsonResponse(
+            {
+                'success': True,
+                'message': (
+                    f"Sincronización completada. "
+                    f"Actualizadas: {summary['updated_count']} | "
+                    f"Sin cambios/no encontradas: {summary['skipped_count']} | "
+                    f"Reemplazos por deleted: {summary.get('replaced_deleted_accounts', 0)}"
+                ),
+                'summary': summary,
+                'refresh_url': refresh_url,
+            },
+            status=200,
+        )
+    except Exception as exc:
+        return JsonResponse(
+            {'success': False, 'message': f'Error en sincronización de contraseñas: {exc}'},
+            status=500,
+        )
 
 def key_adjust(request, pk):
     template_name = 'adm/key_adjust.html'
