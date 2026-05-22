@@ -332,7 +332,16 @@
                     <p class="mb-2"><strong>Task ID:</strong> <span id="pyc-sync-task-id">-</span></p>
                     <p class="mb-2"><strong>Estado:</strong> <span id="pyc-sync-task-status">-</span></p>
                     <p class="mb-2"><strong>Inicio:</strong> <span id="pyc-sync-task-started">-</span></p>
+                    <p class="mb-2"><strong>Progreso:</strong> <span id="pyc-sync-task-progress">-</span></p>
                     <p class="mb-0"><strong>Resultado:</strong> <span id="pyc-sync-task-result">-</span></p>
+                    <hr />
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <strong>Histórico cambios de claves</strong>
+                        <button type="button" id="refresh-pyc-sync-history-btn" class="btn btn-sm btn-outline-secondary">Actualizar</button>
+                    </div>
+                    <div id="pyc-sync-history-list" style="max-height:260px; overflow:auto; font-size:12px;">
+                        <div class="text-muted">Sin datos</div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -587,6 +596,7 @@
         document.getElementById('pyc-sync-task-id').textContent = task && task.task_id ? task.task_id : '-';
         document.getElementById('pyc-sync-task-status').textContent = task && task.status ? task.status : '-';
         document.getElementById('pyc-sync-task-started').textContent = task && task.started_at ? task.started_at : '-';
+        document.getElementById('pyc-sync-task-progress').textContent = task && task.progress ? task.progress : '-';
         if (task && task.result) {
             document.getElementById('pyc-sync-task-result').textContent = typeof task.result === 'string' ? task.result : JSON.stringify(task.result);
         } else if (task && task.error) {
@@ -594,6 +604,44 @@
         } else {
             document.getElementById('pyc-sync-task-result').textContent = '-';
         }
+    }
+
+    function renderPycSyncHistory(items) {
+        const el = document.getElementById('pyc-sync-history-list');
+        if (!el) return;
+        if (!items || items.length === 0) {
+            el.innerHTML = '<div class="text-muted">Sin cambios registrados</div>';
+            return;
+        }
+        const rows = items.map((item) => {
+            const ts = item.timestamp || '-';
+            const service = item.service || '-';
+            const email = item.email || '-';
+            const oldPass = item.old_password || '-';
+            const newPass = item.new_password || '-';
+            return `<div class="border rounded p-2 mb-1">
+                <div><strong>${service}</strong> · ${email}</div>
+                <div>${oldPass} -> ${newPass}</div>
+                <div class="text-muted">${ts}</div>
+            </div>`;
+        });
+        el.innerHTML = rows.join('');
+    }
+
+    function loadPycSyncHistory() {
+        fetch(`{% url 'adm:api_sync_pyc_sheets_history' %}?limit=150`, {
+            method: 'GET',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data && data.items) {
+                renderPycSyncHistory(data.items);
+            } else {
+                renderPycSyncHistory([]);
+            }
+        })
+        .catch(() => renderPycSyncHistory([]));
     }
 
     function openPycSyncProgressModal(taskId) {
@@ -643,6 +691,7 @@
         };
 
         fetchStatus();
+        loadPycSyncHistory();
         pycSyncPollInterval = setInterval(fetchStatus, 3000);
 
         modalEl.addEventListener('hidden.bs.modal', () => {
@@ -659,6 +708,13 @@
     if (viewProgressBtn) {
         viewProgressBtn.addEventListener('click', function() {
             openPycSyncProgressModal();
+        });
+    }
+
+    const refreshHistoryBtn = document.getElementById('refresh-pyc-sync-history-btn');
+    if (refreshHistoryBtn) {
+        refreshHistoryBtn.addEventListener('click', function() {
+            loadPycSyncHistory();
         });
     }
 
