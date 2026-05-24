@@ -38,7 +38,7 @@
                 <div class="col-12">
                     <h6 class="mb-2">Acciones masivas de notificacion</h6>
                 </div>
-                <div class="col-12 col-md-4">
+                <div class="col-12 col-md-3">
                     <form id="send-cobranza-form" method="post" class="d-grid">
                         {% csrf_token %}
                         <button id="send-cobranza-button" type="button" class="btn btn-danger w-100">
@@ -46,7 +46,15 @@
                         </button>
                     </form>
                 </div>
-                <div class="col-12 col-md-4">
+                <div class="col-12 col-md-3">
+                    <form id="send-due-tomorrow-form" method="post" class="d-grid">
+                        {% csrf_token %}
+                        <button id="send-due-tomorrow-button" type="button" class="btn btn-info w-100">
+                            Avisar vence mañana
+                        </button>
+                    </form>
+                </div>
+                <div class="col-12 col-md-3">
                     <form id="send-due-5-days-form" method="post" class="d-grid">
                         {% csrf_token %}
                         <button id="send-due-5-days-button" type="button" class="btn btn-warning w-100">
@@ -54,7 +62,7 @@
                         </button>
                     </form>
                 </div>
-                <div class="col-12 col-md-4">
+                <div class="col-12 col-md-3">
                     <form id="send-overdue-pending-form" method="post" class="d-grid">
                         {% csrf_token %}
                         <button id="send-overdue-pending-button" type="button" class="btn btn-dark w-100">
@@ -386,6 +394,7 @@
 
     function jobTitle(jobKey) {
         if (jobKey === 'due_today') return 'Cobranza hoy';
+        if (jobKey === 'due_tomorrow') return 'Vence mañana';
         if (jobKey === 'due_5_days') return 'Vence en 5 dias';
         if (jobKey === 'overdue_pending') return 'Vencidas sin renovar';
         return jobKey;
@@ -420,7 +429,7 @@
     }
 
     function getRunningJob(jobs) {
-        const order = ['due_today', 'due_5_days', 'overdue_pending'];
+        const order = ['due_today', 'due_tomorrow', 'due_5_days', 'overdue_pending'];
         for (const key of order) {
             const job = jobs[key];
             if (job && (job.status === 'running' || job.status === 'paused')) return job;
@@ -529,6 +538,14 @@
     document.getElementById('send-due-5-days-button').addEventListener('click', function(event) {
         event.preventDefault();
         triggerReceivableNotification('send-due-5-days-form', 'cobranza-status', '{% url "adm:receivable_send_due_5_days" %}')
+            .catch(() => {
+                document.getElementById('cobranza-status').innerHTML = '<div class="alert alert-danger">Error al iniciar el envio.</div>';
+            });
+    });
+
+    document.getElementById('send-due-tomorrow-button').addEventListener('click', function(event) {
+        event.preventDefault();
+        triggerReceivableNotification('send-due-tomorrow-form', 'cobranza-status', '{% url "adm:receivable_send_due_tomorrow" %}')
             .catch(() => {
                 document.getElementById('cobranza-status').innerHTML = '<div class="alert alert-danger">Error al iniciar el envio.</div>';
             });

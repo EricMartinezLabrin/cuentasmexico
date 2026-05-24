@@ -40,6 +40,7 @@ from adm.functions.send_whatsapp_notification import Notification
 from adm.functions.receivable_bulk_jobs import (
     ALL_JOBS,
     JOB_DUE_5_DAYS,
+    JOB_DUE_TOMORROW,
     JOB_DUE_TODAY,
     JOB_OVERDUE_PENDING,
     get_job_snapshot,
@@ -110,6 +111,13 @@ SEND_DUE_TODAY_WHATSAPP_LOCKFILE = os.path.join(
     os.path.dirname(os.path.dirname(__file__)),
     'logs',
     'send_due_today_whatsapp.lock',
+)
+SEND_DUE_TOMORROW_WHATSAPP_LOCK = threading.Lock()
+SEND_DUE_TOMORROW_WHATSAPP_THREAD = None
+SEND_DUE_TOMORROW_WHATSAPP_LOCKFILE = os.path.join(
+    os.path.dirname(os.path.dirname(__file__)),
+    'logs',
+    'send_due_tomorrow_whatsapp.lock',
 )
 SEND_DUE_IN_5_DAYS_WHATSAPP_LOCK = threading.Lock()
 SEND_DUE_IN_5_DAYS_WHATSAPP_THREAD = None
@@ -248,6 +256,25 @@ def _run_send_due_in_5_days_whatsapp(ignore_schedule=False):
             SEND_DUE_IN_5_DAYS_WHATSAPP_THREAD = None
 
 
+def _run_send_due_tomorrow_whatsapp(ignore_schedule=False):
+    global SEND_DUE_TOMORROW_WHATSAPP_THREAD
+    from django.core.management import call_command
+
+    logger = logging.getLogger(__name__)
+    try:
+        call_command('send_due_tomorrow_whatsapp', ignore_schedule=ignore_schedule)
+    except Exception:
+        logger.exception('Error al ejecutar send_due_tomorrow_whatsapp')
+    finally:
+        try:
+            if os.path.exists(SEND_DUE_TOMORROW_WHATSAPP_LOCKFILE):
+                os.remove(SEND_DUE_TOMORROW_WHATSAPP_LOCKFILE)
+        except OSError:
+            logger.exception('No se pudo remover lockfile de send_due_tomorrow_whatsapp')
+        with SEND_DUE_TOMORROW_WHATSAPP_LOCK:
+            SEND_DUE_TOMORROW_WHATSAPP_THREAD = None
+
+
 def _run_send_overdue_pending_whatsapp(ignore_schedule=False):
     global SEND_OVERDUE_PENDING_WHATSAPP_THREAD
     from django.core.management import call_command
@@ -313,6 +340,32 @@ def TriggerSendDueIn5DaysWhatsApp(request):
         _run_send_due_in_5_days_whatsapp,
         'El envío de por vencer ya está en progreso.',
         'Envio de cuentas por vencer (5 dias) iniciado en segundo plano.',
+        ignore_schedule=ignore_schedule,
+        force=ignore_schedule,
+    )
+    return JsonResponse({'success': res['success'], 'message': res['message']})
+
+
+@permission_required('is_staff', 'adm:no-permission')
+def TriggerSendDueTomorrowWhatsApp(request):
+    global SEND_DUE_TOMORROW_WHATSAPP_THREAD
+
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'MÃ©todo no permitido'}, status=405)
+
+    payload = {}
+    try:
+        payload = json.loads(request.body or '{}')
+    except Exception:
+        payload = {}
+    ignore_schedule = bool(payload.get('force'))
+
+    res = _start_receivable_job(
+        SEND_DUE_TOMORROW_WHATSAPP_LOCK,
+        SEND_DUE_TOMORROW_WHATSAPP_LOCKFILE,
+        _run_send_due_tomorrow_whatsapp,
+        'El envÃ­o de por vencer maÃ±ana ya estÃ¡ en progreso.',
+        'Envio de cuentas por vencer maÃ±ana iniciado en segundo plano.',
         ignore_schedule=ignore_schedule,
         force=ignore_schedule,
     )
