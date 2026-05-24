@@ -8,9 +8,10 @@ from django.utils import timezone
 
 
 JOB_DUE_TODAY = 'due_today'
+JOB_DUE_TOMORROW = 'due_tomorrow'
 JOB_DUE_5_DAYS = 'due_5_days'
 JOB_OVERDUE_PENDING = 'overdue_pending'
-ALL_JOBS = [JOB_DUE_TODAY, JOB_DUE_5_DAYS, JOB_OVERDUE_PENDING]
+ALL_JOBS = [JOB_DUE_TODAY, JOB_DUE_TOMORROW, JOB_DUE_5_DAYS, JOB_OVERDUE_PENDING]
 
 _STATE_LOCK = threading.Lock()
 
