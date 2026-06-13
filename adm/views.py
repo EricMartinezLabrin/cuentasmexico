@@ -3918,6 +3918,7 @@ def sync_logs_view(request):
     """
     from pathlib import Path
     from datetime import datetime, date
+    from adm.functions.whatsapp_delivery_log import read_whatsapp_delivery_log
     
     log_file_path = Path(os.path.dirname(os.path.dirname(__file__))) / "logs" / "sync_sheets.log"
     
@@ -4001,6 +4002,7 @@ def sync_logs_view(request):
     
     context = {
         'logs': colorized_logs,
+        'whatsapp_logs': read_whatsapp_delivery_log(limit=200, date_from=date_from or None, date_to=date_to or None),
         'paginator': paginator,
         'page_obj': logs_page,
         'total_lines': len(all_lines),

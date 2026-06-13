@@ -13,6 +13,7 @@ from django.db.models import Q
 from adm.models import Account, Service
 from adm.functions.send_whatsapp_notification import Notification
 from adm.functions.whatsapp_queue import enqueue_whatsapp
+from adm.functions.whatsapp_delivery_log import append_whatsapp_delivery_log
 
 
 logger = logging.getLogger(__name__)
@@ -359,10 +360,38 @@ class SheetsSyncManager:
         """
         try:
             if not account.customer:
+                append_whatsapp_delivery_log({
+                    "event": "skipped",
+                    "level": "warning",
+                    "message": "No se encolo WhatsApp por cambio de clave: la cuenta no tiene cliente asignado.",
+                    "error": "account.customer ausente",
+                    "detail": "El sync cambio la clave, pero Account.customer esta vacio; no hay destinatario para notificar.",
+                    "metadata": {
+                        "source": "sync_google_sheets_password_change",
+                        "account_id": account.id,
+                        "account_email": account.email,
+                        "service": account.account_name.description if account.account_name else "",
+                    },
+                })
                 self.logger.info(f"ℹ️ No hay cliente asignado a {account.email} - Sin notificación WhatsApp")
                 return
 
             if not hasattr(account.customer, 'userdetail'):
+                append_whatsapp_delivery_log({
+                    "event": "skipped",
+                    "level": "warning",
+                    "message": "No se encolo WhatsApp por cambio de clave: el cliente no tiene UserDetail.",
+                    "error": "customer.userdetail ausente",
+                    "detail": "No existe UserDetail para leer lada y phone_number del cliente.",
+                    "metadata": {
+                        "source": "sync_google_sheets_password_change",
+                        "account_id": account.id,
+                        "account_email": account.email,
+                        "customer_id": account.customer_id,
+                        "customer_username": account.customer.username,
+                        "service": account.account_name.description if account.account_name else "",
+                    },
+                })
                 self.logger.info(f"ℹ️ Cliente de {account.email} sin userdetail - Sin notificación WhatsApp")
                 return
 
@@ -370,6 +399,24 @@ class SheetsSyncManager:
             lada = account.customer.userdetail.lada
 
             if not phone or not lada:
+                append_whatsapp_delivery_log({
+                    "event": "skipped",
+                    "level": "warning",
+                    "message": "No se encolo WhatsApp por cambio de clave: falta lada o telefono.",
+                    "error": "telefono incompleto",
+                    "detail": f"UserDetail existe, pero lada={lada or 'VACIO'} y phone_number={phone or 'VACIO'}.",
+                    "lada": str(lada or ""),
+                    "phone_number": str(phone or ""),
+                    "full_phone": f"{lada or ''}{phone or ''}",
+                    "metadata": {
+                        "source": "sync_google_sheets_password_change",
+                        "account_id": account.id,
+                        "account_email": account.email,
+                        "customer_id": account.customer_id,
+                        "customer_username": account.customer.username,
+                        "service": account.account_name.description if account.account_name else "",
+                    },
+                })
                 self.logger.info(f"ℹ️ Cliente de {account.email} sin teléfono/lada - Sin notificación WhatsApp")
                 return
 
@@ -405,7 +452,19 @@ También puedes hacer compras con entregas inmediatas (y con descuento) en https
             """
 
             # Encolar mensaje para envío asíncrono (no bloquea el proceso)
-            enqueue_whatsapp(message.strip(), lada, phone)
+            enqueue_whatsapp(
+                message.strip(),
+                lada,
+                phone,
+                metadata={
+                    "source": "sync_google_sheets_password_change",
+                    "account_id": account.id,
+                    "account_email": account.email,
+                    "customer_id": account.customer_id,
+                    "customer_username": account.customer.username,
+                    "service": account.account_name.description if account.account_name else "",
+                },
+            )
             self.logger.info(f"📱 Notificación WhatsApp encolada para {lada}{phone}")
         except Exception as e:
             self.logger.warning(f"⚠️ Error encolando WhatsApp para {account.email}: {str(e)}")

@@ -314,6 +314,34 @@
         {% endif %}
     </div>
     
+    <h2>Logs de WhatsApp</h2>
+    {% if whatsapp_logs %}
+    <div class="logs-container">
+        {% for item in whatsapp_logs %}
+        <div class="log-line {% if item.level == 'error' %}log-error{% elif item.level == 'warning' %}log-warning{% elif item.level == 'success' %}log-success{% else %}log-info{% endif %}">
+            <strong>[{{ item.timestamp|default:"-" }}]</strong>
+            <strong>{{ item.event|default:"unknown" }}</strong>
+            {% if item.status_code %}HTTP {{ item.status_code }}{% endif %}
+            {% if item.full_phone %} | Tel: {{ item.full_phone }}{% endif %}
+            {% if item.metadata.account_id %} | Cuenta: {{ item.metadata.account_id }}{% endif %}
+            {% if item.metadata.account_email %} | Email cuenta: {{ item.metadata.account_email }}{% endif %}
+            {% if item.metadata.customer_id %} | Cliente: {{ item.metadata.customer_id }}{% endif %}
+            {% if item.metadata.service %} | Servicio: {{ item.metadata.service }}{% endif %}
+            <br>
+            {{ item.message|default:"Sin mensaje" }}
+            {% if item.error %}<br><strong>Error:</strong> {{ item.error }}{% endif %}
+            {% if item.detail %}<br><strong>Detalle:</strong> {{ item.detail }}{% endif %}
+            {% if item.response_body %}<br><strong>Respuesta API:</strong> {{ item.response_body }}{% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <h3>No hay logs de WhatsApp todavia</h3>
+        <p>Cuando se encole, envie o falle un WhatsApp, el detalle aparecera aqui.</p>
+    </div>
+    {% endif %}
+
     <!-- Logs -->
     <p>DEBUG: has_logs = {{ has_logs }}, total_lines = {{ total_lines }}, logs count = {{ logs|length }}</p>
     {% if has_logs %}

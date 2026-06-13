@@ -1,45 +1,46 @@
 """
-Cola asíncrona para mensajes de WhatsApp.
+Cola asincrona para mensajes de WhatsApp.
 Evita bloqueos por spam enviando mensajes con delays aleatorios.
 """
 
-import threading
+import logging
 import queue
 import random
+import threading
 import time
-import logging
-from typing import Optional
+import uuid
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime
+from typing import Dict, Optional
+
+from adm.functions.whatsapp_delivery_log import append_whatsapp_delivery_log
+
 
 logger = logging.getLogger(__name__)
 
 
 @dataclass
 class WhatsAppMessage:
-    """Estructura para un mensaje de WhatsApp en cola"""
     message: str
     lada: str
     phone_number: str
+    event_id: str
+    metadata: Dict
 
 
 class WhatsAppQueue:
     """
-    Cola asíncrona para enviar mensajes de WhatsApp.
+    Cola asincrona para enviar mensajes de WhatsApp.
 
-    Características:
-    - Envía mensajes en un hilo separado (no bloquea el proceso principal)
-    - Delay aleatorio entre 3-5 minutos entre TODOS los mensajes
-    - Thread-safe usando queue.Queue
-    - Singleton para evitar múltiples hilos
-    - Rastrea el último envío para garantizar el delay incluso entre requests
+    - Envia mensajes en un hilo separado.
+    - Aplica delay entre mensajes para evitar bloqueos por spam.
+    - Persiste logs de cola/envio/error para diagnostico web.
     """
 
-    _instance: Optional['WhatsAppQueue'] = None
+    _instance: Optional["WhatsAppQueue"] = None
     _lock = threading.Lock()
 
     def __new__(cls):
-        """Implementación Singleton thread-safe"""
         if cls._instance is None:
             with cls._lock:
                 if cls._instance is None:
@@ -54,142 +55,175 @@ class WhatsAppQueue:
         self._queue: queue.Queue[WhatsAppMessage] = queue.Queue()
         self._worker_thread: Optional[threading.Thread] = None
         self._stop_event = threading.Event()
-        self._min_delay = 180  # segundos (3 minutos)
-        self._max_delay = 300  # segundos (5 minutos)
-        self._same_recipient_delay = 3  # segundos entre mensajes al mismo cliente
-        self._last_send_time: Optional[datetime] = None  # Rastrea último envío
-        self._last_recipient: Optional[str] = None  # Rastrea último destinatario (lada+phone)
-        self._send_lock = threading.Lock()  # Lock para el tiempo de envío
+        self._min_delay = 180
+        self._max_delay = 300
+        self._same_recipient_delay = 3
+        self._last_send_time: Optional[datetime] = None
+        self._last_recipient: Optional[str] = None
+        self._send_lock = threading.Lock()
         self._initialized = True
-        self._is_first_message = True  # Primer mensaje no necesita delay
         logger.info("WhatsAppQueue inicializada")
 
     def _wait_for_rate_limit(self, current_recipient: str):
-        """
-        Espera el tiempo necesario para respetar el rate limit.
-        Si es mismo destinatario consecutivo: 3 segundos.
-        Si es destinatario distinto: 3-5 minutos aleatorio.
-        """
         with self._send_lock:
-            if self._last_send_time is not None:
-                # Calcular tiempo desde último envío
-                elapsed = (datetime.now() - self._last_send_time).total_seconds()
+            if self._last_send_time is None:
+                return
 
-                # Delay según destinatario
-                if self._last_recipient and self._last_recipient == current_recipient:
-                    required_delay = float(self._same_recipient_delay)
-                else:
-                    required_delay = random.uniform(self._min_delay, self._max_delay)
+            elapsed = (datetime.now() - self._last_send_time).total_seconds()
+            if self._last_recipient and self._last_recipient == current_recipient:
+                required_delay = float(self._same_recipient_delay)
+            else:
+                required_delay = random.uniform(self._min_delay, self._max_delay)
 
-                # Si no ha pasado suficiente tiempo, esperar
-                if elapsed < required_delay:
-                    wait_time = required_delay - elapsed
-                    logger.info(f"⏳ Rate limit: esperando {wait_time:.1f}s más (elapsed: {elapsed:.1f}s, required: {required_delay:.1f}s)")
+            if elapsed >= required_delay:
+                return
 
-                    # Esperar en intervalos pequeños para poder responder a stop_event
-                    waited = 0
-                    while waited < wait_time and not self._stop_event.is_set():
-                        time.sleep(0.5)
-                        waited += 0.5
+            wait_time = required_delay - elapsed
+            logger.info(
+                "Rate limit WhatsApp: esperando %.1fs mas (elapsed %.1fs, required %.1fs)",
+                wait_time,
+                elapsed,
+                required_delay,
+            )
+            waited = 0
+            while waited < wait_time and not self._stop_event.is_set():
+                time.sleep(0.5)
+                waited += 0.5
 
     def _update_last_send_time(self, recipient: str):
-        """Actualiza el timestamp del último envío"""
         with self._send_lock:
             self._last_send_time = datetime.now()
             self._last_recipient = recipient
 
     def _worker(self):
-        """
-        Worker que procesa la cola de mensajes.
-        Se ejecuta en un hilo separado.
-        SIEMPRE aplica delay entre mensajes.
-        """
         from adm.functions.send_whatsapp_notification import Notification
 
-        logger.info("🚀 WhatsApp Queue Worker iniciado")
+        logger.info("WhatsApp Queue Worker iniciado")
         messages_sent = 0
 
         while not self._stop_event.is_set() or not self._queue.empty():
             try:
-                # Intentar obtener mensaje con timeout para poder verificar stop_event
                 try:
                     msg = self._queue.get(timeout=1)
                 except queue.Empty:
                     continue
-                current_recipient = f"{msg.lada}{msg.phone_number}"
 
-                # SIEMPRE esperar rate limit antes de enviar (excepto primer mensaje)
+                current_recipient = f"{msg.lada}{msg.phone_number}"
                 if messages_sent > 0:
                     self._wait_for_rate_limit(current_recipient)
 
-                # Enviar mensaje
                 try:
-                    logger.info(f"📤 Enviando WhatsApp a {msg.lada}{msg.phone_number}... (mensaje #{messages_sent + 1}, cola: {self._queue.qsize()} restantes)")
-                    Notification.send_whatsapp_notification(
+                    append_whatsapp_delivery_log({
+                        "event_id": msg.event_id,
+                        "event": "sending",
+                        "level": "info",
+                        "message": "Intentando enviar WhatsApp por Evolution API.",
+                        "lada": msg.lada,
+                        "phone_number": msg.phone_number,
+                        "full_phone": current_recipient,
+                        "queue_remaining": self._queue.qsize(),
+                        "metadata": msg.metadata,
+                    })
+                    result = Notification.send_whatsapp_notification_details(
                         msg.message,
                         msg.lada,
-                        msg.phone_number
+                        msg.phone_number,
                     )
                     self._update_last_send_time(current_recipient)
-                    messages_sent += 1
-                    logger.info(f"✅ WhatsApp enviado exitosamente a {msg.lada}{msg.phone_number}")
-                except Exception as e:
-                    logger.error(f"❌ Error enviando WhatsApp a {msg.lada}{msg.phone_number}: {e}")
-                    # Aún así actualizar tiempo para no bombardear en caso de error
+
+                    if result.get("success"):
+                        messages_sent += 1
+                        append_whatsapp_delivery_log({
+                            "event_id": msg.event_id,
+                            "event": "sent",
+                            "level": "success",
+                            "message": "Evolution API acepto el WhatsApp.",
+                            "lada": msg.lada,
+                            "phone_number": msg.phone_number,
+                            "full_phone": result.get("full_phone") or current_recipient,
+                            "status_code": result.get("status_code"),
+                            "response_body": result.get("response_body"),
+                            "metadata": msg.metadata,
+                        })
+                        logger.info("WhatsApp enviado exitosamente a %s", current_recipient)
+                    else:
+                        detail = result.get("detail") or result.get("error") or "Error desconocido enviando WhatsApp."
+                        append_whatsapp_delivery_log({
+                            "event_id": msg.event_id,
+                            "event": "failed",
+                            "level": "error",
+                            "message": "No se pudo enviar el WhatsApp.",
+                            "lada": msg.lada,
+                            "phone_number": msg.phone_number,
+                            "full_phone": result.get("full_phone") or current_recipient,
+                            "status_code": result.get("status_code"),
+                            "error": result.get("error"),
+                            "detail": detail,
+                            "response_body": result.get("response_body"),
+                            "metadata": msg.metadata,
+                        })
+                        logger.error("Error enviando WhatsApp a %s: %s", current_recipient, detail)
+                except Exception as exc:
                     self._update_last_send_time(current_recipient)
+                    append_whatsapp_delivery_log({
+                        "event_id": msg.event_id,
+                        "event": "failed",
+                        "level": "error",
+                        "message": "Excepcion no controlada en el worker de WhatsApp.",
+                        "lada": msg.lada,
+                        "phone_number": msg.phone_number,
+                        "full_phone": current_recipient,
+                        "error": type(exc).__name__,
+                        "detail": str(exc),
+                        "metadata": msg.metadata,
+                    })
+                    logger.exception("Error en WhatsApp Queue Worker para %s", current_recipient)
                 finally:
                     self._queue.task_done()
+            except Exception as exc:
+                logger.exception("Error general en WhatsApp Queue Worker: %s", exc)
 
-            except Exception as e:
-                logger.error(f"❌ Error en WhatsApp Queue Worker: {e}")
-
-        logger.info(f"🏁 WhatsApp Queue Worker terminado (total enviados: {messages_sent})")
+        logger.info("WhatsApp Queue Worker terminado (total enviados: %s)", messages_sent)
 
     def _ensure_worker_running(self):
-        """Asegura que el worker esté corriendo"""
         if self._worker_thread is None or not self._worker_thread.is_alive():
             self._stop_event.clear()
             self._worker_thread = threading.Thread(
                 target=self._worker,
-                daemon=True,  # El hilo se cerrará cuando termine el proceso principal
-                name="WhatsAppQueueWorker"
+                daemon=True,
+                name="WhatsAppQueueWorker",
             )
             self._worker_thread.start()
 
-    def enqueue(self, message: str, lada: str, phone_number: str):
-        """
-        Agrega un mensaje a la cola para envío asíncrono.
-
-        Args:
-            message: Texto del mensaje
-            lada: Código de país (ej: 52 para México)
-            phone_number: Número de teléfono sin código de país
-        """
+    def enqueue(self, message: str, lada: str, phone_number: str, metadata: Optional[Dict] = None):
+        event_id = str(uuid.uuid4())
+        metadata = dict(metadata or {})
         msg = WhatsAppMessage(
             message=message,
-            lada=lada,
-            phone_number=phone_number
+            lada=str(lada or "").strip(),
+            phone_number=str(phone_number or "").strip(),
+            event_id=event_id,
+            metadata=metadata,
         )
         self._queue.put(msg)
-        logger.info(f"Mensaje encolado para {lada}{phone_number} (cola: {self._queue.qsize()} mensajes)")
-
-        # Iniciar worker si no está corriendo
+        append_whatsapp_delivery_log({
+            "event_id": event_id,
+            "event": "queued",
+            "level": "info",
+            "message": "WhatsApp agregado a la cola local; aun no significa que Evolution API lo haya aceptado.",
+            "lada": msg.lada,
+            "phone_number": msg.phone_number,
+            "full_phone": f"{msg.lada}{msg.phone_number}",
+            "queue_size": self._queue.qsize(),
+            "metadata": metadata,
+        })
+        logger.info("Mensaje encolado para %s%s (cola: %s mensajes)", msg.lada, msg.phone_number, self._queue.qsize())
         self._ensure_worker_running()
 
     def queue_size(self) -> int:
-        """Retorna el número de mensajes pendientes en la cola"""
         return self._queue.qsize()
 
     def wait_until_empty(self, timeout: Optional[float] = None) -> bool:
-        """
-        Espera hasta que la cola esté vacía.
-
-        Args:
-            timeout: Tiempo máximo de espera en segundos (None = indefinido)
-
-        Returns:
-            True si la cola se vació, False si se alcanzó el timeout
-        """
         try:
             self._queue.join()
             return True
@@ -197,32 +231,20 @@ class WhatsAppQueue:
             return False
 
     def stop(self):
-        """Detiene el worker (procesa mensajes pendientes primero)"""
         self._stop_event.set()
         if self._worker_thread and self._worker_thread.is_alive():
-            self._worker_thread.join(timeout=60)  # Esperar máximo 60s
+            self._worker_thread.join(timeout=60)
 
 
-# Instancia global para uso directo
 _whatsapp_queue: Optional[WhatsAppQueue] = None
 
 
 def get_whatsapp_queue() -> WhatsAppQueue:
-    """Obtiene la instancia singleton de la cola de WhatsApp"""
     global _whatsapp_queue
     if _whatsapp_queue is None:
         _whatsapp_queue = WhatsAppQueue()
     return _whatsapp_queue
 
 
-def enqueue_whatsapp(message: str, lada: str, phone_number: str):
-    """
-    Función de conveniencia para encolar un mensaje de WhatsApp.
-
-    Args:
-        message: Texto del mensaje
-        lada: Código de país (ej: 52 para México)
-        phone_number: Número de teléfono sin código de país
-    """
-    get_whatsapp_queue().enqueue(message, lada, phone_number)
-
+def enqueue_whatsapp(message: str, lada: str, phone_number: str, metadata: Optional[Dict] = None):
+    get_whatsapp_queue().enqueue(message, lada, phone_number, metadata=metadata)
