@@ -53,7 +53,6 @@ class Command(BaseCommand):
             "would_change_password": 0,
             "would_change_external_status": 0,
             "would_change_profile": 0,
-            "would_reactivate": 0,
             "would_replace_customer_account": 0,
         }
 
@@ -116,11 +115,6 @@ class Command(BaseCommand):
                     actions_summary["would_change_profile"] += 1
                     account_actions.append(f"profile: {account.profile} -> {row.profile}")
 
-                if not _needs_replacement_by_external_status(row.status) and not account.status:
-                    actions_summary["would_reactivate"] += 1
-                    account_actions.append("status False -> True (reactivar)")
-                    projected_status = True
-
                 target_status = row.status or account.external_status
                 if _needs_replacement_by_external_status(target_status) and account.customer_id:
                     actions_summary["would_replace_customer_account"] += 1
@@ -159,7 +153,6 @@ class Command(BaseCommand):
         self.stdout.write(f"- would_change_password: {actions_summary['would_change_password']}")
         self.stdout.write(f"- would_change_external_status: {actions_summary['would_change_external_status']}")
         self.stdout.write(f"- would_change_profile: {actions_summary['would_change_profile']}")
-        self.stdout.write(f"- would_reactivate: {actions_summary['would_reactivate']}")
         self.stdout.write(f"- would_replace_customer_account: {actions_summary['would_replace_customer_account']}")
         self.stdout.write("")
         self.stdout.write(self.style.SUCCESS("Activas proyectadas sin cliente por servicio"))

@@ -583,11 +583,6 @@ class PycSheetSyncService:
             self.summary["updated_profile"] += 1
             changes.append("profile")
 
-        if not _needs_replacement_by_external_status(row.status) and not account.status:
-            account.status = True
-            self.summary["reactivated_accounts"] += 1
-            changes.append("status")
-
         if changes:
             account.save(update_fields=changes)
             if password_changed:
