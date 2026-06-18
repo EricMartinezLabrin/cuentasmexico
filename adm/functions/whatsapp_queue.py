@@ -108,7 +108,7 @@ class WhatsAppQueue:
                 except queue.Empty:
                     continue
 
-                current_recipient = f"{msg.lada}{msg.phone_number}"
+                current_recipient = Notification.format_whatsapp_number(msg.lada, msg.phone_number)
                 if messages_sent > 0:
                     self._wait_for_rate_limit(current_recipient)
 
@@ -196,6 +196,8 @@ class WhatsAppQueue:
             self._worker_thread.start()
 
     def enqueue(self, message: str, lada: str, phone_number: str, metadata: Optional[Dict] = None):
+        from adm.functions.send_whatsapp_notification import Notification
+
         event_id = str(uuid.uuid4())
         metadata = dict(metadata or {})
         msg = WhatsAppMessage(
@@ -213,11 +215,15 @@ class WhatsAppQueue:
             "message": "WhatsApp agregado a la cola local; aun no significa que Evolution API lo haya aceptado.",
             "lada": msg.lada,
             "phone_number": msg.phone_number,
-            "full_phone": f"{msg.lada}{msg.phone_number}",
+            "full_phone": Notification.format_whatsapp_number(msg.lada, msg.phone_number),
             "queue_size": self._queue.qsize(),
             "metadata": metadata,
         })
-        logger.info("Mensaje encolado para %s%s (cola: %s mensajes)", msg.lada, msg.phone_number, self._queue.qsize())
+        logger.info(
+            "Mensaje encolado para %s (cola: %s mensajes)",
+            Notification.format_whatsapp_number(msg.lada, msg.phone_number),
+            self._queue.qsize(),
+        )
         self._ensure_worker_running()
 
     def queue_size(self) -> int:

@@ -7,6 +7,22 @@ import unicodedata
 
 class Notification():
     @staticmethod
+    def format_whatsapp_number(lada, phone_number):
+        lada_digits = re.sub(r'\D+', '', str(lada or ''))
+        phone_digits = re.sub(r'\D+', '', str(phone_number or ''))
+
+        if not lada_digits:
+            return phone_digits
+
+        if lada_digits == '52':
+            if len(phone_digits) == 10:
+                return f"521{phone_digits}"
+            if phone_digits.startswith('1') and len(phone_digits) == 11:
+                return f"52{phone_digits}"
+
+        return f"{lada_digits}{phone_digits}"
+
+    @staticmethod
     def _safe_cache_key(value):
         raw = str(value or '').strip().lower()
         normalized = unicodedata.normalize('NFD', raw)
@@ -32,7 +48,7 @@ class Notification():
 
     @staticmethod
     def send_whatsapp_notification_details(message, lada, phone_number):
-        full_phone = f"{lada}{phone_number}"
+        full_phone = Notification.format_whatsapp_number(lada, phone_number)
         config = Notification._evo_config()
         if not config:
             missing = []
@@ -114,8 +130,8 @@ class Notification():
                 return 500
             evo_api_url, evo_instance, evo_api_key = config
             
-            # Prepare full phone number (Evolution API format: lada + phone)
-            full_phone = f"{lada}{phone_number}"
+            # Evolution requires Mexican WhatsApp numbers as 52 + 1 + 10 digits.
+            full_phone = Notification.format_whatsapp_number(lada, phone_number)
             
             endpoint = f"{evo_api_url}/message/sendText/{evo_instance}"
             payload = {"number": full_phone, "text": message}
@@ -147,7 +163,7 @@ class Notification():
                 print("⚠️ WhatsApp API no configurada en .env")
                 return 500
             evo_api_url, evo_instance, evo_api_key = config
-            full_phone = f"{lada}{phone_number}"
+            full_phone = Notification.format_whatsapp_number(lada, phone_number)
             endpoint = f"{evo_api_url}/message/sendMedia/{evo_instance}"
             payload = {
                 "number": full_phone,
@@ -349,7 +365,7 @@ class Notification():
 
     @staticmethod
     def set_contact_label_by_name(lada, phone_number, label_name, enabled=True):
-        full_phone = f"{lada}{phone_number}"
+        full_phone = Notification.format_whatsapp_number(lada, phone_number)
         label_id = Notification.find_label_id_by_name(label_name)
         if not label_id:
             print(f"⚠️ Label no encontrada en Evolution: {label_name}")
