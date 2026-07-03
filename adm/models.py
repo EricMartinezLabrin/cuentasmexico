@@ -94,6 +94,15 @@ class UserDetail(models.Model):
     level = models.ForeignKey(
         Level, on_delete=models.CASCADE, blank=True, null=True)
     token = models.CharField(max_length=100, null=True, blank=True)
+    clerk_id = models.CharField(max_length=255, null=True, blank=True, unique=True)
+    associated_shop = models.ForeignKey(
+        'cupon.Shop',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='shop_users'
+    )
+    is_shop_owner = models.BooleanField(default=False)
 
     def __str__(self):
         return self.user.username
@@ -253,6 +262,13 @@ class Sale(models.Model):
 
 class Credits(models.Model):
     customer = models.ForeignKey(User, on_delete=models.CASCADE)
+    shop = models.ForeignKey(
+        'cupon.Shop',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='shop_credits'
+    )
     date = models.DateTimeField(auto_now=True)
     credits = models.IntegerField(default=0)
     detail = models.CharField(max_length=255, blank=True, null=True)

@@ -59,7 +59,7 @@ from .models import (
     MarketingCampaign, MarketingCampaignRecommendation, MarketingCampaignDelivery, MarketingCampaignRedemption,
     MarketingUserTag
 )
-from cupon.models import Cupon, CouponRedemption
+from cupon.models import Cupon, CouponRedemption, Shop
 from cupon.forms import CuponForm
 from cupon.services import CouponRedeemError, normalize_code, validate_coupon_from_code
 from .functions.alerts import Alerts
@@ -3002,6 +3002,284 @@ class CreditCustomerListView(UserAccessMixin, ListView):
         context = super().get_context_data(**kwargs)
         context['customer'] = User.objects.get(pk=self.kwargs.get('pk'))
         return context
+
+
+def _shop_balance(shop):
+    return Credits.objects.filter(shop=shop).aggregate(total=Sum('credits'))['total'] or 0
+
+
+def _shop_user_ids(shop):
+    return list(UserDetail.objects.filter(associated_shop=shop).values_list('user_id', flat=True))
+
+
+def _shop_sales_queryset(shop, date_from=None, date_to=None):
+    qs = Sale.objects.filter(customer_id__in=_shop_user_ids(shop))
+    if date_from:
+        qs = qs.filter(created_at__date__gte=date_from)
+    if date_to:
+        qs = qs.filter(created_at__date__lte=date_to)
+    return qs
+
+
+def _parse_date_param(value):
+    if not value:
+        return None
+    try:
+        return datetime.strptime(value, '%Y-%m-%d').date()
+    except ValueError:
+        return None
+
+
+def _update_shop_negative_since(shop, balance=None):
+    balance = _shop_balance(shop) if balance is None else balance
+    if balance < 0 and not shop.last_negative_balance_since:
+        shop.last_negative_balance_since = timezone.now()
+        shop.save(update_fields=['last_negative_balance_since'])
+    elif balance >= 0 and shop.last_negative_balance_since:
+        shop.last_negative_balance_since = None
+        shop.save(update_fields=['last_negative_balance_since'])
+
+
+def _shop_billing_rows(request):
+    q = (request.GET.get('q') or '').strip()
+    city = (request.GET.get('city') or '').strip()
+    status_filter = (request.GET.get('status') or 'all').strip()
+    date_from = _parse_date_param(request.GET.get('from'))
+    date_to = _parse_date_param(request.GET.get('to'))
+
+    shops = Shop.objects.select_related('creator_user').all().order_by('name')
+    if q:
+        shops = shops.filter(Q(name__icontains=q) | Q(owner__icontains=q) | Q(email__icontains=q))
+    if city:
+        shops = shops.filter(city__icontains=city)
+
+    rows = []
+    now = timezone.now()
+    for shop in shops:
+        sales_qs = _shop_sales_queryset(shop, date_from=date_from, date_to=date_to)
+        sales_summary = sales_qs.aggregate(total=Sum('payment_amount'), count=Count('id'))
+        balance = _shop_balance(shop)
+        days_negative = None
+        is_overdue = False
+        if shop.last_negative_balance_since:
+            days_negative = (now - shop.last_negative_balance_since).days
+            is_overdue = balance < 0 and days_negative >= 7
+        debt_status = 'al_dia'
+        if is_overdue:
+            debt_status = 'atrasado'
+        elif balance < 0:
+            debt_status = 'con_deuda'
+
+        row = {
+            'shop': shop,
+            'owner': shop.creator_user or shop.owner,
+            'city': shop.city,
+            'sales_total': sales_summary['total'] or 0,
+            'sales_count': sales_summary['count'] or 0,
+            'balance': balance,
+            'credit_limit': shop.credit_limit,
+            'debt': abs(balance) if balance < 0 else 0,
+            'debt_status': debt_status,
+            'days_negative': days_negative,
+        }
+
+        if status_filter == 'debt' and balance >= 0:
+            continue
+        if status_filter == 'current' and balance < 0:
+            continue
+        if status_filter == 'overdue' and not is_overdue:
+            continue
+        rows.append(row)
+
+    return rows
+
+
+class ShopListView(UserAccessMixin, ListView):
+    permission_required = 'is_staff'
+    model = Shop
+    template_name = 'adm/shop_list.html'
+    paginate_by = 25
+    ordering = ['-id']
+
+    def get_queryset(self):
+        qs = Shop.objects.select_related('creator_user').order_by('-id')
+        q = (self.request.GET.get('q') or '').strip()
+        if q:
+            qs = qs.filter(Q(name__icontains=q) | Q(owner__icontains=q) | Q(email__icontains=q))
+        return qs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['pending_shops'] = self.get_queryset().filter(status=False)
+        balances = {}
+        shop_rows = []
+        for shop in context['object_list']:
+            balances[shop.id] = _shop_balance(shop)
+            _update_shop_negative_since(shop, balances[shop.id])
+            shop_rows.append({'shop': shop, 'balance': balances[shop.id]})
+        context['balances'] = balances
+        context['shop_rows'] = shop_rows
+        context['q'] = self.request.GET.get('q', '')
+        return context
+
+
+class ShopDetailView(UserAccessMixin, DetailView):
+    permission_required = 'is_staff'
+    model = Shop
+    template_name = 'adm/shop_detail.html'
+
+    def post(self, request, *args, **kwargs):
+        shop = self.get_object()
+        try:
+            shop.credit_limit = int(request.POST.get('credit_limit', shop.credit_limit))
+            shop.save(update_fields=['credit_limit'])
+            messages.success(request, 'Limite de credito actualizado.')
+        except (TypeError, ValueError):
+            messages.error(request, 'El limite de credito debe ser numerico.')
+        return redirect(reverse('adm:shop_detail', args=[shop.id]))
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        shop = self.object
+        balance = _shop_balance(shop)
+        _update_shop_negative_since(shop, balance)
+        context['balance'] = balance
+        context['subusers'] = UserDetail.objects.filter(associated_shop=shop).select_related('user').order_by('-is_shop_owner', 'user__username')
+        context['credits'] = Credits.objects.filter(shop=shop).select_related('customer').order_by('-date')[:100]
+        context['sales'] = _shop_sales_queryset(shop).select_related('customer', 'account', 'account__account_name').order_by('-created_at')[:100]
+        return context
+
+
+@permission_required('is_staff', 'adm:no-permission')
+def ShopApproveView(request, pk):
+    shop = Shop.objects.get(pk=pk)
+    shop.status = True
+    shop.save(update_fields=['status'])
+    messages.success(request, 'Tienda aprobada.')
+    return redirect(reverse('adm:shop_detail', args=[shop.id]))
+
+
+@permission_required('is_staff', 'adm:no-permission')
+def ShopDisableView(request, pk):
+    shop = Shop.objects.get(pk=pk)
+    shop.status = False
+    shop.save(update_fields=['status'])
+    messages.success(request, 'Tienda deshabilitada.')
+    return redirect(reverse('adm:shop_detail', args=[shop.id]))
+
+
+@permission_required('is_staff', 'adm:no-permission')
+def ShopAddCreditsView(request, pk):
+    shop = Shop.objects.get(pk=pk)
+    if request.method == 'POST':
+        try:
+            amount = int(request.POST.get('credits', '0'))
+        except ValueError:
+            amount = 0
+        detail = (request.POST.get('detail') or '').strip() or ('Recarga creditos tienda' if amount > 0 else 'Ajuste tienda')
+        if amount:
+            before = _shop_balance(shop)
+            Credits.objects.create(
+                customer=shop.creator_user or request.user,
+                shop=shop,
+                credits=amount,
+                detail=detail,
+            )
+            after = before + amount
+            if before < 0 and after >= 0:
+                shop.consecutive_on_time_payments += 1
+                shop.last_negative_balance_since = None
+                if shop.consecutive_on_time_payments and shop.consecutive_on_time_payments % 3 == 0:
+                    shop.credit_limit += 100
+                shop.save(update_fields=['consecutive_on_time_payments', 'last_negative_balance_since', 'credit_limit'])
+            else:
+                _update_shop_negative_since(shop, after)
+            messages.success(request, 'Movimiento de credito registrado.')
+        else:
+            messages.error(request, 'Ingresa un monto distinto de cero.')
+    return redirect(reverse('adm:shop_detail', args=[shop.id]))
+
+
+class ShopBillingView(UserAccessMixin, TemplateView):
+    permission_required = 'is_staff'
+    template_name = 'adm/shop_billing.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['rows'] = _shop_billing_rows(self.request)
+        context['filters'] = {
+            'q': self.request.GET.get('q', ''),
+            'city': self.request.GET.get('city', ''),
+            'from': self.request.GET.get('from', ''),
+            'to': self.request.GET.get('to', ''),
+            'status': self.request.GET.get('status', 'all'),
+        }
+        return context
+
+
+@permission_required('is_staff', 'adm:no-permission')
+def ShopBillingExportExcelView(request):
+    rows = _shop_billing_rows(request)
+    response = HttpResponse(content_type='text/csv; charset=utf-8')
+    response['Content-Disposition'] = 'attachment; filename="cobranza-tiendas.csv"'
+    response.write('\ufeff')
+    writer = csv.writer(response)
+    writer.writerow(['Tienda', 'Dueno', 'Ciudad', 'Ventas', 'Cantidad ventas', 'Saldo actual', 'Limite credito', 'Deuda', 'Estado'])
+    for row in rows:
+        writer.writerow([
+            row['shop'].name,
+            row['owner'],
+            row['city'],
+            row['sales_total'],
+            row['sales_count'],
+            row['balance'],
+            row['credit_limit'],
+            row['debt'],
+            row['debt_status'],
+        ])
+    return response
+
+
+def _simple_pdf_response(title, lines, filename):
+    content = ['BT', '/F1 14 Tf', '50 790 Td', f'({title}) Tj', '/F1 10 Tf']
+    for line in lines[:45]:
+        safe = str(line).replace('\\', '\\\\').replace('(', '\\(').replace(')', '\\)')
+        content.append('0 -16 Td')
+        content.append(f'({safe[:115]}) Tj')
+    content.append('ET')
+    stream = '\n'.join(content).encode('latin-1', errors='replace')
+    objects = [
+        b'1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj',
+        b'2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj',
+        b'3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >> endobj',
+        b'4 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj',
+        b'5 0 obj << /Length ' + str(len(stream)).encode('ascii') + b' >> stream\n' + stream + b'\nendstream endobj',
+    ]
+    pdf = bytearray(b'%PDF-1.4\n')
+    offsets = [0]
+    for obj in objects:
+        offsets.append(len(pdf))
+        pdf.extend(obj + b'\n')
+    xref = len(pdf)
+    pdf.extend(f'xref\n0 {len(objects) + 1}\n0000000000 65535 f \n'.encode('ascii'))
+    for offset in offsets[1:]:
+        pdf.extend(f'{offset:010d} 00000 n \n'.encode('ascii'))
+    pdf.extend(f'trailer << /Size {len(objects) + 1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF'.encode('ascii'))
+    response = HttpResponse(bytes(pdf), content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
+
+@permission_required('is_staff', 'adm:no-permission')
+def ShopBillingExportPDFView(request):
+    rows = _shop_billing_rows(request)
+    lines = [
+        f"{row['shop'].name} | {row['city']} | ventas ${row['sales_total']} ({row['sales_count']}) | saldo ${row['balance']} | deuda ${row['debt']} | {row['debt_status']}"
+        for row in rows
+    ]
+    if not lines:
+        lines = ['Sin datos para los filtros seleccionados.']
+    return _simple_pdf_response('Reporte de cobranza de tiendas', lines, 'cobranza-tiendas.pdf')
 
 # def ImportView(request):
 

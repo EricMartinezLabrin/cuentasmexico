@@ -7,12 +7,14 @@ from django.db import IntegrityError
 from django.forms import model_to_dict
 from django.shortcuts import render
 from django.contrib.auth import authenticate
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.models import User
 from django.utils import timezone
 from django.contrib.auth.hashers import make_password
-from django.db.models import Case, When, Value, CharField
+from django.db.models import Case, When, Value, CharField, Sum
+from django.db import transaction
+from django.conf import settings
 
 import json
 import stripe
@@ -23,9 +25,11 @@ from cryptography.hazmat.primitives.asymmetric import padding
 # from pyflowcl.utils import genera_parametros
 from dateutil.relativedelta import relativedelta
 
-from adm.models import Account, Business, Sale, Service, UserDetail, PageVisit
+from adm.models import Account, Business, Sale, Service, UserDetail, PageVisit, Credits, Bank, PaymentMethod
+from cupon.models import Shop
 from .functions.notifications import send_push_notification
 from .functions.salesApi import SalesApi
+from adm.functions.sales import Sales
 from adm.functions.send_whatsapp_notification import Notification
 from django.db.models import Q
 
@@ -42,6 +46,286 @@ local_url = 'https://cuentasmexico/api'
 pyc_url = 'https://bdpyc.cl/api'
 
 # POST
+def _json_body(request):
+    if not request.body:
+        return {}
+    try:
+        return json.loads(request.body.decode('utf-8'))
+    except json.JSONDecodeError:
+        return None
+
+
+def _shop_balance(shop):
+    return Credits.objects.filter(shop=shop).aggregate(total=Sum('credits'))['total'] or 0
+
+
+def _clerk_id_from_request(request, data=None):
+    data = data or {}
+    return (
+        request.headers.get('X-Clerk-User-Id')
+        or request.headers.get('Clerk-User-Id')
+        or data.get('clerk_id')
+        or data.get('clerkId')
+    )
+
+
+def _user_from_clerk(request, data=None):
+    clerk_id = _clerk_id_from_request(request, data)
+    if not clerk_id:
+        return None, JsonResponse(status=401, data={'detail': 'clerk_id is required'})
+    try:
+        detail = UserDetail.objects.select_related('user', 'associated_shop').get(clerk_id=clerk_id)
+        return detail.user, None
+    except UserDetail.DoesNotExist:
+        return None, JsonResponse(status=401, data={'detail': 'clerk user not registered'})
+
+
+def api_docs(request):
+    return render(request, 'api/docs.html')
+
+
+def api_schema(request):
+    schema_path = os.path.join(settings.BASE_DIR, 'api', 'openapi.json')
+    with open(schema_path, 'r', encoding='utf-8') as schema_file:
+        return HttpResponse(schema_file.read(), content_type='application/json')
+
+
+@csrf_exempt
+def register_shop_api(request):
+    if request.method != 'POST':
+        return JsonResponse(status=405, data={'detail': 'method not allowed'})
+    data = _json_body(request)
+    if data is None:
+        return JsonResponse(status=400, data={'detail': 'invalid json'})
+
+    clerk_id = _clerk_id_from_request(request, data)
+    name = (data.get('shop_name') or data.get('name') or '').strip()
+    owner_name = (data.get('owner') or data.get('owner_name') or data.get('username') or '').strip()
+    phone_number = ''.join(ch for ch in str(data.get('phone_number') or data.get('phone') or '') if ch.isdigit())
+    email = (data.get('email') or '').strip()
+    if not clerk_id or not name or not owner_name or not phone_number:
+        return JsonResponse(status=400, data={'detail': 'clerk_id, shop_name, owner and phone_number are required'})
+
+    username = (data.get('username') or email or phone_number or clerk_id).strip()
+    base_username = username
+    suffix = 1
+    while User.objects.filter(username=username).exclude(userdetail__clerk_id=clerk_id).exists():
+        suffix += 1
+        username = f'{base_username}-{suffix}'
+
+    business = Business.objects.get(pk=1)
+    with transaction.atomic():
+        user, created = User.objects.get_or_create(
+            username=username,
+            defaults={'email': email, 'first_name': owner_name}
+        )
+        if created:
+            user.set_unusable_password()
+            user.save(update_fields=['password'])
+        else:
+            changed = False
+            if email and user.email != email:
+                user.email = email
+                changed = True
+            if owner_name and not user.first_name:
+                user.first_name = owner_name
+                changed = True
+            if changed:
+                user.save()
+
+        shop = Shop.objects.create(
+            name=name,
+            owner=owner_name,
+            phone=phone_number,
+            email=email or None,
+            giro=(data.get('giro') or 'Distribuidor').strip(),
+            address=(data.get('address') or '').strip(),
+            city=(data.get('city') or '').strip(),
+            cp=data.get('cp') or None,
+            seller=user,
+            status=False,
+            credit_limit=int(data.get('credit_limit') or 300),
+            creator_user=user,
+        )
+        UserDetail.objects.update_or_create(
+            user=user,
+            defaults={
+                'business': business,
+                'phone_number': phone_number[-10:] if len(phone_number) > 10 else phone_number,
+                'lada': int(data.get('lada') or '52'),
+                'country': data.get('country') or 'Mexico',
+                'clerk_id': clerk_id,
+                'associated_shop': shop,
+                'is_shop_owner': True,
+            }
+        )
+
+    return JsonResponse(status=201, data={
+        'detail': 'shop registered',
+        'shop': {'id': shop.id, 'name': shop.name, 'status': shop.status, 'credit_limit': shop.credit_limit},
+        'user': {'id': user.id, 'username': user.username},
+    })
+
+
+@csrf_exempt
+def create_subuser_api(request):
+    if request.method != 'POST':
+        return JsonResponse(status=405, data={'detail': 'method not allowed'})
+    data = _json_body(request)
+    if data is None:
+        return JsonResponse(status=400, data={'detail': 'invalid json'})
+    owner, error = _user_from_clerk(request, data)
+    if error:
+        return error
+    owner_detail = owner.userdetail
+    if not owner_detail.associated_shop or not owner_detail.is_shop_owner:
+        return JsonResponse(status=403, data={'detail': 'only shop owners can create subusers'})
+
+    sub_clerk_id = data.get('subuser_clerk_id') or data.get('new_clerk_id') or data.get('clerk_id_subuser')
+    username = (data.get('username') or data.get('email') or data.get('phone_number') or sub_clerk_id or '').strip()
+    phone_number = ''.join(ch for ch in str(data.get('phone_number') or '') if ch.isdigit())
+    if not username or not phone_number:
+        return JsonResponse(status=400, data={'detail': 'username and phone_number are required'})
+
+    user, created = User.objects.get_or_create(username=username, defaults={'email': data.get('email') or ''})
+    if created:
+        user.set_unusable_password()
+        user.save(update_fields=['password'])
+
+    detail, _ = UserDetail.objects.update_or_create(
+        user=user,
+        defaults={
+            'business': owner_detail.business,
+            'phone_number': phone_number[-10:] if len(phone_number) > 10 else phone_number,
+            'lada': int(data.get('lada') or '52'),
+            'country': data.get('country') or owner_detail.country,
+            'clerk_id': sub_clerk_id,
+            'associated_shop': owner_detail.associated_shop,
+            'is_shop_owner': False,
+        }
+    )
+    return JsonResponse(status=201, data={'detail': 'subuser created', 'user_id': user.id, 'shop_id': detail.associated_shop_id})
+
+
+@csrf_exempt
+def shop_info_api(request):
+    if request.method != 'GET':
+        return JsonResponse(status=405, data={'detail': 'method not allowed'})
+    user, error = _user_from_clerk(request)
+    if error:
+        return error
+    detail = user.userdetail
+    shop = detail.associated_shop
+    if not shop:
+        return JsonResponse(status=404, data={'detail': 'user has no associated shop'})
+    balance = _shop_balance(shop)
+    overdue_days = None
+    if shop.last_negative_balance_since and balance < 0:
+        overdue_days = (timezone.now() - shop.last_negative_balance_since).days
+    return JsonResponse(status=200, data={
+        'shop': {'id': shop.id, 'name': shop.name, 'status': shop.status},
+        'balance': balance,
+        'credit_limit': shop.credit_limit,
+        'available_credit': shop.credit_limit + balance,
+        'is_overdue': bool(overdue_days is not None and overdue_days >= 7),
+        'overdue_days': overdue_days,
+        'consecutive_on_time_payments': shop.consecutive_on_time_payments,
+        'is_shop_owner': detail.is_shop_owner,
+    })
+
+
+@csrf_exempt
+def sell_account_api(request):
+    if request.method != 'POST':
+        return JsonResponse(status=405, data={'detail': 'method not allowed'})
+    data = _json_body(request)
+    if data is None:
+        return JsonResponse(status=400, data={'detail': 'invalid json'})
+    user, error = _user_from_clerk(request, data)
+    if error:
+        return error
+    detail = user.userdetail
+    shop = detail.associated_shop
+    if not shop:
+        return JsonResponse(status=404, data={'detail': 'user has no associated shop'})
+    if not shop.status:
+        return JsonResponse(status=403, data={'detail': 'shop is not active'})
+
+    balance = _shop_balance(shop)
+    if shop.last_negative_balance_since and balance < 0 and (timezone.now() - shop.last_negative_balance_since).days >= 7:
+        return JsonResponse(status=402, data={'detail': 'shop has overdue debt'})
+
+    try:
+        service_id = int(data.get('service_id'))
+        months = int(data.get('months') or 1)
+    except (TypeError, ValueError):
+        return JsonResponse(status=400, data={'detail': 'service_id and months must be numeric'})
+    if months < 1:
+        months = 1
+
+    service = Service.objects.filter(pk=service_id, status=True).first()
+    if not service:
+        return JsonResponse(status=404, data={'detail': 'service not found'})
+
+    unit_price = 20 if balance > 0 else 25
+    price = unit_price * months
+    projected_balance = balance - price
+    if projected_balance < -shop.credit_limit:
+        return JsonResponse(status=402, data={'detail': 'insufficient shop credit', 'balance': balance, 'credit_limit': shop.credit_limit})
+
+    account = Sales.find_best_account(service_id, months)
+    if not account:
+        return JsonResponse(status=404, data={'detail': 'no account available'})
+
+    with transaction.atomic():
+        bank, _ = Bank.objects.get_or_create(
+            bank_name='Shops',
+            defaults={'business': Business.objects.get(pk=1), 'headline': 'Cuentas Mexico', 'card_number': '0', 'clabe': '0'}
+        )
+        payment_method, _ = PaymentMethod.objects.get_or_create(description='Shop')
+        sale = Sale.objects.create(
+            business=Business.objects.get(pk=1),
+            user_seller=user,
+            bank=bank,
+            customer=user,
+            account=account,
+            payment_method=payment_method,
+            expiration_date=timezone.now() + relativedelta(months=months),
+            payment_amount=price,
+            invoice=f'SHOP-{shop.id}-{int(time.time())}',
+        )
+        account.customer = user
+        account.modified_by = user
+        account.save(update_fields=['customer', 'modified_by'])
+        Credits.objects.create(
+            customer=user,
+            shop=shop,
+            credits=-price,
+            detail=f'Venta tienda {service.description} {months} mes(es)',
+        )
+        if projected_balance < 0 and not shop.last_negative_balance_since:
+            shop.last_negative_balance_since = timezone.now()
+            shop.save(update_fields=['last_negative_balance_since'])
+
+    whatsapp_sent = Sales._send_account_delivery_whatsapp(user, sale)
+    return JsonResponse(status=201, data={
+        'detail': 'account sold',
+        'sale_id': sale.id,
+        'price': price,
+        'unit_price': unit_price,
+        'balance': projected_balance,
+        'whatsapp_sent': whatsapp_sent,
+        'account': {
+            'service': service.description,
+            'email': account.email,
+            'password': account.password,
+            'profile': account.profile,
+            'pin': account.pin,
+            'expiration_date': sale.expiration_date.isoformat(),
+        }
+    })
+
+
 def _b64url_encode(payload: bytes) -> str:
     return base64.urlsafe_b64encode(payload).rstrip(b'=').decode('utf-8')
 

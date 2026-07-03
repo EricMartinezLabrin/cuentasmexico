@@ -1,0 +1,88 @@
+{% extends 'adm/base/base.html' %}
+{% block title %}Tiendas{% endblock title %}
+{% block body %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 class="h3 mb-0">Tiendas</h1>
+        <a href="{% url 'adm:shop_billing' %}" class="btn btn-outline-primary">Cobranza tiendas</a>
+    </div>
+
+    <form method="get" class="row g-2 mb-4">
+        <div class="col-md-6">
+            <input type="search" name="q" value="{{ q }}" class="form-control" placeholder="Buscar por tienda, dueno o email">
+        </div>
+        <div class="col-auto">
+            <button class="btn btn-primary" type="submit">Buscar</button>
+        </div>
+    </form>
+
+    {% if pending_shops %}
+        <h2 class="h5">Solicitudes pendientes</h2>
+        <div class="table-responsive mb-4">
+            <table class="table table-sm table-hover align-middle">
+                <thead>
+                    <tr>
+                        <th>Tienda</th>
+                        <th>Dueno</th>
+                        <th>Ciudad</th>
+                        <th>Contacto</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for shop in pending_shops %}
+                        <tr>
+                            <td>{{ shop.name }}</td>
+                            <td>{{ shop.owner }}</td>
+                            <td>{{ shop.city }}</td>
+                            <td>{{ shop.phone }}{% if shop.email %}<br>{{ shop.email }}{% endif %}</td>
+                            <td class="text-end">
+                                <a class="btn btn-sm btn-outline-primary" href="{% url 'adm:shop_detail' shop.id %}">Ver</a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% endif %}
+
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead>
+                <tr>
+                    <th>Tienda</th>
+                    <th>Dueno</th>
+                    <th>Ciudad</th>
+                    <th>Saldo</th>
+                    <th>Limite</th>
+                    <th>Estado</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in shop_rows %}
+                    <tr>
+                        <td>{{ row.shop.name }}</td>
+                        <td>{{ row.shop.owner }}</td>
+                        <td>{{ row.shop.city }}</td>
+                        <td>${{ row.balance }}</td>
+                        <td>${{ row.shop.credit_limit }}</td>
+                        <td>
+                            {% if row.shop.status %}
+                                <span class="badge bg-success">Activa</span>
+                            {% else %}
+                                <span class="badge bg-warning text-dark">Pendiente / Inactiva</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end">
+                            <a class="btn btn-sm btn-outline-primary" href="{% url 'adm:shop_detail' row.shop.id %}">Administrar</a>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="7" class="text-muted">No hay tiendas registradas.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock body %}

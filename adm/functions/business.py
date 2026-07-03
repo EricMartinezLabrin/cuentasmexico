@@ -1,4 +1,4 @@
-from adm.models import Business, Service, Account, Credits
+from adm.models import Business, Service, Account, Credits, UserDetail
 from django.db.models import Sum
 
 class BusinessInfo():
@@ -14,14 +14,19 @@ class BusinessInfo():
         return accounts
 
     def credits(request):
-        user_id = request.user.id
-        credits = 0
+        user = getattr(request, 'user', None)
+        if not user or user.is_anonymous:
+            return 0
+
         try:
-            credits_query = Credits.objects.filter(customer=user_id).values('customer').annotate(suma=Sum('credits'))
-            for q in credits_query:
-                credits = q['suma']
-                break
-        except Credits.DoesNotExist:
-            credits = 0
-        
-        return credits
+            user_detail = user.userdetail
+            if user_detail.associated_shop:
+                credits_query = Credits.objects.filter(
+                    shop=user_detail.associated_shop
+                ).aggregate(suma=Sum('credits'))
+                return credits_query['suma'] or 0
+        except UserDetail.DoesNotExist:
+            pass
+
+        credits_query = Credits.objects.filter(customer=user).aggregate(suma=Sum('credits'))
+        return credits_query['suma'] or 0
