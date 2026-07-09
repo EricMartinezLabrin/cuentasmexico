@@ -135,6 +135,31 @@
         }
       }
     },
+    "/services/active/": {
+      "get": {
+        "summary": "Servicios activos para app movil",
+        "responses": {
+          "200": {
+            "description": "Lista de servicios activos con nombre, logo y precio",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "detail": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ActiveService"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/login_api/{username}/{password}": {
       "get": {
         "summary": "Login legacy",
@@ -239,7 +264,11 @@
         "required": ["service_id"],
         "properties": {
           "service_id": {"type": "integer"},
-          "months": {"type": "integer", "default": 1}
+          "months": {"type": "integer", "default": 1},
+          "customer_name": {"type": "string"},
+          "customer_phone": {"type": "string"},
+          "customer_lada": {"type": "integer", "default": 52},
+          "customer_email": {"type": "string", "format": "email"}
         }
       },
       "ShopInfoResponse": {
@@ -253,6 +282,16 @@
           "overdue_days": {"type": "integer", "nullable": true},
           "consecutive_on_time_payments": {"type": "integer"},
           "is_shop_owner": {"type": "boolean"}
+        }
+      },
+      "ActiveService": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "integer"},
+          "name": {"type": "string"},
+          "logo": {"type": "string"},
+          "price": {"type": "integer"},
+          "available_stock": {"type": "integer"}
         }
       }
     }

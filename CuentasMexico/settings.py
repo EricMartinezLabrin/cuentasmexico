@@ -17,6 +17,7 @@ from django.urls import reverse_lazy
 from pathlib import Path
 import os
 from dotenv import load_dotenv
+from corsheaders.defaults import default_headers
 
 # Token para acceso a iframe de ventas (debe cambiarse en producción)
 IFRAME_ACCESS_TOKEN = os.environ.get('IFRAME_ACCESS_TOKEN', '7145fd4e-9f73-44e2-b733-8a18fb2bb377')
@@ -100,6 +101,18 @@ if _cors_origins == '*' or not _cors_origins:
 else:
     CORS_ALLOW_ALL_ORIGINS = False
     CORS_ALLOWED_ORIGINS = _cors_origins.split(',')
+# Expo dev server local para la app tiendas-mexico web.
+CORS_ALLOWED_ORIGINS = list(set(globals().get('CORS_ALLOWED_ORIGINS', []) + [
+    'http://localhost:8081',
+    'http://127.0.0.1:8081',
+    'http://localhost:19006',
+    'http://127.0.0.1:19006',
+]))
+if CORS_ALLOW_CREDENTIALS:
+    CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOW_HEADERS = list(default_headers) + [
+    'x-clerk-user-id',
+]
 
 ROOT_URLCONF = 'CuentasMexico.urls'
 

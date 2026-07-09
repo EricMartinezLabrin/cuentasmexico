@@ -5,6 +5,7 @@ Reemplaza la lógica de n8n con un endpoint Django.
 
 import requests
 import logging
+import random
 from typing import List, Dict, Tuple
 from datetime import datetime, timedelta
 from django.utils import timezone
@@ -324,7 +325,7 @@ class SheetsSyncManager:
                             created_by_id=1,  # Por defecto (admin)
                             modified_by_id=1,  # Por defecto (admin)
                             external_status=external_status_value,
-                            profile=perfil,
+                            profile=random.randint(1, 5),
                             expiration_date=timezone.now() + timedelta(days=30)  # 30 días por defecto
                         )
                         

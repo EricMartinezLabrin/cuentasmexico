@@ -15,6 +15,7 @@ urlpatterns = [
     path('shop/create-subuser/', views.create_subuser_api, name='shop_create_subuser'),
     path('shop/info/', views.shop_info_api, name='shop_info'),
     path('shop/sell-account/', views.sell_account_api, name='shop_sell_account'),
+    path('services/active/', views.active_services_api, name='active_services'),
     path('login_api/<str:username>/<str:password>',
          views.loginApi, name='login_api'),
     path('get_active_accounts', views.getActiveAccounts,

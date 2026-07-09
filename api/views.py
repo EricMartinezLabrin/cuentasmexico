@@ -80,6 +80,50 @@ def _user_from_clerk(request, data=None):
         return None, JsonResponse(status=401, data={'detail': 'clerk user not registered'})
 
 
+def _get_or_create_shop_sale_customer(data, seller_user):
+    raw_phone = data.get('customer_phone') or data.get('customer_phone_number') or data.get('phone_number')
+    phone_number = ''.join(ch for ch in str(raw_phone or '') if ch.isdigit())
+    customer_email = (data.get('customer_email') or '').strip()
+    customer_name = (data.get('customer_name') or data.get('customer_full_name') or '').strip()
+    if not phone_number and not customer_email:
+        return seller_user
+
+    lada = ''.join(ch for ch in str(data.get('customer_lada') or data.get('lada') or '52') if ch.isdigit()) or '52'
+    local_phone = phone_number[-10:] if len(phone_number) > 10 else phone_number
+    username = local_phone or customer_email
+
+    user = User.objects.filter(username=username).first()
+    if not user and customer_email:
+        user = User.objects.filter(email=customer_email).first()
+    if not user:
+        user = User.objects.create_user(
+            username=username,
+            password='api',
+            email=customer_email,
+            first_name=customer_name,
+        )
+    else:
+        changed = False
+        if customer_email and not user.email:
+            user.email = customer_email
+            changed = True
+        if customer_name and not user.first_name:
+            user.first_name = customer_name
+            changed = True
+        if changed:
+            user.save()
+
+    business = Business.objects.get(pk=1)
+    detail_defaults = {
+        'business': business,
+        'phone_number': local_phone or '0000000000',
+        'lada': int(lada),
+        'country': data.get('customer_country') or data.get('country') or 'Mexico',
+    }
+    UserDetail.objects.update_or_create(user=user, defaults=detail_defaults)
+    return user
+
+
 def api_docs(request):
     return render(request, 'api/docs.html')
 
@@ -241,10 +285,10 @@ def sell_account_api(request):
     data = _json_body(request)
     if data is None:
         return JsonResponse(status=400, data={'detail': 'invalid json'})
-    user, error = _user_from_clerk(request, data)
+    seller_user, error = _user_from_clerk(request, data)
     if error:
         return error
-    detail = user.userdetail
+    detail = seller_user.userdetail
     shop = detail.associated_shop
     if not shop:
         return JsonResponse(status=404, data={'detail': 'user has no associated shop'})
@@ -267,7 +311,8 @@ def sell_account_api(request):
     if not service:
         return JsonResponse(status=404, data={'detail': 'service not found'})
 
-    unit_price = 20 if balance > 0 else 25
+    discount = 20 if balance > 0 else 25
+    unit_price = max(int(service.price) - discount, 0)
     price = unit_price * months
     projected_balance = balance - price
     if projected_balance < -shop.credit_limit:
@@ -283,38 +328,52 @@ def sell_account_api(request):
             defaults={'business': Business.objects.get(pk=1), 'headline': 'Cuentas Mexico', 'card_number': '0', 'clabe': '0'}
         )
         payment_method, _ = PaymentMethod.objects.get_or_create(description='Shop')
+        customer = _get_or_create_shop_sale_customer(data, seller_user)
         sale = Sale.objects.create(
             business=Business.objects.get(pk=1),
-            user_seller=user,
+            user_seller=seller_user,
             bank=bank,
-            customer=user,
+            customer=customer,
             account=account,
             payment_method=payment_method,
             expiration_date=timezone.now() + relativedelta(months=months),
             payment_amount=price,
             invoice=f'SHOP-{shop.id}-{int(time.time())}',
         )
-        account.customer = user
-        account.modified_by = user
+        account.customer = customer
+        account.modified_by = seller_user
         account.save(update_fields=['customer', 'modified_by'])
         Credits.objects.create(
-            customer=user,
+            customer=seller_user,
             shop=shop,
             credits=-price,
-            detail=f'Venta tienda {service.description} {months} mes(es)',
+            detail=f'Venta tienda {service.description} {months} mes(es) a {customer.username}',
         )
         if projected_balance < 0 and not shop.last_negative_balance_since:
             shop.last_negative_balance_since = timezone.now()
             shop.save(update_fields=['last_negative_balance_since'])
 
-    whatsapp_sent = Sales._send_account_delivery_whatsapp(user, sale)
+    whatsapp_sent = Sales._send_account_delivery_whatsapp(customer, sale)
     return JsonResponse(status=201, data={
         'detail': 'account sold',
         'sale_id': sale.id,
+        'service_price': service.price,
+        'discount': discount,
         'price': price,
         'unit_price': unit_price,
         'balance': projected_balance,
         'whatsapp_sent': whatsapp_sent,
+        'seller': {
+            'id': seller_user.id,
+            'username': seller_user.username,
+            'shop_id': shop.id,
+            'shop_name': shop.name,
+        },
+        'customer': {
+            'id': customer.id,
+            'username': customer.username,
+            'email': customer.email,
+        },
         'account': {
             'service': service.description,
             'email': account.email,
@@ -831,6 +890,33 @@ def getServices(request):
         return JsonResponse(status=200, data={'detail': list(services)})
     else:
         return JsonResponse(status=405, data={'detail': 'method not allowed'})
+
+
+def active_services_api(request):
+    if request.method != 'GET':
+        return JsonResponse(status=405, data={'detail': 'method not allowed'})
+
+    services = []
+    for service in Service.objects.filter(status=True).order_by('description'):
+        logo = ''
+        if service.logo:
+            logo = service.logo.url
+            if logo.startswith('/'):
+                logo = request.build_absolute_uri(logo)
+        services.append({
+            'id': service.id,
+            'name': service.description,
+            'logo': logo,
+            'price': service.price,
+            'available_stock': Account.objects.filter(
+                account_name=service,
+                status=True,
+                customer=None,
+                external_status='Disponible',
+            ).count(),
+        })
+    return JsonResponse(status=200, data={'detail': services})
+
 
 def loginApi(request, username, password):
     """
