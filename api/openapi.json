@@ -1,0 +1,299 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Cuentas Mexico API",
+    "version": "1.0.0",
+    "description": "Endpoints publicos y modulo movil de tiendas/distribuidores."
+  },
+  "servers": [
+    {
+      "url": "/api"
+    }
+  ],
+  "paths": {
+    "/docs/": {
+      "get": {
+        "summary": "Documentacion ReDoc",
+        "responses": {
+          "200": {
+            "description": "HTML de ReDoc"
+          }
+        }
+      }
+    },
+    "/schema/": {
+      "get": {
+        "summary": "OpenAPI JSON",
+        "responses": {
+          "200": {
+            "description": "Schema OpenAPI"
+          }
+        }
+      }
+    },
+    "/shop/register/": {
+      "post": {
+        "summary": "Registrar tienda y dueno desde Clerk",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterShopRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Tienda registrada inactiva"
+          },
+          "400": {
+            "description": "Payload invalido"
+          }
+        }
+      }
+    },
+    "/shop/create-subuser/": {
+      "post": {
+        "summary": "Crear sub-usuario de tienda",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ClerkUserHeader"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSubuserRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Sub-usuario creado"
+          },
+          "403": {
+            "description": "Solo el dueno puede crear sub-usuarios"
+          }
+        }
+      }
+    },
+    "/shop/info/": {
+      "get": {
+        "summary": "Balance, limite y estado de tienda",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ClerkUserHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Informacion de tienda",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShopInfoResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/shop/sell-account/": {
+      "post": {
+        "summary": "Venta automatica de cuenta con saldo de tienda",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ClerkUserHeader"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SellAccountRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Cuenta asignada y debitada"
+          },
+          "402": {
+            "description": "Credito insuficiente o deuda atrasada"
+          },
+          "404": {
+            "description": "Servicio o cuenta no disponible"
+          }
+        }
+      }
+    },
+    "/services/active/": {
+      "get": {
+        "summary": "Servicios activos para app movil",
+        "responses": {
+          "200": {
+            "description": "Lista de servicios activos con nombre, logo y precio",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "detail": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ActiveService"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/login_api/{username}/{password}": {
+      "get": {
+        "summary": "Login legacy",
+        "parameters": [
+          {
+            "name": "username",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "password",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Usuario autenticado"
+          }
+        }
+      }
+    },
+    "/getServices": {
+      "get": {
+        "summary": "Servicios activos",
+        "responses": {
+          "200": {
+            "description": "Lista de servicios"
+          }
+        }
+      }
+    },
+    "/get_active_sales_by_user_api/{customer}": {
+      "get": {
+        "summary": "Ventas activas por cliente o telefono",
+        "parameters": [
+          {
+            "name": "customer",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ventas activas"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "parameters": {
+      "ClerkUserHeader": {
+        "name": "X-Clerk-User-Id",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "description": "ID de usuario de Clerk asociado a UserDetail.clerk_id."
+      }
+    },
+    "schemas": {
+      "RegisterShopRequest": {
+        "type": "object",
+        "required": ["clerk_id", "shop_name", "owner", "phone_number"],
+        "properties": {
+          "clerk_id": {"type": "string"},
+          "shop_name": {"type": "string"},
+          "owner": {"type": "string"},
+          "username": {"type": "string"},
+          "email": {"type": "string", "format": "email"},
+          "phone_number": {"type": "string"},
+          "lada": {"type": "integer", "default": 52},
+          "city": {"type": "string"},
+          "address": {"type": "string"},
+          "giro": {"type": "string"}
+        }
+      },
+      "CreateSubuserRequest": {
+        "type": "object",
+        "required": ["username", "phone_number"],
+        "properties": {
+          "username": {"type": "string"},
+          "email": {"type": "string", "format": "email"},
+          "phone_number": {"type": "string"},
+          "lada": {"type": "integer", "default": 52},
+          "subuser_clerk_id": {"type": "string"}
+        }
+      },
+      "SellAccountRequest": {
+        "type": "object",
+        "required": ["service_id"],
+        "properties": {
+          "service_id": {"type": "integer"},
+          "months": {"type": "integer", "default": 1},
+          "customer_name": {"type": "string"},
+          "customer_phone": {"type": "string"},
+          "customer_lada": {"type": "integer", "default": 52},
+          "customer_email": {"type": "string", "format": "email"}
+        }
+      },
+      "ShopInfoResponse": {
+        "type": "object",
+        "properties": {
+          "shop": {"type": "object"},
+          "balance": {"type": "integer"},
+          "credit_limit": {"type": "integer"},
+          "available_credit": {"type": "integer"},
+          "is_overdue": {"type": "boolean"},
+          "overdue_days": {"type": "integer", "nullable": true},
+          "consecutive_on_time_payments": {"type": "integer"},
+          "is_shop_owner": {"type": "boolean"}
+        }
+      },
+      "ActiveService": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "integer"},
+          "name": {"type": "string"},
+          "logo": {"type": "string"},
+          "price": {"type": "integer"},
+          "available_stock": {"type": "integer"}
+        }
+      }
+    }
+  }
+}

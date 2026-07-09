@@ -1,0 +1,109 @@
+{% extends 'adm/base/base.html' %}
+{% block title %}Tienda {{ object.name }}{% endblock title %}
+{% block body %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h1 class="h3 mb-0">{{ object.name }}</h1>
+            <div class="text-muted">{{ object.owner }} | {{ object.city }}</div>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'adm:shop_list' %}" class="btn btn-outline-secondary">Volver</a>
+            {% if object.status %}
+                <a href="{% url 'adm:shop_disable' object.id %}" class="btn btn-outline-danger">Deshabilitar</a>
+            {% else %}
+                <a href="{% url 'adm:shop_approve' object.id %}" class="btn btn-success">Aprobar</a>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-3"><div class="border rounded p-3"><div class="text-muted">Saldo</div><div class="h4">${{ balance }}</div></div></div>
+        <div class="col-md-3"><div class="border rounded p-3"><div class="text-muted">Limite</div><div class="h4">${{ object.credit_limit }}</div></div></div>
+        <div class="col-md-3"><div class="border rounded p-3"><div class="text-muted">Pagos puntuales</div><div class="h4">{{ object.consecutive_on_time_payments }}</div></div></div>
+        <div class="col-md-3"><div class="border rounded p-3"><div class="text-muted">Estado</div><div class="h4">{% if object.status %}Activa{% else %}Inactiva{% endif %}</div></div></div>
+    </div>
+
+    <div class="row g-4 mb-4">
+        <div class="col-lg-6">
+            <h2 class="h5">Perfil</h2>
+            <table class="table table-sm">
+                <tr><th>Telefono</th><td>{{ object.phone }}</td></tr>
+                <tr><th>Email</th><td>{{ object.email|default:"" }}</td></tr>
+                <tr><th>Giro</th><td>{{ object.giro }}</td></tr>
+                <tr><th>Direccion</th><td>{{ object.address }} {{ object.cp|default:"" }}</td></tr>
+                <tr><th>Usuario dueno</th><td>{{ object.creator_user|default:"Sin usuario" }}</td></tr>
+            </table>
+        </div>
+        <div class="col-lg-6">
+            <h2 class="h5">Actualizar limite</h2>
+            <form method="post" class="d-flex gap-2">
+                {% csrf_token %}
+                <input type="number" name="credit_limit" value="{{ object.credit_limit }}" class="form-control" min="0">
+                <button class="btn btn-primary" type="submit">Guardar</button>
+            </form>
+            <h2 class="h5 mt-4">Recargar / ajustar saldo</h2>
+            <form method="post" action="{% url 'adm:shop_add_credits' object.id %}" class="row g-2">
+                {% csrf_token %}
+                <div class="col-sm-4"><input type="number" name="credits" class="form-control" placeholder="Monto"></div>
+                <div class="col-sm-6"><input type="text" name="detail" class="form-control" placeholder="Detalle"></div>
+                <div class="col-sm-2"><button class="btn btn-primary w-100" type="submit">OK</button></div>
+            </form>
+        </div>
+    </div>
+
+    <h2 class="h5">Sub-usuarios</h2>
+    <div class="table-responsive mb-4">
+        <table class="table table-sm table-hover">
+            <thead><tr><th>Usuario</th><th>Email</th><th>Telefono</th><th>Rol</th></tr></thead>
+            <tbody>
+                {% for detail in subusers %}
+                    <tr>
+                        <td>{{ detail.user.username }}</td>
+                        <td>{{ detail.user.email }}</td>
+                        <td>+{{ detail.lada }} {{ detail.phone_number }}</td>
+                        <td>{% if detail.is_shop_owner %}Dueno{% else %}Sub-usuario{% endif %}</td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="4" class="text-muted">No hay usuarios asociados.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-xl-6">
+            <h2 class="h5">Historial de creditos</h2>
+            <table class="table table-sm table-hover">
+                <thead><tr><th>Fecha</th><th>Monto</th><th>Detalle</th><th>Usuario</th></tr></thead>
+                <tbody>
+                    {% for credit in credits %}
+                        <tr><td>{{ credit.date }}</td><td>${{ credit.credits }}</td><td>{{ credit.detail }}</td><td>{{ credit.customer }}</td></tr>
+                    {% empty %}
+                        <tr><td colspan="4" class="text-muted">Sin movimientos.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="col-xl-6">
+            <h2 class="h5">Ventas recientes</h2>
+            <table class="table table-sm table-hover">
+                <thead><tr><th>Fecha</th><th>Cliente</th><th>Servicio</th><th>Monto</th></tr></thead>
+                <tbody>
+                    {% for sale in sales %}
+                        <tr><td>{{ sale.created_at }}</td><td>{{ sale.customer }}</td><td>{{ sale.account.account_name.description }}</td><td>${{ sale.payment_amount }}</td></tr>
+                    {% empty %}
+                        <tr><td colspan="4" class="text-muted">Sin ventas.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock body %}

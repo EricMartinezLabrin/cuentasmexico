@@ -1,0 +1,70 @@
+{% extends 'adm/base/base.html' %}
+{% block title %}Cobranza Tiendas{% endblock title %}
+{% block body %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 class="h3 mb-0">Cobranza Tiendas</h1>
+        <div class="d-flex gap-2">
+            <a class="btn btn-outline-secondary" href="{% url 'adm:shop_billing_export_excel' %}?{{ request.GET.urlencode }}">Exportar CSV</a>
+            <a class="btn btn-outline-secondary" href="{% url 'adm:shop_billing_export_pdf' %}?{{ request.GET.urlencode }}">Generar PDF</a>
+        </div>
+    </div>
+
+    <form method="get" class="row g-2 mb-4">
+        <div class="col-md-3"><input class="form-control" name="q" value="{{ filters.q }}" placeholder="Tienda o dueno"></div>
+        <div class="col-md-2"><input class="form-control" name="city" value="{{ filters.city }}" placeholder="Ciudad"></div>
+        <div class="col-md-2"><input class="form-control" type="date" name="from" value="{{ filters.from }}"></div>
+        <div class="col-md-2"><input class="form-control" type="date" name="to" value="{{ filters.to }}"></div>
+        <div class="col-md-2">
+            <select class="form-select" name="status">
+                <option value="all" {% if filters.status == 'all' %}selected{% endif %}>Todos</option>
+                <option value="debt" {% if filters.status == 'debt' %}selected{% endif %}>Con deuda</option>
+                <option value="current" {% if filters.status == 'current' %}selected{% endif %}>Al dia</option>
+                <option value="overdue" {% if filters.status == 'overdue' %}selected{% endif %}>Atrasados</option>
+            </select>
+        </div>
+        <div class="col-md-1"><button class="btn btn-primary w-100" type="submit">Filtrar</button></div>
+    </form>
+
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead>
+                <tr>
+                    <th>Tienda</th>
+                    <th>Dueno</th>
+                    <th>Ciudad</th>
+                    <th>Ventas</th>
+                    <th>Cantidad</th>
+                    <th>Saldo</th>
+                    <th>Deuda</th>
+                    <th>Estado</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in rows %}
+                    <tr>
+                        <td><a href="{% url 'adm:shop_detail' row.shop.id %}">{{ row.shop.name }}</a></td>
+                        <td>{{ row.owner }}</td>
+                        <td>{{ row.city }}</td>
+                        <td>${{ row.sales_total }}</td>
+                        <td>{{ row.sales_count }}</td>
+                        <td>${{ row.balance }}</td>
+                        <td>${{ row.debt }}</td>
+                        <td>
+                            {% if row.debt_status == 'atrasado' %}
+                                <span class="badge bg-danger">Atrasado</span>
+                            {% elif row.debt_status == 'con_deuda' %}
+                                <span class="badge bg-warning text-dark">Con deuda</span>
+                            {% else %}
+                                <span class="badge bg-success">Al dia</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="8" class="text-muted">Sin resultados.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock body %}

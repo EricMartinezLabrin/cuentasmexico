@@ -144,6 +144,27 @@ class TestGoogleSheetSync(TestCase):
         self.assertEqual(account.password, "password123")
         self.assertEqual(account.status, 1)
     
+    @patch('adm.functions.sync_google_sheets.random.randint', return_value=4)
+    @patch('adm.functions.sync_google_sheets.Account.objects.create')
+    @patch('adm.functions.sync_google_sheets.Account.objects.select_related')
+    def test_new_account_uses_random_profile(
+        self, mock_select_related, mock_create, mock_randint
+    ):
+        """New accounts receive a random profile between 1 and 5."""
+        mock_select_related.return_value.filter.return_value.first.return_value = None
+        manager = SheetsSyncManager()
+
+        manager._sync_password_updates([{
+            "EMAIL": "random-profile@example.com",
+            "CLAVE": "password123",
+            "SERVICIO": "NETFLIX",
+            "STATUS": "ACTIVA",
+            "PERFIL": 2,
+        }], "Netflix")
+
+        mock_randint.assert_called_once_with(1, 5)
+        self.assertEqual(mock_create.call_args.kwargs["profile"], 4)
+
     def test_update_account_password(self):
         """Test de actualización de contraseña"""
         # Crear cuenta existente

@@ -21,6 +21,19 @@ class Shop(models.Model):
     seller = models.ForeignKey(User,on_delete=models.CASCADE)
     status = models.BooleanField(default=True)
     image = models.FileField(upload_to="shop/", null=True, blank=True)
+    credit_limit = models.IntegerField(default=300)
+    last_negative_balance_since = models.DateTimeField(null=True, blank=True)
+    consecutive_on_time_payments = models.IntegerField(default=0)
+    creator_user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='created_shops'
+    )
+
+    def __str__(self):
+        return self.name
 
 class Cupon(models.Model):
     DURATION_UNIT_DAY = 'day'
