@@ -55,15 +55,6 @@ SUPPORT_IMAGE_EXTENSIONS = {
     'WEBP': 'webp',
 }
 
-try:
-    keys = Business.objects.get(id=1)
-    stripe.api_key = keys.stripe_secret_key
-    flow_api_key = keys.flow_customer_key
-    flow_secret_key = keys.flow_secret_key
-
-except Business.DoesNotExist:
-    pass
-
 local_url = 'https://cuentasmexico/api'
 pyc_url = 'https://bdpyc.cl/api'
 
@@ -1034,6 +1025,8 @@ def saleApi(request):
 @csrf_exempt
 def stripe_create_payment(request):
     if request.method == "POST":
+        keys = Business.objects.filter(id=1).first()
+        stripe.api_key = keys.stripe_secret_key if keys else None
         # Decodifica la información en formato JSON a un diccionario Python
         data = json.loads(request.body.decode('utf-8'))
         currency = data.get("currency")
