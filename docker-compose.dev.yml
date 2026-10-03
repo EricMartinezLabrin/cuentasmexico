@@ -97,3 +97,29 @@ services:
       - web
     restart: unless-stopped
 
+  scheduler_receivable_pending:
+    build: .
+    container_name: cuentasmexico_scheduler_receivable_pending_dev
+    command: >
+      sh -c "while true; do
+        python manage.py send_receivable_pending_whatsapp;
+        sleep 180;
+      done"
+    environment:
+      DEBUG: 'True'
+      SECRET_KEY: dev-secret-key-not-for-production
+      ALLOWED_HOSTS: localhost,127.0.0.1,0.0.0.0
+      DB_ENGINE: django.db.backends.mysql
+      DB_NAME: cuentasmexico
+      DB_USER: luinmack
+      DB_PASSWORD: Tarkan11.-
+      DB_HOST: 187.136.94.242
+      DB_PORT: 3306
+    volumes:
+      - .:/app
+    depends_on:
+      - web
+    networks:
+      - cuentasmexico_network
+    restart: unless-stopped
+

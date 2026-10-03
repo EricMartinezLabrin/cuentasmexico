@@ -9,13 +9,22 @@ from . import views
 app_name = "api"
 
 urlpatterns = [
+    path('app/version/', views.app_version_api, name='app_version'),
     path('docs/', views.api_docs, name='api_docs'),
     path('schema/', views.api_schema, name='api_schema'),
     path('shop/register/', views.register_shop_api, name='shop_register'),
     path('shop/create-subuser/', views.create_subuser_api, name='shop_create_subuser'),
     path('shop/info/', views.shop_info_api, name='shop_info'),
     path('shop/sell-account/', views.sell_account_api, name='shop_sell_account'),
+    path('shop/payment-proof/', views.shop_payment_proof_api, name='shop_payment_proof'),
+    path('auth/phone/request-otp/', views.phone_request_otp_api, name='phone_request_otp'),
+    path('auth/phone/verify-otp/', views.phone_verify_otp_api, name='phone_verify_otp'),
+    path('auth/phone/login/', views.phone_login_api, name='phone_login'),
+    path('auth/phone/password/', views.phone_password_api, name='phone_password'),
     path('services/active/', views.active_services_api, name='active_services'),
+    path('wiki/sections/', views.wiki_sections_api, name='wiki_sections'),
+    path('support/customer-lookup/', views.support_customer_lookup_api, name='support_customer_lookup'),
+    path('support/error-image/', views.support_error_image_api, name='support_error_image'),
     path('login_api/<str:username>/<str:password>',
          views.loginApi, name='login_api'),
     path('get_active_accounts', views.getActiveAccounts,

@@ -880,7 +880,7 @@ class RegisterCustomerView(CreateView):
             country=country
         ).first()
 
-        if existing_user:
+        if existing_user and not WhatsAppVerification.is_verified(db_number, country):
             form.add_error(None, 'Este número de teléfono ya está registrado')
             return self.form_invalid(form)
 
@@ -889,10 +889,18 @@ class RegisterCustomerView(CreateView):
             form.add_error(None, 'Debes verificar tu número de WhatsApp antes de registrarte')
             return self.form_invalid(form)
 
-        # Crear el usuario
-        user = form.save(commit=False)
-        user.is_active = True
-        user.save()
+        # Reusar cuenta existente o crear cliente nuevo.
+        if existing_user:
+            user = existing_user.user
+            user.set_password(form.cleaned_data['password1'])
+            user.is_active = True
+            if form.cleaned_data.get('email'):
+                user.email = form.cleaned_data['email']
+            user.save(update_fields=['password', 'is_active', 'email'])
+        else:
+            user = form.save(commit=False)
+            user.is_active = True
+            user.save()
 
         # Asignar el usuario creado a self.object para que get_success_url() funcione
         self.object = user
@@ -910,13 +918,20 @@ class RegisterCustomerView(CreateView):
         # Crear UserDetail con la información de WhatsApp (guardar db_number en phone_number)
         try:
             business = Business.objects.get(id=1)
-            UserDetail.objects.create(
-                user=user,
-                phone_number=db_number,
-                lada=int(lada) if lada else 0,
-                country=country,
-                business=business
-            )
+            if existing_user:
+                existing_user.phone_number = db_number
+                existing_user.lada = int(lada) if lada else 0
+                existing_user.country = country
+                existing_user.business = business
+                existing_user.save(update_fields=['phone_number', 'lada', 'country', 'business'])
+            else:
+                UserDetail.objects.create(
+                    user=user,
+                    phone_number=db_number,
+                    lada=int(lada) if lada else 0,
+                    country=country,
+                    business=business
+                )
         except Business.DoesNotExist:
             # Si no existe el business, eliminar el usuario creado
             user.delete()
@@ -1942,6 +1957,8 @@ def send_whatsapp_verification(request):
             phone_number=db_number,
             country=country
         ).first()
+        # Phone verification authorizes reusing an existing customer/owner account.
+        existing_user = None
 
         if existing_user:
             return JsonResponse({

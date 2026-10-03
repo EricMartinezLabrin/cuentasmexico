@@ -46,6 +46,33 @@
             </div>
         {% endif %}
 
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <div>
+                    <h2 class="h5 mb-0">Avisos de cuentas pendientes</h2>
+                    <small class="text-muted">WhatsApp cada 3 horas, de 12:00 a 21:00 CDMX, al 833 448 2256.</small>
+                </div>
+                {% if object %}
+                    <span class="badge {% if object.receivable_pending_whatsapp_enabled %}bg-success{% else %}bg-secondary{% endif %}">
+                        {% if object.receivable_pending_whatsapp_enabled %}Activo{% else %}Inactivo{% endif %}
+                    </span>
+                {% endif %}
+            </div>
+            <div class="card-body d-flex flex-wrap gap-2 align-items-center">
+                {% if object %}
+                    <form method="post" action="{% url 'adm:settings_toggle_receivable_whatsapp' %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn {% if object.receivable_pending_whatsapp_enabled %}btn-outline-danger{% else %}btn-outline-success{% endif %}">
+                            {% if object.receivable_pending_whatsapp_enabled %}Desactivar avisos{% else %}Activar avisos{% endif %}
+                        </button>
+                    </form>
+                    {% if object.receivable_pending_whatsapp_last_sent_at %}
+                        <small class="text-muted">Último envío: {{ object.receivable_pending_whatsapp_last_sent_at|date:'d/m/Y H:i' }}</small>
+                    {% endif %}
+                {% endif %}
+            </div>
+        </div>
+
         <div class="card border-0 shadow-sm">
             <div class="card-header bg-white d-flex justify-content-between align-items-center">
                 <div>

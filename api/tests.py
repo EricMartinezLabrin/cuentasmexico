@@ -2,8 +2,63 @@ from datetime import datetime
 from django.test import Client, TestCase
 from django.urls import reverse
 from django.contrib.auth.models import User
-from adm.models import Account, Business, Service, Supplier, UserDetail, Sale
+from django.test import override_settings
+from adm.models import Account, Business, Service, Supplier, UserDetail, Sale, WikiSection
 import json
+
+
+@override_settings(
+    APP_VERSION='1.1.0',
+    APP_UPDATE_URL='https://downloads.example.com/tiendas-mexico-1.1.0.apk',
+    APP_RELEASE_NOTES='Mejoras de ventas y credito',
+)
+class AppVersionAPITestCase(TestCase):
+
+    def test_returns_public_distribution_metadata(self):
+        response = self.client.get(reverse('api:app_version'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {
+            'version': '1.1.0',
+            'update_url': 'https://downloads.example.com/tiendas-mexico-1.1.0.apk',
+            'release_notes': 'Mejoras de ventas y credito',
+        })
+
+    def test_rejects_non_get_requests(self):
+        response = self.client.post(reverse('api:app_version'))
+
+        self.assertEqual(response.status_code, 405)
+
+
+class WikiSectionsAPITestCase(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='wiki-user')
+        self.business = Business.objects.create(name='wiki-business')
+        UserDetail.objects.create(
+            business=self.business,
+            user=self.user,
+            phone_number='8331234567',
+            lada=52,
+            country='Mexico',
+            clerk_id='clerk-wiki-user',
+        )
+        WikiSection.objects.create(title='Pagos', body='Información de pagos', order=2)
+        WikiSection.objects.create(title='Oculta', body='No publicar', order=1, is_active=False)
+
+    def test_returns_active_sections_for_registered_clerk_user(self):
+        response = self.client.get(
+            reverse('api:wiki_sections'),
+            HTTP_X_CLERK_USER_ID='clerk-wiki-user',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['sections'][0]['title'], 'Pagos')
+        self.assertEqual(len(response.json()['sections']), 1)
+
+    def test_requires_registered_clerk_user(self):
+        response = self.client.get(reverse('api:wiki_sections'))
+
+        self.assertEqual(response.status_code, 401)
 
 class LoginAPITestCase(TestCase):
     

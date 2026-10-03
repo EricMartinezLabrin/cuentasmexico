@@ -1,42 +1,144 @@
 {% extends 'adm/base/base.html' %}
 {% load humanize %}
-{% block title %}
-    Bancos Disponibles
-{% endblock title %}
+
+{% block title %}Bancos{% endblock title %}
+
+{% block head %}
+<style>
+    .bank-page { max-width: 1600px; margin: 0 auto; padding: 1.5rem clamp(1rem, 2vw, 2rem); }
+    .bank-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1.5rem; }
+    .bank-header h1 { margin: 0; font-weight: 700; color: #1f2937; }
+    .bank-subtitle { color: #6b7280; margin: .35rem 0 0; }
+    .bank-card { border: 1px solid #e5e7eb; border-radius: 14px; box-shadow: 0 4px 16px rgba(15, 23, 42, .06); overflow: hidden; }
+    .bank-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1rem 1.25rem; background: #f8fafc; border-bottom: 1px solid #e5e7eb; }
+    .bank-toolbar .input-group { max-width: 360px; }
+    .bank-table { margin: 0; white-space: nowrap; }
+    .bank-table thead th { background: #f3f4f6; color: #374151; font-size: .75rem; letter-spacing: .04em; text-transform: uppercase; border-bottom: 2px solid #e5e7eb; }
+    .bank-table td, .bank-table th { padding: .9rem 1rem; vertical-align: middle; }
+    .bank-table tbody tr { transition: background-color .2s ease; }
+    .bank-table tbody tr:hover { background: #f8fbff; }
+    .bank-logo { width: 42px; height: 42px; object-fit: contain; border-radius: 10px; border: 1px solid #e5e7eb; padding: 3px; background: white; }
+    .bank-logo-placeholder { display: inline-flex; align-items: center; justify-content: center; width: 42px; height: 42px; border-radius: 10px; background: #e0f2fe; color: #0369a1; font-size: 1.2rem; }
+    .bank-status { min-width: 86px; border: 0; cursor: pointer; }
+    .bank-status:hover { filter: brightness(.95); }
+    .bank-actions { display: inline-flex; gap: .35rem; }
+    .bank-empty { padding: 3rem 1rem; text-align: center; color: #6b7280; }
+    @media (max-width: 768px) {
+        .bank-header, .bank-toolbar { align-items: stretch; flex-direction: column; }
+        .bank-toolbar .input-group { max-width: none; }
+        .bank-header .btn { width: 100%; }
+    }
+</style>
+{% endblock head %}
+
 {% block body %}
-    <h1>Bancos</h1>
-    <a href="{% url 'adm:bank_create' %}" class="btn btn-pyc">Crear Nuevo</a>
-    <table class="table t-img">
-        <thead>
-            <th></th>
-            <th>Banco</th>
-            <th>Titular</th>
-            <th>Tarjeta</th>
-            <th>Clabe</th>
-            <th>Total Mes</th>
-            <th>Status</th>
-            <th>Acciones</th>
-        </thead>
-        <tbody>
-            {% for data in object_list %}
-                <tr>
-                    <td>
-                        {% if data.logo %}
-                        <img src="{{ data.logo.url }}" alt="{{ data.bank_name }}" width="40">
-                        {% endif %}
-                    </td>
-                    <td>{{ data.bank_name }}</td>
-                    <td>{{ data.headline }}</td>
-                    <td>{{ data.card_number }}</td>
-                    <td>{{ data.clabe }}</td>
-                    <td>${{ data.total|intcomma }}</td>
-                    <td>{{ data.status }}</td>
-                    <td>
-                        <a href="{% url 'adm:bank_update' data.pk %}"><i class="bi bi-pencil-square"></i></a>
-                        <a href="{% url 'adm:bank_delete' data.pk %}"><i class="bi bi-trash"></i></a>
-                    </td>
-                </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+<div class="bank-page">
+    <div class="bank-header">
+        <div>
+            <h1><i class="bi bi-bank2 me-2 text-primary"></i>Bancos</h1>
+            <p class="bank-subtitle">Administra las cuentas bancarias disponibles para registrar pagos.</p>
+        </div>
+        <a href="{% url 'adm:bank_create' %}" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>Crear banco</a>
+    </div>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert {% if message.tags %}alert-{{ message.tags }}{% else %}alert-info{% endif %}" role="alert">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+
+    <section class="bank-card" aria-labelledby="bank-list-title">
+        <div class="bank-toolbar">
+            <div>
+                <strong id="bank-list-title">Listado de bancos</strong>
+                <span class="text-muted ms-2" id="bank-count">{{ object_list|length }} registro{{ object_list|length|pluralize }}</span>
+            </div>
+            <div class="input-group">
+                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                <label class="visually-hidden" for="bank-search">Buscar banco</label>
+                <input id="bank-search" type="search" class="form-control" placeholder="Buscar por banco o titular" autocomplete="off">
+            </div>
+        </div>
+
+        {% if object_list %}
+            <div class="table-responsive">
+                <table class="table bank-table" id="bank-table">
+                    <thead>
+                        <tr><th scope="col">Banco</th><th scope="col">Titular</th><th scope="col">Tarjeta</th><th scope="col">CLABE</th><th scope="col">Total del mes</th><th scope="col">Estado</th><th scope="col" class="text-end">Acciones</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for data in object_list %}
+                            <tr data-bank-row data-search="{{ data.bank_name|lower }} {{ data.headline|lower }}">
+                                <td><div class="d-flex align-items-center gap-2">
+                                    {% if data.logo %}<img class="bank-logo" src="{{ data.logo.url }}" alt="Logo de {{ data.bank_name }}" loading="lazy">
+                                    {% else %}<span class="bank-logo-placeholder" aria-hidden="true"><i class="bi bi-bank"></i></span>{% endif %}
+                                    <strong>{{ data.bank_name }}</strong>
+                                </div></td>
+                                <td>{{ data.headline }}</td>
+                                <td><code>{{ data.card_number }}</code></td>
+                                <td><code>{{ data.clabe }}</code></td>
+                                <td class="fw-semibold">${{ data.total|intcomma }}</td>
+                                <td>
+                                    <button type="button"
+                                            class="badge rounded-pill bank-status toggle-bank-status {% if data.status %}bg-success{% else %}bg-secondary{% endif %}"
+                                            data-url="{% url 'adm:bank_active' data.pk %}"
+                                            title="Cambiar estado">
+                                        {% if data.status %}Activo{% else %}Inactivo{% endif %}
+                                    </button>
+                                </td>
+                                <td class="text-end"><div class="bank-actions" role="group" aria-label="Acciones de {{ data.bank_name }}">
+                                    <a href="{% url 'adm:bank_update' data.pk %}" class="btn btn-sm btn-outline-primary" title="Editar"><i class="bi bi-pencil-square"></i><span class="visually-hidden">Editar</span></a>
+                                    <a href="{% url 'adm:bank_delete' data.pk %}" class="btn btn-sm btn-outline-danger" title="Eliminar"><i class="bi bi-trash"></i><span class="visually-hidden">Eliminar</span></a>
+                                </div></td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div id="bank-no-results" class="bank-empty d-none">No se encontraron bancos con esa búsqueda.</div>
+        {% else %}
+            <div class="bank-empty"><i class="bi bi-bank fs-1 d-block mb-2"></i><strong>No hay bancos registrados.</strong><p class="mb-3">Crea el primero para empezar a registrar pagos.</p><a href="{% url 'adm:bank_create' %}" class="btn btn-primary">Crear banco</a></div>
+        {% endif %}
+    </section>
+</div>
 {% endblock body %}
+
+{% block extrajs %}
+<script>
+    (() => {
+        const search = document.getElementById('bank-search');
+        const rows = [...document.querySelectorAll('[data-bank-row]')];
+        const noResults = document.getElementById('bank-no-results');
+        const count = document.getElementById('bank-count');
+        search?.addEventListener('input', () => {
+            const query = search.value.trim().toLowerCase();
+            let visible = 0;
+            rows.forEach(row => { const matches = row.dataset.search.includes(query); row.classList.toggle('d-none', !matches); if (matches) visible += 1; });
+            if (count) count.textContent = `${visible} registro${visible === 1 ? '' : 's'}`;
+            noResults?.classList.toggle('d-none', visible !== 0);
+        });
+        document.querySelectorAll('.toggle-bank-status').forEach(button => {
+            button.addEventListener('click', async event => {
+                event.preventDefault();
+                if (button.disabled) return;
+                button.disabled = true;
+                const originalText = button.textContent;
+                button.textContent = 'Guardando...';
+                try {
+                    const response = await fetch(button.dataset.url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                    const data = await response.json();
+                    if (!response.ok || !data.success) throw new Error('status update failed');
+                    button.textContent = data.new_status ? 'Activo' : 'Inactivo';
+                    button.classList.toggle('bg-success', data.new_status);
+                    button.classList.toggle('bg-secondary', !data.new_status);
+                } catch (error) {
+                    window.alert('No se pudo actualizar el estado del banco. Intenta de nuevo.');
+                    button.textContent = originalText;
+                } finally {
+                    button.disabled = false;
+                }
+            });
+        });
+    })();
+</script>
+{% endblock extrajs %}

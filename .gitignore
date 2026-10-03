@@ -148,6 +148,9 @@ staticfiles/
 !cupon/migrations/0002_coupon_multiuse.py
 !cupon/migrations/0003_coupon_backfill_multiuse_data.py
 !cupon/migrations/0005_cupon_image.py
+!adm/migrations/0015_userdetail_phone_number_unique.py
+!adm/migrations/0016_supporterrorimage.py
+!cupon/migrations/0007_shop_payment_bank.py
 
 # Dokploy
 .dokploy/
@@ -156,3 +159,6 @@ dokploy-compose.yml
 .env.prod
 *.md
 *.txt
+!docs/
+!docs/wiki-soporte.md
+!docs/soporte-app-movil.md

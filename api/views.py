@@ -3,6 +3,8 @@ from datetime import timedelta, datetime
 import base64
 import os
 import time
+import logging
+import uuid
 from django.db import IntegrityError
 from django.forms import model_to_dict
 from django.shortcuts import render
@@ -19,19 +21,39 @@ from django.conf import settings
 import json
 import stripe
 import requests
+import boto3
+from PIL import Image, UnidentifiedImageError
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding
 # from pyflowcl import FlowAPI
 # from pyflowcl.utils import genera_parametros
 from dateutil.relativedelta import relativedelta
 
-from adm.models import Account, Business, Sale, Service, UserDetail, PageVisit, Credits, Bank, PaymentMethod
+from adm.models import Account, Business, Sale, Service, UserDetail, PageVisit, Credits, Bank, PaymentMethod, WikiSection, SupportErrorImage, ShopPaymentProof
 from cupon.models import Shop
 from .functions.notifications import send_push_notification
 from .functions.salesApi import SalesApi
 from adm.functions.sales import Sales
 from adm.functions.send_whatsapp_notification import Notification
 from django.db.models import Q
+from .phone_auth import (
+    password_login, request_otp_contract, set_password as set_phone_password,
+    user_from_bearer, verify_otp_contract,
+)
+
+logger = logging.getLogger(__name__)
+
+SUPPORT_MAX_IMAGE_BYTES = 10 * 1024 * 1024
+SUPPORT_IMAGE_MIME_TYPES = {
+    'JPEG': 'image/jpeg',
+    'PNG': 'image/png',
+    'WEBP': 'image/webp',
+}
+SUPPORT_IMAGE_EXTENSIONS = {
+    'JPEG': 'jpg',
+    'PNG': 'png',
+    'WEBP': 'webp',
+}
 
 try:
     keys = Business.objects.get(id=1)
@@ -70,6 +92,9 @@ def _clerk_id_from_request(request, data=None):
 
 
 def _user_from_clerk(request, data=None):
+    bearer_user = user_from_bearer(request)
+    if bearer_user:
+        return bearer_user, None
     clerk_id = _clerk_id_from_request(request, data)
     if not clerk_id:
         return None, JsonResponse(status=401, data={'detail': 'clerk_id is required'})
@@ -78,6 +103,368 @@ def _user_from_clerk(request, data=None):
         return detail.user, None
     except UserDetail.DoesNotExist:
         return None, JsonResponse(status=401, data={'detail': 'clerk user not registered'})
+
+
+def _local_phone(value):
+    digits = ''.join(ch for ch in str(value or '') if ch.isdigit())
+    return digits[-10:] if len(digits) >= 10 else digits
+
+
+def _user_detail_by_phone(phone_number):
+    local_phone = _local_phone(phone_number)
+    if not local_phone:
+        return None
+    return (UserDetail.objects.select_related('user', 'associated_shop')
+            .filter(phone_number__in=[local_phone, f'52{local_phone}', f'521{local_phone}'])
+            .first())
+
+
+def _support_user_from_bearer(request, shop_error_code='SUPPORT_FORBIDDEN'):
+    """Authenticate support endpoints only with the session Bearer token."""
+    user = user_from_bearer(request)
+    if not user:
+        return None, JsonResponse(
+            status=401,
+            data={'code': 'SESSION_INVALID', 'detail': 'Sesión ausente, inválida o expirada.'},
+        )
+    try:
+        detail = user.userdetail
+    except UserDetail.DoesNotExist:
+        return None, JsonResponse(
+            status=403,
+            data={'code': 'SUPPORT_FORBIDDEN', 'detail': 'El usuario no tiene perfil de tienda.'},
+        )
+    shop = detail.associated_shop
+    if not shop or not shop.status or not shop.confirmation:
+        return None, JsonResponse(
+            status=403,
+            data={'code': shop_error_code, 'detail': 'La tienda no está activa y aprobada para realizar esta operación.'},
+        )
+    return (user, detail, shop), None
+
+
+def _support_customer_phone(value):
+    digits = ''.join(ch for ch in str(value or '') if ch.isdigit())
+    if len(digits) != 10:
+        raise ValueError('customer_phone debe contener exactamente 10 dígitos.')
+    return digits
+
+
+def _customer_has_active_service(customer):
+    return Sale.objects.filter(
+        customer=customer,
+        status=True,
+        account__status=True,
+        account__account_name__status=True,
+        expiration_date__gt=timezone.now(),
+    ).exists()
+
+
+def _support_b2_client():
+    if not all([
+        settings.AWS_ACCESS_KEY_ID,
+        settings.AWS_SECRET_ACCESS_KEY,
+        settings.AWS_STORAGE_BUCKET_NAME,
+        settings.AWS_S3_ENDPOINT_URL,
+    ]):
+        raise RuntimeError('Backblaze B2 no está configurado completamente.')
+    return boto3.client(
+        's3',
+        endpoint_url=settings.AWS_S3_ENDPOINT_URL,
+        aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+        aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+        region_name=getattr(settings, 'AWS_S3_REGION_NAME', 'us-west-002'),
+    )
+
+
+def _validate_support_image(uploaded_file):
+    if not uploaded_file:
+        raise ValueError('image es obligatorio.')
+    if uploaded_file.size > SUPPORT_MAX_IMAGE_BYTES:
+        raise ValueError('La imagen supera el límite de 10 MB.')
+    try:
+        uploaded_file.seek(0)
+        with Image.open(uploaded_file) as image:
+            image.verify()
+            image_format = image.format
+    except (UnidentifiedImageError, OSError, SyntaxError):
+        raise ValueError('image debe ser una imagen JPEG, PNG o WebP válida.')
+    if image_format not in SUPPORT_IMAGE_MIME_TYPES:
+        raise ValueError('Solo se aceptan imágenes JPEG, PNG o WebP.')
+    uploaded_file.seek(0)
+    return SUPPORT_IMAGE_MIME_TYPES[image_format], SUPPORT_IMAGE_EXTENSIONS[image_format]
+
+
+def _upload_support_image(uploaded_file, mime_type, extension):
+    now = timezone.localtime()
+    object_key = f'support/{now:%Y/%m}/error-{uuid.uuid4().hex}.{extension}'
+    client = _support_b2_client()
+    uploaded_file.seek(0)
+    client.upload_fileobj(
+        uploaded_file,
+        settings.AWS_STORAGE_BUCKET_NAME,
+        object_key,
+        ExtraArgs={
+            'ContentType': mime_type,
+            'CacheControl': 'private, max-age=86400',
+        },
+    )
+    photo_url = client.generate_presigned_url(
+        'get_object',
+        Params={'Bucket': settings.AWS_STORAGE_BUCKET_NAME, 'Key': object_key},
+        ExpiresIn=86400,
+    )
+    return object_key, photo_url
+
+
+@csrf_exempt
+def support_customer_lookup_api(request):
+    if request.method != 'GET':
+        return JsonResponse(status=405, data={'detail': 'method not allowed'})
+    authenticated, error = _support_user_from_bearer(request)
+    if error:
+        return error
+    try:
+        local_phone = _support_customer_phone(request.GET.get('phone'))
+    except ValueError as exc:
+        return JsonResponse(status=400, data={'code': 'INVALID_PHONE', 'detail': str(exc)})
+    detail = _user_detail_by_phone(local_phone)
+    customer = detail.user if detail else None
+    return JsonResponse(status=200, data={
+        'exists': bool(customer),
+        'customer_phone': local_phone,
+        'has_active_service': bool(customer and _customer_has_active_service(customer)),
+    })
+
+
+@csrf_exempt
+def support_error_image_api(request):
+    if request.method != 'POST':
+        return JsonResponse(status=405, data={'detail': 'method not allowed'})
+    authenticated, error = _support_user_from_bearer(request)
+    if error:
+        return error
+    _, worker_detail, shop = authenticated
+    try:
+        local_phone = _support_customer_phone(request.POST.get('customer_phone'))
+    except ValueError as exc:
+        return JsonResponse(status=400, data={'code': 'INVALID_CUSTOMER', 'detail': str(exc)})
+    customer_detail = _user_detail_by_phone(local_phone)
+    if not customer_detail:
+        return JsonResponse(status=404, data={'code': 'CUSTOMER_NOT_FOUND', 'detail': 'Cliente no encontrado.'})
+    if not _customer_has_active_service(customer_detail.user):
+        return JsonResponse(status=400, data={'code': 'CUSTOMER_NO_ACTIVE_SERVICE', 'detail': 'El cliente no tiene un servicio activo.'})
+    try:
+        uploaded_file = request.FILES.get('image')
+        mime_type, extension = _validate_support_image(uploaded_file)
+        object_key, photo_url = _upload_support_image(uploaded_file, mime_type, extension)
+        SupportErrorImage.objects.create(
+            shop=shop,
+            worker=worker_detail.user,
+            customer=customer_detail.user,
+            object_key=object_key,
+            mime_type=mime_type,
+            size_bytes=uploaded_file.size,
+        )
+    except ValueError as exc:
+        return JsonResponse(status=400, data={'code': 'INVALID_ERROR_IMAGE', 'detail': str(exc)})
+    except Exception:
+        logger.exception('Support error image upload failed: shop_id=%s worker_id=%s', shop.id, worker_detail.user_id)
+        return JsonResponse(status=502, data={'code': 'SUPPORT_IMAGE_UPLOAD_FAILED', 'detail': 'No se pudo subir la imagen de soporte.'})
+    return JsonResponse(status=201, data={'photo_url': photo_url, 'expires_in': 86400})
+
+
+PAYMENT_PROOF_METHODS = {'oxxo', 'transfer'}
+PAYMENT_PROOF_TARGET_PHONE = '8335355863'
+
+
+def _send_payment_proof_whatsapp(message, media_url, mime_type, file_name):
+    config = Notification._evo_config()
+    if not config:
+        return {'status_code': None, 'accepted': False, 'response': 'Evolution API no configurada.'}
+    evo_api_url, evo_instance, evo_api_key = config
+    endpoint = f'{evo_api_url.rstrip("/")}/message/sendMedia/{evo_instance}'
+    payload = {
+        'number': Notification.format_whatsapp_number('52', PAYMENT_PROOF_TARGET_PHONE),
+        'mediatype': 'image',
+        'mimetype': mime_type,
+        'caption': message,
+        'media': media_url,
+        'fileName': file_name,
+    }
+    try:
+        response = requests.post(
+            endpoint,
+            json=payload,
+            headers={'apikey': evo_api_key, 'Content-Type': 'application/json'},
+            timeout=30,
+        )
+        return {
+            'status_code': response.status_code,
+            'accepted': response.status_code in (200, 201),
+            'response': (response.text or '')[:2000],
+        }
+    except requests.RequestException as exc:
+        return {'status_code': None, 'accepted': False, 'response': f'{type(exc).__name__}: {exc}'[:2000]}
+
+
+@csrf_exempt
+def shop_payment_proof_api(request):
+    if request.method != 'POST':
+        return JsonResponse(status=405, data={'detail': 'method not allowed'})
+    authenticated, error = _support_user_from_bearer(request, shop_error_code='SHOP_NOT_ACTIVE_OR_APPROVED')
+    if error:
+        return error
+    user, _, shop = authenticated
+
+    payment_method = (request.POST.get('payment_method') or '').strip().lower()
+    if payment_method not in PAYMENT_PROOF_METHODS:
+        return JsonResponse(status=400, data={
+            'code': 'INVALID_PAYMENT_METHOD',
+            'detail': 'payment_method debe ser oxxo o transfer.',
+        })
+
+    balance = _shop_balance(shop)
+    debt_amount = max(-int(balance), 0)
+    if debt_amount <= 0:
+        return JsonResponse(status=400, data={
+            'code': 'NO_PAYMENT_PENDING',
+            'detail': 'La tienda no tiene adeudo pendiente.',
+        })
+
+    from adm.views import _ensure_shop_payment_bank
+    payment_bank = _ensure_shop_payment_bank(shop)
+    if not payment_bank:
+        return JsonResponse(status=400, data={
+            'code': 'PAYMENT_ACCOUNT_UNAVAILABLE',
+            'detail': 'No existe cuenta de pago asignada para la tienda.',
+        })
+
+    uploaded_file = request.FILES.get('proof')
+    try:
+        mime_type, extension = _validate_support_image(uploaded_file)
+    except ValueError:
+        return JsonResponse(status=400, data={
+            'code': 'INVALID_PAYMENT_PROOF',
+            'detail': 'proof debe ser una imagen JPEG, PNG o WebP válida de máximo 10 MB.',
+        })
+
+    oxxo_fee = 17 if payment_method == 'oxxo' else 0
+    total = debt_amount + oxxo_fee
+    try:
+        object_key, media_url = _upload_support_image(uploaded_file, mime_type, extension)
+    except Exception:
+        logger.exception('Payment proof upload failed: shop_id=%s user_id=%s', shop.id, user.id)
+        return JsonResponse(status=502, data={
+            'code': 'PAYMENT_PROOF_UPLOAD_FAILED',
+            'detail': 'No se pudo guardar el comprobante de pago.',
+        })
+
+    method_label = 'OXXO (incluye $17 para comisión de OXXO)' if payment_method == 'oxxo' else 'Transferencia bancaria'
+    message = (
+        f'Comprobante de pago de tienda: {shop.name}\n'
+        f'Usuario: {user.username}\n'
+        f'Método: {method_label}\n'
+        f'Adeudo: ${debt_amount}\n'
+        f'Total esperado: ${total}'
+    )
+    whatsapp = _send_payment_proof_whatsapp(
+        message, media_url, mime_type, f'payment-proof-{shop.id}.{extension}'
+    )
+    proof = ShopPaymentProof.objects.create(
+        shop=shop,
+        user=user,
+        payment_method=payment_method,
+        debt_amount=debt_amount,
+        oxxo_fee=oxxo_fee,
+        total=total,
+        object_key=object_key,
+        mime_type=mime_type,
+        size_bytes=uploaded_file.size,
+        whatsapp_status_code=whatsapp['status_code'],
+        whatsapp_accepted=whatsapp['accepted'],
+        whatsapp_response=whatsapp['response'],
+    )
+    if not whatsapp['accepted']:
+        logger.error('Payment proof WhatsApp failed: proof_id=%s status=%s', proof.id, whatsapp['status_code'])
+        return JsonResponse(status=502, data={
+            'code': 'PAYMENT_PROOF_WHATSAPP_FAILED',
+            'detail': 'Evolution API no aceptó el envío del comprobante.',
+        })
+    return JsonResponse(status=201, data={
+        'code': 'PAYMENT_PROOF_SENT',
+        'detail': 'Comprobante enviado a WhatsApp.',
+        'payment_method': payment_method,
+        'debt_amount': debt_amount,
+        'oxxo_fee': oxxo_fee,
+        'total': total,
+    })
+
+
+@csrf_exempt
+def phone_request_otp_api(request):
+    if request.method != 'POST':
+        return JsonResponse(status=405, data={'detail': 'method not allowed'})
+    data = _json_body(request)
+    if data is None:
+        return JsonResponse(status=400, data={'detail': 'invalid json'})
+    return request_otp_contract(request, data)
+
+
+@csrf_exempt
+def phone_verify_otp_api(request):
+    if request.method != 'POST':
+        return JsonResponse(status=405, data={'detail': 'method not allowed'})
+    data = _json_body(request)
+    if data is None:
+        return JsonResponse(status=400, data={'detail': 'invalid json'})
+    return verify_otp_contract(request, data)
+
+
+@csrf_exempt
+def phone_login_api(request):
+    if request.method != 'POST':
+        return JsonResponse(status=405, data={'detail': 'method not allowed'})
+    data = _json_body(request)
+    if data is None:
+        return JsonResponse(status=400, data={'detail': 'invalid json'})
+    return password_login(data)
+
+
+@csrf_exempt
+def phone_password_api(request):
+    if request.method != 'POST':
+        return JsonResponse(status=405, data={'detail': 'method not allowed'})
+    data = _json_body(request)
+    if data is None:
+        return JsonResponse(status=400, data={'detail': 'invalid json'})
+    return set_phone_password(request, data)
+
+
+def app_version_api(request):
+    """Return public mobile-app distribution metadata."""
+    if request.method != 'GET':
+        return JsonResponse(status=405, data={'detail': 'method not allowed'})
+
+    return JsonResponse({
+        'version': settings.APP_VERSION,
+        'update_url': settings.APP_UPDATE_URL,
+        'release_notes': settings.APP_RELEASE_NOTES or None,
+    })
+
+
+def wiki_sections_api(request):
+    if request.method != 'GET':
+        return JsonResponse(status=405, data={'detail': 'method not allowed'})
+
+    user, error = _user_from_clerk(request)
+    if error:
+        return error
+
+    sections = WikiSection.objects.filter(is_active=True).values(
+        'id', 'title', 'body', 'order'
+    )
+    return JsonResponse({'sections': list(sections)})
 
 
 def _get_or_create_shop_sale_customer(data, seller_user):
@@ -146,9 +533,23 @@ def register_shop_api(request):
     name = (data.get('shop_name') or data.get('name') or '').strip()
     owner_name = (data.get('owner') or data.get('owner_name') or data.get('username') or '').strip()
     phone_number = ''.join(ch for ch in str(data.get('phone_number') or data.get('phone') or '') if ch.isdigit())
+    local_phone = _local_phone(phone_number)
     email = (data.get('email') or '').strip()
     if not clerk_id or not name or not owner_name or not phone_number:
         return JsonResponse(status=400, data={'detail': 'clerk_id, shop_name, owner and phone_number are required'})
+
+    existing_detail = _user_detail_by_phone(phone_number)
+    if existing_detail and existing_detail.associated_shop:
+        return JsonResponse(status=409, data={
+            'code': 'USER_ALREADY_SHOP_MEMBER',
+            'detail': 'El teléfono ya pertenece a una tienda.',
+            'shop_id': existing_detail.associated_shop_id,
+        })
+    if existing_detail and existing_detail.clerk_id and existing_detail.clerk_id != clerk_id:
+        return JsonResponse(status=409, data={
+            'code': 'PHONE_IDENTITY_CONFLICT',
+            'detail': 'El teléfono ya está vinculado a otra identidad de Clerk.',
+        })
 
     username = (data.get('username') or email or phone_number or clerk_id).strip()
     base_username = username
@@ -159,10 +560,13 @@ def register_shop_api(request):
 
     business = Business.objects.get(pk=1)
     with transaction.atomic():
-        user, created = User.objects.get_or_create(
-            username=username,
-            defaults={'email': email, 'first_name': owner_name}
-        )
+        user = existing_detail.user if existing_detail else None
+        created = user is None
+        if created:
+            user, created = User.objects.get_or_create(
+                username=username,
+                defaults={'email': email, 'first_name': owner_name}
+            )
         if created:
             user.set_unusable_password()
             user.save(update_fields=['password'])
@@ -195,7 +599,7 @@ def register_shop_api(request):
             user=user,
             defaults={
                 'business': business,
-                'phone_number': phone_number[-10:] if len(phone_number) > 10 else phone_number,
+                'phone_number': local_phone,
                 'lada': int(data.get('lada') or '52'),
                 'country': data.get('country') or 'Mexico',
                 'clerk_id': clerk_id,
@@ -228,10 +632,20 @@ def create_subuser_api(request):
     sub_clerk_id = data.get('subuser_clerk_id') or data.get('new_clerk_id') or data.get('clerk_id_subuser')
     username = (data.get('username') or data.get('email') or data.get('phone_number') or sub_clerk_id or '').strip()
     phone_number = ''.join(ch for ch in str(data.get('phone_number') or '') if ch.isdigit())
+    existing_detail = _user_detail_by_phone(phone_number)
+    if existing_detail and existing_detail.associated_shop_id not in (None, owner_detail.associated_shop_id):
+        return JsonResponse(status=409, data={
+            'code': 'WORKER_ALREADY_ASSIGNED',
+            'detail': 'El trabajador ya pertenece a otra tienda.',
+            'shop_id': existing_detail.associated_shop_id,
+        })
     if not username or not phone_number:
         return JsonResponse(status=400, data={'detail': 'username and phone_number are required'})
 
-    user, created = User.objects.get_or_create(username=username, defaults={'email': data.get('email') or ''})
+    user = existing_detail.user if existing_detail else None
+    created = user is None
+    if created:
+        user, created = User.objects.get_or_create(username=username, defaults={'email': data.get('email') or ''})
     if created:
         user.set_unusable_password()
         user.save(update_fields=['password'])
@@ -262,12 +676,21 @@ def shop_info_api(request):
     shop = detail.associated_shop
     if not shop:
         return JsonResponse(status=404, data={'detail': 'user has no associated shop'})
+    from adm.views import _ensure_shop_payment_bank
+    payment_bank = _ensure_shop_payment_bank(shop)
     balance = _shop_balance(shop)
     overdue_days = None
     if shop.last_negative_balance_since and balance < 0:
         overdue_days = (timezone.now() - shop.last_negative_balance_since).days
     return JsonResponse(status=200, data={
-        'shop': {'id': shop.id, 'name': shop.name, 'status': shop.status},
+        'shop': {'id': shop.id, 'name': shop.name, 'status': shop.status, 'approved': shop.confirmation},
+        'payment_bank': ({
+            'id': payment_bank.id,
+            'bank_name': payment_bank.bank_name,
+            'headline': payment_bank.headline,
+            'card_number': payment_bank.card_number,
+            'clabe': payment_bank.clabe,
+        } if payment_bank else None),
         'balance': balance,
         'credit_limit': shop.credit_limit,
         'available_credit': shop.credit_limit + balance,
@@ -292,8 +715,8 @@ def sell_account_api(request):
     shop = detail.associated_shop
     if not shop:
         return JsonResponse(status=404, data={'detail': 'user has no associated shop'})
-    if not shop.status:
-        return JsonResponse(status=403, data={'detail': 'shop is not active'})
+    if not shop.status or not shop.confirmation:
+        return JsonResponse(status=403, data={'detail': 'shop is not active and approved'})
 
     balance = _shop_balance(shop)
     if shop.last_negative_balance_since and balance < 0 and (timezone.now() - shop.last_negative_balance_since).days >= 7:
@@ -779,12 +1202,23 @@ def register_user_api(request):
         reference = data.get('reference')
         print(reference)
         try:
-            user = User.objects.create_user(
-                username=username, password=password, email=email)
-            user.save()
-            user_detail = UserDetail.objects.create(
-                user=user, phone_number=phone_number, country=country, reference=reference, business= Business.objects.get(id=1), lada=0
-            )
+            user_detail = _user_detail_by_phone(phone_number)
+            if user_detail:
+                user = user_detail.user
+                user.set_password(password)
+                if email:
+                    user.email = email
+                user.save(update_fields=['password', 'email'])
+                user_detail.country = country or user_detail.country
+                user_detail.reference = reference
+                user_detail.save(update_fields=['country', 'reference'])
+            else:
+                user = User.objects.create_user(
+                    username=username, password=password, email=email)
+                user.save()
+                user_detail = UserDetail.objects.create(
+                    user=user, phone_number=phone_number, country=country, reference=reference, business= Business.objects.get(id=1), lada=0
+                )
             if country:
                 with open('adm/db/paises.csv') as country_list:
                     reader = csv.reader(country_list)
