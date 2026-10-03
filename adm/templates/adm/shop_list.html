@@ -4,7 +4,10 @@
 <div class="container-fluid py-4">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h1 class="h3 mb-0">Tiendas</h1>
-        <a href="{% url 'adm:shop_billing' %}" class="btn btn-outline-primary">Cobranza tiendas</a>
+        <div class="d-flex gap-2">
+            <a href="{% url 'adm:shop_create' %}" class="btn btn-primary">Nueva tienda</a>
+            <a href="{% url 'adm:shop_billing' %}" class="btn btn-outline-primary">Cobranza tiendas</a>
+        </div>
     </div>
 
     <form method="get" class="row g-2 mb-4">
@@ -68,7 +71,7 @@
                         <td>${{ row.balance }}</td>
                         <td>${{ row.shop.credit_limit }}</td>
                         <td>
-                            {% if row.shop.status %}
+                            {% if row.shop.status and row.shop.confirmation %}
                                 <span class="badge bg-success">Activa</span>
                             {% else %}
                                 <span class="badge bg-warning text-dark">Pendiente / Inactiva</span>

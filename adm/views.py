@@ -18,7 +18,7 @@ from django.contrib.auth.models import User
 from django.shortcuts import redirect
 from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
 from django.http import JsonResponse
-from django.db import transaction
+from django.db import transaction, IntegrityError
 from django.db.models import Sum, Prefetch, Case, When, IntegerField, Q, Count
 from django.db.models import Max
 from django.utils import timezone
@@ -36,6 +36,9 @@ import logging
 import sys
 import os
 import pyperclip as clipboard
+
+
+logger = logging.getLogger(__name__)
 from adm.functions.send_whatsapp_notification import Notification
 from adm.functions.receivable_bulk_jobs import (
     ALL_JOBS,
@@ -57,10 +60,10 @@ from .models import (
     Status, Supplier, Credits, Promocion, AccountChangeHistory,
     Affiliate, AffiliateCommission, AffiliateWithdrawal, AffiliateSettings, AffiliateSale, AISettings,
     MarketingCampaign, MarketingCampaignRecommendation, MarketingCampaignDelivery, MarketingCampaignRedemption,
-    MarketingUserTag
+    MarketingUserTag, WikiSection
 )
 from cupon.models import Cupon, CouponRedemption, Shop
-from cupon.forms import CuponForm
+from cupon.forms import CuponForm, ShopForm
 from cupon.services import CouponRedeemError, normalize_code, validate_coupon_from_code
 from .functions.alerts import Alerts
 from .functions.forms import (
@@ -77,6 +80,7 @@ from .functions.forms import (
     SupplierForm,
     CustomerUpdateForm,
     UserMainForm,
+    WikiSectionForm,
 )
 from .functions.forms_marketing import MarketingCampaignForm
 from .functions.permissions import UserAccessMixin
@@ -893,6 +897,25 @@ def SettingsDetailView(request):
         'object': business_detail,
         'ai_settings': ai_settings,
     })
+
+
+@permission_required('is_superuser', 'adm:no-permission')
+def ToggleReceivablePendingWhatsApp(request):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Método no permitido'}, status=405)
+    business = Business.objects.filter(pk=1).first()
+    if not business:
+        messages.error(request, 'Primero configura el negocio.')
+        return redirect('adm:settings')
+    business.receivable_pending_whatsapp_enabled = not business.receivable_pending_whatsapp_enabled
+    business.save(update_fields=['receivable_pending_whatsapp_enabled'])
+    messages.success(
+        request,
+        'Avisos automáticos de cuentas pendientes activados.'
+        if business.receivable_pending_whatsapp_enabled
+        else 'Avisos automáticos de cuentas pendientes desactivados.'
+    )
+    return redirect('adm:settings')
 # @permission_required('is_superuser','adm:no-permission')
 
 class SettingsCreateView(UserAccessMixin, CreateView):
@@ -2424,14 +2447,6 @@ def BankListView(request):
     banks = Bank.objects.all()
     object_list = []
     for bank in banks:
-        month = datetime.now().month
-        _, last_day = monthrange(2023, month)
-        start_date = timezone.make_aware(datetime(2023, month, 1))
-        end_date = timezone.make_aware(datetime(2023, month, last_day, 23, 59, 59, 999999))
-        sales = Sale.objects.filter(
-            bank=bank,
-            created_at__range=(start_date, end_date)
-        ).aggregate(Sum('payment_amount'))
         item = {
             'pk': bank.pk,
             'logo': bank.logo,
@@ -2439,11 +2454,29 @@ def BankListView(request):
             'headline': bank.headline,
             'card_number': bank.card_number,
             'clabe': bank.clabe,
-            'total': sales['payment_amount__sum'],
+            'total': _bank_month_total(bank),
             'status': bank.status,
         }
         object_list.append(item)
+
+    # Priorizar bancos activos y, dentro de cada estado, ordenar por
+    # recaudación del mes de mayor a menor.
+    object_list.sort(key=lambda item: (bool(item['status']), item['total']), reverse=True)
     return render(request, template_name, {'object_list': object_list})
+
+
+@permission_required('is_staff', 'adm:no-permission')
+def ActiveInactiveBank(request, pk):
+    """Alterna el estado de un banco desde el listado."""
+    bank = Bank.objects.get(pk=pk)
+    bank.status = not bank.status
+    bank.save(update_fields=['status'])
+
+    if request.headers.get('x-requested-with', '').lower() == 'xmlhttprequest':
+        return JsonResponse({'success': True, 'new_status': bank.status})
+    return redirect(reverse('adm:bank'))
+
+
 class bankCreateView(UserAccessMixin, CreateView):
     """
     Create a new Bank Account
@@ -2556,6 +2589,36 @@ class SupplierDeleteView(UserAccessMixin, DeleteView):
     model = Supplier
     template_name = "adm/delete.html"
     success_url = reverse_lazy('adm:supplier')
+
+
+class WikiSectionListView(UserAccessMixin, ListView):
+    permission_required = 'is_staff'
+    model = WikiSection
+    template_name = 'adm/wiki_sections.html'
+    context_object_name = 'sections'
+
+
+class WikiSectionCreateView(UserAccessMixin, CreateView):
+    permission_required = 'is_staff'
+    model = WikiSection
+    form_class = WikiSectionForm
+    template_name = 'adm/wiki_section_form.html'
+    success_url = reverse_lazy('adm:wiki_sections')
+
+
+class WikiSectionUpdateView(UserAccessMixin, UpdateView):
+    permission_required = 'is_staff'
+    model = WikiSection
+    form_class = WikiSectionForm
+    template_name = 'adm/wiki_section_form.html'
+    success_url = reverse_lazy('adm:wiki_sections')
+
+
+class WikiSectionDeleteView(UserAccessMixin, DeleteView):
+    permission_required = 'is_staff'
+    model = WikiSection
+    template_name = 'adm/delete.html'
+    success_url = reverse_lazy('adm:wiki_sections')
 
 def _legacy_long_from_duration(duration_unit, duration_quantity):
     if duration_unit == Cupon.DURATION_UNIT_YEAR:
@@ -3008,17 +3071,111 @@ def _shop_balance(shop):
     return Credits.objects.filter(shop=shop).aggregate(total=Sum('credits'))['total'] or 0
 
 
+SHOP_BANK_MONTH_LIMIT = 15000
+SHOP_BANK_ALERT_PHONE = 8332323006
+
+
+def _bank_digits(value):
+    return ''.join(ch for ch in str(value or '') if ch.isdigit())
+
+
+def _bank_month_total(bank):
+    now = timezone.localtime()
+    return Sale.objects.filter(
+        bank=bank,
+        created_at__year=now.year,
+        created_at__month=now.month,
+    ).aggregate(total=Sum('payment_amount'))['total'] or 0
+
+
+def _bank_is_eligible(bank):
+    return (
+        bool(bank.status)
+        and len(_bank_digits(bank.card_number)) == 16
+        and len(_bank_digits(bank.clabe)) == 18
+        and _bank_month_total(bank) < SHOP_BANK_MONTH_LIMIT
+    )
+
+
+def _eligible_shop_payment_banks():
+    eligible = []
+    for bank in Bank.objects.all().order_by('bank_name', 'id'):
+        total = _bank_month_total(bank)
+        if not bank.status or len(_bank_digits(bank.card_number)) != 16:
+            continue
+        if len(_bank_digits(bank.clabe)) != 18 or total >= SHOP_BANK_MONTH_LIMIT:
+            continue
+        try:
+            logo_url = bank.logo.url if bank.logo else ''
+        except (ValueError, OSError):
+            logo_url = ''
+        eligible.append({'bank': bank, 'total': total, 'logo_url': logo_url})
+    return sorted(eligible, key=lambda item: (item['total'], item['bank'].bank_name, item['bank'].id))
+
+
+def _alert_no_available_shop_bank(shop):
+    alert_key = f'shop-bank-alert:{shop.pk}:{timezone.localdate():%Y-%m-%d}'
+    if not cache.add(alert_key, True, timeout=86400):
+        return
+    message = (
+        f'ALERTA: La tienda {shop.name} (ID {shop.pk}) no tiene una cuenta bancaria '
+        'disponible para pagos. Todas cumplen o superan $15,000, están inactivas '
+        'o tienen tarjeta/CLABE inválida. Agrega una cuenta o reasigna una tienda.'
+    )
+    try:
+        result = Notification.send_whatsapp_notification(message, 52, SHOP_BANK_ALERT_PHONE)
+        if result != 200:
+            logger.warning('Shop bank alert failed: shop_id=%s result=%s', shop.pk, result)
+    except Exception:
+        logger.exception('Shop bank alert exception: shop_id=%s', shop.pk)
+
+
+def _ensure_shop_payment_bank(shop):
+    current = getattr(shop, 'payment_bank', None)
+    if current and _bank_month_total(current) < SHOP_BANK_MONTH_LIMIT:
+        return current
+
+    eligible = [
+        (bank, _bank_month_total(bank))
+        for bank in Bank.objects.filter(status=True)
+        if _bank_is_eligible(bank)
+    ]
+    if eligible:
+        selected, _ = min(eligible, key=lambda item: (item[1], item[0].pk))
+        if shop.payment_bank_id != selected.pk:
+            shop.payment_bank = selected
+            shop.save(update_fields=['payment_bank'])
+        return selected
+
+    if current:
+        shop.payment_bank = None
+        shop.save(update_fields=['payment_bank'])
+    _alert_no_available_shop_bank(shop)
+    return None
+
+
 def _shop_user_ids(shop):
     return list(UserDetail.objects.filter(associated_shop=shop).values_list('user_id', flat=True))
 
 
 def _shop_sales_queryset(shop, date_from=None, date_to=None):
-    qs = Sale.objects.filter(customer_id__in=_shop_user_ids(shop))
+    # Las ventas de la API tienen como `user_seller` al usuario de la tienda
+    # y como `customer` al cliente final. El reporte debe usar el vendedor
+    # para no ocultar las ventas hechas para clientes externos.
+    shop_user_ids = _shop_user_ids(shop)
+    qs = Sale.objects.filter(
+        Q(user_seller_id__in=shop_user_ids) | Q(customer_id__in=shop_user_ids)
+    ).distinct()
     if date_from:
         qs = qs.filter(created_at__date__gte=date_from)
     if date_to:
         qs = qs.filter(created_at__date__lte=date_to)
     return qs
+
+
+def _shop_store_sales_queryset(shop):
+    """Ventas realizadas por usuarios de la tienda, no compras del cliente."""
+    return Sale.objects.filter(user_seller_id__in=_shop_user_ids(shop))
 
 
 def _parse_date_param(value):
@@ -3110,7 +3267,7 @@ class ShopListView(UserAccessMixin, ListView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['pending_shops'] = self.get_queryset().filter(status=False)
+        context['pending_shops'] = self.get_queryset().filter(Q(status=False) | Q(confirmation=False)).distinct()
         balances = {}
         shop_rows = []
         for shop in context['object_list']:
@@ -3123,6 +3280,77 @@ class ShopListView(UserAccessMixin, ListView):
         return context
 
 
+@permission_required('is_staff', 'adm:no-permission')
+def ShopCreateView(request):
+    if request.method == 'POST':
+        form = ShopForm(request.POST)
+        if form.is_valid():
+            phone = form.cleaned_data['phone']
+            phone_digits = ''.join(ch for ch in str(phone or '') if ch.isdigit())
+            local_phone = phone_digits[-10:] if len(phone_digits) >= 10 else phone_digits
+            existing_detail = (UserDetail.objects.select_related('user', 'associated_shop')
+                               .filter(phone_number__in=[local_phone, f'52{local_phone}', f'521{local_phone}'])
+                               .first())
+            if existing_detail:
+                if existing_detail.associated_shop_id:
+                    form.add_error('phone', 'Ese numero ya pertenece a otra tienda.')
+                    return render(request, 'adm/shop_create.html', {'form': form})
+                try:
+                    with transaction.atomic():
+                        business = Business.objects.get(pk=1)
+                        user = existing_detail.user
+                        shop = form.save(commit=False)
+                        shop.phone = local_phone
+                        shop.seller = request.user
+                        shop.creator_user = request.user
+                        shop.status = False
+                        shop.confirmation = False
+                        shop.save()
+                        existing_detail.business = business
+                        existing_detail.phone_number = local_phone
+                        existing_detail.lada = 52
+                        existing_detail.country = 'Mexico'
+                        existing_detail.associated_shop = shop
+                        existing_detail.is_shop_owner = True
+                        existing_detail.save(update_fields=[
+                            'business', 'phone_number', 'lada', 'country',
+                            'associated_shop', 'is_shop_owner',
+                        ])
+                    messages.success(request, 'Tienda creada. Activala para enviar bienvenida por WhatsApp.')
+                    return redirect(reverse('adm:shop_detail', args=[shop.id]))
+                except (Business.DoesNotExist, IntegrityError):
+                    form.add_error(None, 'No fue posible crear la tienda. Revisa que el telefono no este registrado.')
+                    return render(request, 'adm/shop_create.html', {'form': form})
+            if UserDetail.objects.filter(phone_number__in=[phone, f'52{phone}']).exists():
+                form.add_error('phone', 'Ese número ya está asociado a una cuenta.')
+            else:
+                try:
+                    with transaction.atomic():
+                        business = Business.objects.get(pk=1)
+                        user = User.objects.create_user(username=phone, first_name=form.cleaned_data['owner'])
+                        user.set_unusable_password()
+                        user.save(update_fields=['password'])
+                        shop = form.save(commit=False)
+                        shop.phone = phone
+                        shop.seller = request.user
+                        shop.creator_user = request.user
+                        shop.status = False
+                        shop.confirmation = False
+                        shop.save()
+                        UserDetail.objects.create(
+                            business=business, user=user, phone_number=phone,
+                            lada=52, country='Mexico', associated_shop=shop,
+                            is_shop_owner=True,
+                        )
+                    messages.success(request, 'Tienda creada. Actívala para enviar bienvenida por WhatsApp.')
+                    return redirect(reverse('adm:shop_detail', args=[shop.id]))
+                except (Business.DoesNotExist, IntegrityError):
+                    form.add_error(None, 'No fue posible crear la tienda. Revisa que el teléfono no esté registrado.')
+    else:
+        form = ShopForm(initial={'giro': 'Distribuidor', 'credit_limit': 300})
+    return render(request, 'adm/shop_create.html', {'form': form})
+
+
 class ShopDetailView(UserAccessMixin, DetailView):
     permission_required = 'is_staff'
     model = Shop
@@ -3133,9 +3361,23 @@ class ShopDetailView(UserAccessMixin, DetailView):
         try:
             shop.credit_limit = int(request.POST.get('credit_limit', shop.credit_limit))
             shop.save(update_fields=['credit_limit'])
+            if 'payment_bank_id' in request.POST:
+                bank_id = (request.POST.get('payment_bank_id') or '').strip()
+                if bank_id:
+                    selected_bank = Bank.objects.get(pk=int(bank_id))
+                    if not _bank_is_eligible(selected_bank):
+                        messages.error(request, 'La cuenta seleccionada ya no cumple los criterios de disponibilidad.')
+                        return redirect(reverse('adm:shop_detail', args=[shop.id]))
+                    shop.payment_bank = selected_bank
+                else:
+                    shop.payment_bank = None
+                shop.save(update_fields=['payment_bank'])
+                _ensure_shop_payment_bank(shop)
             messages.success(request, 'Limite de credito actualizado.')
         except (TypeError, ValueError):
             messages.error(request, 'El limite de credito debe ser numerico.')
+        except Bank.DoesNotExist:
+            messages.error(request, 'La cuenta bancaria seleccionada no existe.')
         return redirect(reverse('adm:shop_detail', args=[shop.id]))
 
     def get_context_data(self, **kwargs):
@@ -3143,19 +3385,41 @@ class ShopDetailView(UserAccessMixin, DetailView):
         shop = self.object
         balance = _shop_balance(shop)
         _update_shop_negative_since(shop, balance)
+        context['assigned_payment_bank'] = _ensure_shop_payment_bank(shop)
+        context['assigned_payment_bank_total'] = (
+            _bank_month_total(context['assigned_payment_bank'])
+            if context['assigned_payment_bank'] else None
+        )
+        context['eligible_payment_banks'] = _eligible_shop_payment_banks()
         context['balance'] = balance
         context['subusers'] = UserDetail.objects.filter(associated_shop=shop).select_related('user').order_by('-is_shop_owner', 'user__username')
         context['credits'] = Credits.objects.filter(shop=shop).select_related('customer').order_by('-date')[:100]
-        context['sales'] = _shop_sales_queryset(shop).select_related('customer', 'account', 'account__account_name').order_by('-created_at')[:100]
+        context['sales'] = _shop_store_sales_queryset(shop).select_related(
+            'customer', 'customer__userdetail', 'account', 'account__account_name'
+        ).order_by('-created_at')[:100]
         return context
 
 
 @permission_required('is_staff', 'adm:no-permission')
 def ShopApproveView(request, pk):
     shop = Shop.objects.get(pk=pk)
+    send_welcome = not shop.confirmation
     shop.status = True
-    shop.save(update_fields=['status'])
-    messages.success(request, 'Tienda aprobada.')
+    shop.confirmation = True
+    shop.confirmation_date = timezone.now()
+    shop.save(update_fields=['status', 'confirmation', 'confirmation_date'])
+    if send_welcome:
+        welcome = (
+            f'¡Bienvenido a Tiendas México de Cuentas México, {shop.owner}! '
+            'Tu tienda ya está activa. Inicia sesión con tu número de teléfono de 10 dígitos y comienza a vender.'
+        )
+        result = Notification.send_whatsapp_notification_details(welcome, 52, shop.phone)
+        if result['success']:
+            messages.success(request, 'Tienda activada y bienvenida enviada por WhatsApp.')
+        else:
+            messages.warning(request, f'Tienda activada, pero no se pudo enviar WhatsApp: {result["detail"]}')
+    else:
+        messages.success(request, 'Tienda activada.')
     return redirect(reverse('adm:shop_detail', args=[shop.id]))
 
 

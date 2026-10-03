@@ -31,6 +31,13 @@ class Shop(models.Model):
         blank=True,
         related_name='created_shops'
     )
+    payment_bank = models.ForeignKey(
+        'adm.Bank',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='payment_shops'
+    )
 
     def __str__(self):
         return self.name

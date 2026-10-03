@@ -33,6 +33,8 @@ class Business(models.Model):
     flow_show = models.BooleanField(default=True)
     logo = models.FileField(upload_to="settings/", null=True, blank=True)
     free_days = models.IntegerField(default=7)
+    receivable_pending_whatsapp_enabled = models.BooleanField(default=True)
+    receivable_pending_whatsapp_last_sent_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return self.name
@@ -84,7 +86,7 @@ class UserDetail(models.Model):
     phoneNumberRegex = RegexValidator(regex=r"^\+?1?\d{8,15}$")
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     phone_number = models.CharField(
-        validators=[phoneNumberRegex], max_length=16, null=False)
+        validators=[phoneNumberRegex], max_length=16, null=True, unique=True)
     lada = models.IntegerField(null=False)
     country = models.CharField(max_length=40, null=False)
     picture = models.FileField(upload_to="users/", null=True, blank=True)
@@ -151,6 +153,23 @@ class UserPhoneHistory(models.Model):
         return f"+{self.new_lada} {self.new_phone_number}"
 
 
+class WikiSection(models.Model):
+    title = models.CharField(max_length=150)
+    body = models.TextField()
+    order = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['order', 'id']
+        verbose_name = 'Sección del wiki'
+        verbose_name_plural = 'Secciones del wiki'
+
+    def __str__(self):
+        return self.title
+
+
 class AccountChangeHistory(models.Model):
     """
     Historial rastreable de cambios de cuenta (admin y autoservicio en My Account).
@@ -202,6 +221,56 @@ class AccountChangeHistory(models.Model):
 
     def __str__(self):
         return f'{self.customer_username or self.customer_id} | {self.old_account_email} -> {self.new_account_email} ({self.changed_at:%Y-%m-%d %H:%M})'
+
+
+class SupportErrorImage(models.Model):
+    """Auditoria de imagenes de error enviadas por trabajadores a Soporte."""
+
+    shop = models.ForeignKey('cupon.Shop', on_delete=models.PROTECT, related_name='support_error_images')
+    worker = models.ForeignKey(User, on_delete=models.PROTECT, related_name='support_error_images_sent')
+    customer = models.ForeignKey(User, on_delete=models.PROTECT, related_name='support_error_images_received')
+    object_key = models.CharField(max_length=500)
+    mime_type = models.CharField(max_length=100)
+    size_bytes = models.PositiveBigIntegerField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['shop', 'created_at']),
+            models.Index(fields=['customer', 'created_at']),
+        ]
+
+    def __str__(self):
+        return f'Soporte {self.customer_id} - {self.created_at:%Y-%m-%d %H:%M}'
+
+
+class ShopPaymentProof(models.Model):
+    """Auditoria de comprobantes de pago enviados por tiendas."""
+
+    shop = models.ForeignKey('cupon.Shop', on_delete=models.PROTECT, related_name='payment_proofs')
+    user = models.ForeignKey(User, on_delete=models.PROTECT, related_name='shop_payment_proofs')
+    payment_method = models.CharField(max_length=10)
+    debt_amount = models.PositiveBigIntegerField()
+    oxxo_fee = models.PositiveIntegerField(default=0)
+    total = models.PositiveBigIntegerField()
+    object_key = models.CharField(max_length=500)
+    mime_type = models.CharField(max_length=100)
+    size_bytes = models.PositiveBigIntegerField()
+    whatsapp_status_code = models.PositiveIntegerField(null=True, blank=True)
+    whatsapp_accepted = models.BooleanField(default=False)
+    whatsapp_response = models.TextField(blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['shop', 'created_at']),
+            models.Index(fields=['user', 'created_at']),
+        ]
+
+    def __str__(self):
+        return f'Pago tienda {self.shop_id} - {self.created_at:%Y-%m-%d %H:%M}'
 
 
 class Account(models.Model):

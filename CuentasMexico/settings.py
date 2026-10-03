@@ -49,6 +49,11 @@ ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 # Debe incluir el protocolo (https:// o http://)
 CSRF_TRUSTED_ORIGINS = os.getenv('CSRF_TRUSTED_ORIGINS', 'http://localhost,http://127.0.0.1').split(',')
 
+# Version distribuida a la app móvil. Actualizar estos valores al publicar una versión.
+APP_VERSION = os.getenv('APP_VERSION', '1.0.0')
+APP_UPDATE_URL = os.getenv('APP_UPDATE_URL', '')
+APP_RELEASE_NOTES = os.getenv('APP_RELEASE_NOTES', '')
+
 
 # Application definition
 
@@ -199,9 +204,11 @@ STATIC_URL = '/staticfiles/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+# Permite multipart de hasta 10 MB de imagen más margen de headers/boundary.
+DATA_UPLOAD_MAX_MEMORY_SIZE = 11 * 1024 * 1024
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
-# Configuración de Backblaze B2 via S3 Compatible API
+# Configuración existente de Backblaze B2 via API compatible con S3.
 AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID', '')
 AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY', '')
 AWS_STORAGE_BUCKET_NAME = os.getenv('AWS_STORAGE_BUCKET_NAME', '')
@@ -316,6 +323,16 @@ LOGGING = {
         },
         'index.views': {
             'handlers': ['console', 'webhook_file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'api.phone_auth': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'api.views': {
+            'handlers': ['console', 'file'],
             'level': 'INFO',
             'propagate': False,
         },

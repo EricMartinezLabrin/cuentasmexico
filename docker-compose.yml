@@ -106,6 +106,32 @@ services:
       - cuentasmexico_network
     restart: unless-stopped
 
+  scheduler_receivable_pending:
+    build: .
+    container_name: cuentasmexico_scheduler_receivable_pending
+    command: >
+      sh -c "while true; do
+        python manage.py send_receivable_pending_whatsapp;
+        sleep 180;
+      done"
+    environment:
+      DEBUG: ${DEBUG:-False}
+      SECRET_KEY: ${SECRET_KEY:-your-secret-key-here}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1}
+      DB_ENGINE: ${DB_ENGINE:-django.db.backends.mysql}
+      DB_NAME: ${DB_NAME:-cuentasmexico}
+      DB_USER: ${DB_USER:-cuentas}
+      DB_PASSWORD: ${DB_PASSWORD:-password}
+      DB_HOST: ${DB_HOST:-127.0.0.1}
+      DB_PORT: ${DB_PORT:-3306}
+    volumes:
+      - .:/app
+    depends_on:
+      - web
+    networks:
+      - cuentasmexico_network
+    restart: unless-stopped
+
   nginx:
     image: nginx:alpine
     container_name: cuentasmexico_nginx

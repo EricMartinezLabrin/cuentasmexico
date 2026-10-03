@@ -9,7 +9,7 @@
         </div>
         <div class="d-flex gap-2">
             <a href="{% url 'adm:shop_list' %}" class="btn btn-outline-secondary">Volver</a>
-            {% if object.status %}
+            {% if object.status and object.confirmation %}
                 <a href="{% url 'adm:shop_disable' object.id %}" class="btn btn-outline-danger">Deshabilitar</a>
             {% else %}
                 <a href="{% url 'adm:shop_approve' object.id %}" class="btn btn-success">Aprobar</a>
@@ -27,7 +27,7 @@
         <div class="col-md-3"><div class="border rounded p-3"><div class="text-muted">Saldo</div><div class="h4">${{ balance }}</div></div></div>
         <div class="col-md-3"><div class="border rounded p-3"><div class="text-muted">Limite</div><div class="h4">${{ object.credit_limit }}</div></div></div>
         <div class="col-md-3"><div class="border rounded p-3"><div class="text-muted">Pagos puntuales</div><div class="h4">{{ object.consecutive_on_time_payments }}</div></div></div>
-        <div class="col-md-3"><div class="border rounded p-3"><div class="text-muted">Estado</div><div class="h4">{% if object.status %}Activa{% else %}Inactiva{% endif %}</div></div></div>
+        <div class="col-md-3"><div class="border rounded p-3"><div class="text-muted">Estado</div><div class="h4">{% if object.status and object.confirmation %}Activa{% else %}Pendiente{% endif %}</div></div></div>
     </div>
 
     <div class="row g-4 mb-4">
@@ -55,6 +55,72 @@
                 <div class="col-sm-6"><input type="text" name="detail" class="form-control" placeholder="Detalle"></div>
                 <div class="col-sm-2"><button class="btn btn-primary w-100" type="submit">OK</button></div>
             </form>
+            <h2 class="h5 mt-4">Cuenta para pagos de la tienda</h2>
+            <form method="post" class="row g-2">
+                {% csrf_token %}
+                <div class="col-12">
+                    <input type="hidden" name="payment_bank_id" id="payment-bank-id" value="">
+                    <div class="dropdown">
+                        <button class="btn btn-outline-secondary dropdown-toggle w-100 text-start" type="button"
+                                id="payment-bank-selector" data-bs-toggle="dropdown" aria-expanded="false">
+                            <span id="payment-bank-label">Asignar automáticamente</span>
+                        </button>
+                        <div class="dropdown-menu w-100 p-2" aria-labelledby="payment-bank-selector" role="listbox">
+                            <button type="button" class="dropdown-item rounded py-2" data-bank-id="" data-bank-label="Asignar automáticamente">
+                                Asignar automáticamente
+                            </button>
+                            {% for option in eligible_payment_banks %}
+                                <button type="button" class="dropdown-item rounded d-flex align-items-center gap-2 py-2"
+                                        data-bank-id="{{ option.bank.id }}"
+                                        data-bank-label="{{ option.bank.bank_name }} - {{ option.bank.headline }} | Total mes: ${{ option.total }}">
+                                    {% if option.logo_url %}
+                                        <img src="{{ option.logo_url }}" alt="Logo {{ option.bank.bank_name }}" width="32" height="32" class="rounded object-fit-contain">
+                                    {% else %}
+                                        <span class="border rounded d-inline-flex align-items-center justify-content-center" style="width:32px;height:32px;">$</span>
+                                    {% endif %}
+                                    <span>
+                                        <strong>{{ option.bank.bank_name }} - {{ option.bank.headline }}</strong><br>
+                                        <small class="text-muted">Total mes: ${{ option.total }} | Tarjeta: 16 dígitos | CLABE: 18 dígitos</small>
+                                    </span>
+                                </button>
+                            {% empty %}
+                                <span class="dropdown-item-text text-danger">No hay cuentas que cumplan todos los criterios.</span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                <div class="col-12 small text-muted">
+                    Automático: status activo, tarjeta de 16 dígitos, CLABE de 18 dígitos y Total mes menor a $15,000.
+                    La cuenta solo cambia automáticamente al alcanzar $15,000 o más.
+                </div>
+                {% if assigned_payment_bank %}
+                    <div class="col-12 small">
+                        Asignada: <strong>{{ assigned_payment_bank.bank_name }} - {{ assigned_payment_bank.headline }}</strong>
+                        | Total mes: <strong>${{ assigned_payment_bank_total }}</strong>
+                    </div>
+                {% else %}
+                    <div class="col-12 small text-danger">Sin cuenta bancaria disponible.</div>
+                {% endif %}
+                <div class="col-12"><button class="btn btn-primary" type="submit">Guardar cuenta de pagos</button></div>
+            </form>
+            <script>
+                (() => {
+                    const input = document.getElementById('payment-bank-id');
+                    const label = document.getElementById('payment-bank-label');
+                    const assignedId = '{{ assigned_payment_bank.id|default:"" }}';
+                    const assignedLabel = '{% if assigned_payment_bank %}{{ assigned_payment_bank.bank_name|escapejs }} - {{ assigned_payment_bank.headline|escapejs }} | Total mes: ${{ assigned_payment_bank_total }}{% else %}Asignar automáticamente{% endif %}';
+                    if (assignedId) {
+                        input.value = assignedId;
+                        label.textContent = assignedLabel;
+                    }
+                    document.querySelectorAll('[data-bank-id]').forEach((option) => {
+                        option.addEventListener('click', () => {
+                            input.value = option.dataset.bankId || '';
+                            label.textContent = option.dataset.bankLabel || 'Asignar automáticamente';
+                        });
+                    });
+                })();
+            </script>
         </div>
     </div>
 
@@ -97,7 +163,20 @@
                 <thead><tr><th>Fecha</th><th>Cliente</th><th>Servicio</th><th>Monto</th></tr></thead>
                 <tbody>
                     {% for sale in sales %}
-                        <tr><td>{{ sale.created_at }}</td><td>{{ sale.customer }}</td><td>{{ sale.account.account_name.description }}</td><td>${{ sale.payment_amount }}</td></tr>
+                        <tr>
+                            <td>{{ sale.created_at }}</td>
+                            <td>
+                                {% if sale.customer.userdetail.phone_number %}
+                                    <a href="{% url 'adm:sales_with_phone' sale.customer.userdetail.phone_number %}">
+                                        {{ sale.customer.userdetail.phone_number }}
+                                    </a>
+                                {% else %}
+                                    {{ sale.customer }}
+                                {% endif %}
+                            </td>
+                            <td>{{ sale.account.account_name.description }}</td>
+                            <td>${{ sale.payment_amount }}</td>
+                        </tr>
                     {% empty %}
                         <tr><td colspan="4" class="text-muted">Sin ventas.</td></tr>
                     {% endfor %}

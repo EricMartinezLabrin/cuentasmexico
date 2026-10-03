@@ -2,7 +2,7 @@ from django import forms
 from django.core.files.images import get_image_dimensions
 
 from adm.models import Service
-from cupon.models import Cupon
+from cupon.models import Cupon, Shop
 
 
 class CuponForm(forms.ModelForm):
@@ -72,3 +72,32 @@ class CuponForm(forms.ModelForm):
         if width != height:
             raise forms.ValidationError('La imagen debe tener proporción 1:1 (ancho y alto iguales).')
         return image
+
+
+class ShopForm(forms.ModelForm):
+    class Meta:
+        model = Shop
+        fields = ['name', 'owner', 'phone', 'email', 'giro', 'address', 'city', 'cp', 'credit_limit']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control'}),
+            'owner': forms.TextInput(attrs={'class': 'form-control'}),
+            'phone': forms.TextInput(attrs={'class': 'form-control', 'maxlength': 10, 'inputmode': 'numeric'}),
+            'email': forms.EmailInput(attrs={'class': 'form-control'}),
+            'giro': forms.TextInput(attrs={'class': 'form-control'}),
+            'address': forms.TextInput(attrs={'class': 'form-control'}),
+            'city': forms.TextInput(attrs={'class': 'form-control'}),
+            'cp': forms.NumberInput(attrs={'class': 'form-control', 'min': 0}),
+            'credit_limit': forms.NumberInput(attrs={'class': 'form-control', 'min': 0}),
+        }
+
+    def clean_phone(self):
+        phone = ''.join(character for character in str(self.cleaned_data.get('phone') or '') if character.isdigit())
+        if len(phone) != 10:
+            raise forms.ValidationError('Ingresa un número mexicano de 10 dígitos.')
+        return phone
+
+    def clean_name(self):
+        return (self.cleaned_data.get('name') or '').strip()
+
+    def clean_owner(self):
+        return (self.cleaned_data.get('owner') or '').strip()

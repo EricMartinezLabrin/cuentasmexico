@@ -11,6 +11,29 @@
     }
   ],
   "paths": {
+    "/app/version/": {
+      "get": {
+        "summary": "Version pública de la app móvil",
+        "description": "Endpoint público. La app debe comparar version con su versión instalada y continuar normalmente si la consulta falla.",
+        "responses": {
+          "200": {
+            "description": "Metadatos de distribución de la app",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppVersionResponse"
+                },
+                "example": {
+                  "version": "1.1.0",
+                  "update_url": "https://downloads.example.com/tiendas-mexico-1.1.0.apk",
+                  "release_notes": "Mejoras de ventas y credito"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/docs/": {
       "get": {
         "summary": "Documentacion ReDoc",
@@ -31,9 +54,63 @@
         }
       }
     },
+    "/auth/phone/request-otp/": {
+      "post": {
+        "summary": "Solicitar código OTP por WhatsApp",
+        "description": "Solo envía el código si la tienda asociada está activa y aprobada (status=true y confirmation=true).",
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/PhoneOtpRequest"}, "example": {"phone": "8331234567"}}}},
+        "x-response-contract": {
+          "202": {"code": "OTP_SENT", "body": {"code": "OTP_SENT", "detail": "Codigo enviado por WhatsApp", "expires_in": 300}},
+          "400": {"code": "INVALID_PHONE", "body": {"code": "INVALID_PHONE", "detail": "phone must be a valid Mexican 10-digit number"}},
+          "404": {"codes": ["ACCOUNT_NOT_FOUND", "SHOP_NOT_FOUND"]},
+          "403": {"code": "SHOP_NOT_ACTIVE_OR_APPROVED"},
+          "429": {"code": "OTP_RATE_LIMITED", "headers": {"Retry-After": "60"}, "body": {"code": "OTP_RATE_LIMITED", "retry_after_seconds": 60}},
+          "502": {"code": "OTP_PROVIDER_UNAVAILABLE"}
+        },
+        "responses": {
+          "202": {"description": "Código enviado"},
+          "403": {"description": "Tienda inactiva o no aprobada"},
+          "429": {"description": "Límite de solicitudes excedido"},
+          "502": {"description": "No fue posible enviar por WhatsApp"}
+        }
+      }
+    },
+    "/auth/phone/verify-otp/": {
+      "post": {
+        "summary": "Validar código OTP",
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/PhoneVerifyOtpRequest"}, "example": {"phone": "8331234567", "otp": "123456"}}}},
+        "x-response-contract": {
+          "200": {"code": "SESSION_CREATED", "body": {"code": "SESSION_CREATED", "access_token": "<secure-token>"}},
+          "400": {"codes": ["INVALID_PHONE", "OTP_INVALID_OR_EXPIRED"]},
+          "401": {"code": "ACCOUNT_NOT_AVAILABLE"},
+          "403": {"code": "SHOP_NOT_ACTIVE_OR_APPROVED"}
+        },
+        "responses": {"200": {"description": "Sesión creada"}, "400": {"description": "Código inválido o expirado"}, "403": {"description": "Tienda inactiva o no aprobada"}}
+      }
+    },
+    "/auth/phone/login/": {
+      "post": {
+        "summary": "Login opcional con contraseña",
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/PhonePasswordRequest"}, "example": {"phone": "8331234567", "password": "contraseña-segura"}}}},
+        "responses": {"200": {"description": "Sesión creada"}, "401": {"description": "Credenciales inválidas"}}
+      }
+    },
+    "/auth/phone/password/": {
+      "post": {
+        "summary": "Configurar contraseña",
+        "security": [{"BearerAuth": []}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/PasswordRequest"}, "example": {"password": "contraseña-segura"}}}},
+        "responses": {"200": {"description": "Contraseña configurada"}, "401": {"description": "Sesión inválida"}}
+      }
+    },
     "/shop/register/": {
       "post": {
         "summary": "Registrar tienda y dueno desde Clerk",
+        "description": "Si el telefono ya pertenece a un cliente sin tienda, se reutiliza el mismo usuario y se crea su perfil de dueno. No se permite asociar un usuario a una segunda tienda.",
+        "x-profile-semantics": {
+          "existing_customer": "reuse_user_and_attach_shop",
+          "existing_shop_member": "409_USER_ALREADY_SHOP_MEMBER"
+        },
         "requestBody": {
           "required": true,
           "content": {
@@ -50,6 +127,17 @@
           },
           "400": {
             "description": "Payload invalido"
+          },
+          "409": {
+            "description": "El telefono ya pertenece a otra tienda o identidad Clerk",
+            "content": {
+              "application/json": {
+                "examples": {
+                  "alreadyShopMember": {"value": {"code": "USER_ALREADY_SHOP_MEMBER", "detail": "El telefono ya pertenece a una tienda.", "shop_id": 12}},
+                  "identityConflict": {"value": {"code": "PHONE_IDENTITY_CONFLICT", "detail": "El telefono ya esta vinculado a otra identidad de Clerk."}}
+                }
+              }
+            }
           }
         }
       }
@@ -57,6 +145,11 @@
     "/shop/create-subuser/": {
       "post": {
         "summary": "Crear sub-usuario de tienda",
+        "description": "Si el telefono ya pertenece a un cliente sin tienda, se reutiliza el mismo usuario. Un trabajador no puede quedar asociado a una segunda tienda.",
+        "x-profile-semantics": {
+          "existing_customer": "reuse_user_and_attach_as_worker",
+          "other_shop": "409_WORKER_ALREADY_ASSIGNED"
+        },
         "parameters": [
           {
             "$ref": "#/components/parameters/ClerkUserHeader"
@@ -78,13 +171,40 @@
           },
           "403": {
             "description": "Solo el dueno puede crear sub-usuarios"
+          },
+          "409": {
+            "description": "El trabajador ya pertenece a otra tienda",
+            "content": {
+              "application/json": {
+                "example": {"code": "WORKER_ALREADY_ASSIGNED", "detail": "El trabajador ya pertenece a otra tienda.", "shop_id": 12}
+              }
+            }
           }
+        }
+      }
+    },
+    "/register_user_api": {
+      "post": {
+        "summary": "Registrar o completar perfil de cliente",
+        "description": "El teléfono es único en UserDetail. Si ya existe como dueño o trabajador, se reutiliza el mismo User y no se crea otro registro.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/RegisterCustomerRequest"},
+              "example": {"username": "cliente", "password": "contraseña-segura", "email": "cliente@example.com", "phone_number": "8331234567", "country": "Mexico"}
+            }
+          }
+        },
+        "responses": {
+          "200": {"description": "Cliente creado o perfil existente reutilizado"},
+          "400": {"description": "Datos inválidos o usuario duplicado por otra restricción"}
         }
       }
     },
     "/shop/info/": {
       "get": {
-        "summary": "Balance, limite y estado de tienda",
+        "summary": "Balance, limite, cuenta de pagos y estado de tienda",
         "parameters": [
           {
             "$ref": "#/components/parameters/ClerkUserHeader"
@@ -92,7 +212,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Informacion de tienda",
+            "description": "Informacion de tienda, incluyendo cuenta asignada para transferencias/OXXO",
             "content": {
               "application/json": {
                 "schema": {
@@ -135,6 +255,39 @@
         }
       }
     },
+    "/shop/payment-proof/": {
+      "post": {
+        "summary": "Enviar comprobante de pago de tienda",
+        "description": "Calcula el adeudo desde el saldo real de la tienda, sube el comprobante a Backblaze B2 y envía imagen + texto a Soporte por Evolution API.",
+        "security": [{"BearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {"$ref": "#/components/schemas/ShopPaymentProofRequest"},
+              "example": {"payment_method": "oxxo", "proof": "<archivo JPEG/PNG/WebP>"}
+            }
+          }
+        },
+        "x-response-contract": {
+          "201": {"code": "PAYMENT_PROOF_SENT"},
+          "400": {"codes": ["INVALID_PAYMENT_METHOD", "INVALID_PAYMENT_PROOF", "NO_PAYMENT_PENDING", "PAYMENT_ACCOUNT_UNAVAILABLE"]},
+          "401": {"code": "SESSION_INVALID"},
+          "403": {"code": "SHOP_NOT_ACTIVE_OR_APPROVED"},
+          "502": {"codes": ["PAYMENT_PROOF_UPLOAD_FAILED", "PAYMENT_PROOF_WHATSAPP_FAILED"]}
+        },
+        "responses": {
+          "201": {
+            "description": "Comprobante enviado a WhatsApp",
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ShopPaymentProofResponse"}}}
+          },
+          "400": {"description": "Método inválido, comprobante inválido o sin adeudo pendiente; respuesta con code + detail"},
+          "401": {"description": "Bearer ausente, inválido o expirado; code SESSION_INVALID"},
+          "403": {"description": "Tienda inactiva o no aprobada; code SHOP_NOT_ACTIVE_OR_APPROVED"},
+          "502": {"description": "Falló upload B2 o envío de WhatsApp; respuesta con code + detail"}
+        }
+      }
+    },
     "/services/active/": {
       "get": {
         "summary": "Servicios activos para app movil",
@@ -157,6 +310,107 @@
               }
             }
           }
+        }
+      }
+    },
+    "/wiki/sections/": {
+      "get": {
+        "summary": "Secciones del wiki de Soporte",
+        "description": "Devuelve secciones visibles para la tienda del usuario. Si no hay contenido, la app conserva el botón Hablar con soporte sin mostrar tarjetas.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ClerkUserHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Secciones disponibles",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WikiSectionsResponse"
+                },
+                "example": {
+                  "sections": [
+                    {
+                      "id": "pagos",
+                      "title": "Pagos",
+                      "body": "Consulta tu saldo, crédito disponible y pagos pendientes.",
+                      "order": 1
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "No hay secciones disponibles"
+          },
+          "401": {
+            "description": "Falta o no es válido X-Clerk-User-Id"
+          },
+          "404": {
+            "description": "Wiki o secciones no encontradas"
+          }
+        }
+      }
+    },
+    "/support/customer-lookup/": {
+      "get": {
+        "summary": "Buscar cliente para iniciar soporte",
+        "description": "Busca globalmente por teléfono mexicano. No limita la búsqueda a la tienda del trabajador y no devuelve datos personales innecesarios.",
+        "security": [{"BearerAuth": []}],
+        "parameters": [
+          {
+            "name": "phone",
+            "in": "query",
+            "required": true,
+            "schema": {"type": "string", "pattern": "^[0-9]{10}$"},
+            "example": "8331234567",
+            "description": "Teléfono mexicano local de exactamente 10 dígitos. El backend lo normaliza a 52XXXXXXXXXX."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Resultado de negocio, exista o no el cliente",
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/SupportCustomerLookupResponse"}}}
+          },
+          "400": {"description": "Teléfono inválido"},
+          "401": {"description": "Bearer ausente, inválido o expirado"},
+          "403": {"description": "Usuario sin tienda activa y aprobada"}
+        }
+      }
+    },
+    "/support/error-image/": {
+      "post": {
+        "summary": "Subir foto de error para soporte",
+        "description": "Valida nuevamente que el cliente exista y tenga servicio activo. La imagen se almacena en Backblaze B2 desde el backend y se devuelve una URL firmada por 24 horas.",
+        "security": [{"BearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["customer_phone", "image"],
+                "properties": {
+                  "customer_phone": {"type": "string", "pattern": "^[0-9]{10}$", "example": "8331234567"},
+                  "image": {"type": "string", "format": "binary", "description": "JPEG, PNG o WebP; máximo 10 MB."}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Imagen almacenada y auditada",
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/SupportErrorImageResponse"}}}
+          },
+          "400": {"description": "Imagen inválida, tamaño excedido o cliente sin servicio activo"},
+          "401": {"description": "Bearer ausente, inválido o expirado"},
+          "403": {"description": "Usuario sin tienda activa y aprobada"},
+          "404": {"description": "Cliente no encontrado"},
+          "502": {"description": "Falló la carga en Backblaze B2"}
         }
       }
     },
@@ -220,6 +474,7 @@
     }
   },
   "components": {
+    "securitySchemes": {"BearerAuth": {"type": "http", "scheme": "bearer"}},
     "parameters": {
       "ClerkUserHeader": {
         "name": "X-Clerk-User-Id",
@@ -232,6 +487,43 @@
       }
     },
     "schemas": {
+      "PhoneOtpRequest": {
+        "type": "object", "required": ["phone"],
+        "properties": {"phone": {"type": "string", "description": "Teléfono mexicano de 10 dígitos; acepta +52, espacios y guiones."}}
+      },
+      "PhoneVerifyOtpRequest": {
+        "type": "object", "required": ["phone", "otp"],
+        "properties": {"phone": {"type": "string"}, "otp": {"type": "string", "pattern": "^[0-9]{6}$"}}
+      },
+      "PhonePasswordRequest": {
+        "type": "object", "required": ["phone", "password"],
+        "properties": {"phone": {"type": "string"}, "password": {"type": "string", "format": "password"}}
+      },
+      "PasswordRequest": {
+        "type": "object", "required": ["password"],
+        "properties": {"password": {"type": "string", "format": "password"}}
+      },
+      "AppVersionResponse": {
+        "type": "object",
+        "required": ["version", "update_url"],
+        "properties": {
+          "version": {
+            "type": "string",
+            "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+            "description": "Versión semántica publicada (MAJOR.MINOR.PATCH)."
+          },
+          "update_url": {
+            "type": "string",
+            "format": "uri",
+            "description": "URL absoluta del APK o Google Play; puede estar vacía si no hay actualización disponible."
+          },
+          "release_notes": {
+            "type": "string",
+            "nullable": true,
+            "description": "Notas opcionales de la versión."
+          }
+        }
+      },
       "RegisterShopRequest": {
         "type": "object",
         "required": ["clerk_id", "shop_name", "owner", "phone_number"],
@@ -241,7 +533,7 @@
           "owner": {"type": "string"},
           "username": {"type": "string"},
           "email": {"type": "string", "format": "email"},
-          "phone_number": {"type": "string"},
+          "phone_number": {"type": "string", "description": "Teléfono único. Si ya existe como cliente sin tienda, se reutiliza el mismo User."},
           "lada": {"type": "integer", "default": 52},
           "city": {"type": "string"},
           "address": {"type": "string"},
@@ -254,9 +546,21 @@
         "properties": {
           "username": {"type": "string"},
           "email": {"type": "string", "format": "email"},
-          "phone_number": {"type": "string"},
+          "phone_number": {"type": "string", "description": "Teléfono único. Si ya existe como cliente sin tienda, se reutiliza; si pertenece a otra tienda, responde 409."},
           "lada": {"type": "integer", "default": 52},
           "subuser_clerk_id": {"type": "string"}
+        }
+      },
+      "RegisterCustomerRequest": {
+        "type": "object",
+        "required": ["username", "password", "phone_number", "country"],
+        "properties": {
+          "username": {"type": "string"},
+          "password": {"type": "string", "format": "password"},
+          "email": {"type": "string", "format": "email"},
+          "phone_number": {"type": "string", "description": "Teléfono único de la cuenta."},
+          "country": {"type": "string"},
+          "reference": {"type": "integer", "nullable": true}
         }
       },
       "SellAccountRequest": {
@@ -271,10 +575,43 @@
           "customer_email": {"type": "string", "format": "email"}
         }
       },
+      "ShopPaymentProofRequest": {
+        "type": "object",
+        "required": ["payment_method", "proof"],
+        "properties": {
+          "payment_method": {"type": "string", "enum": ["oxxo", "transfer"]},
+          "proof": {"type": "string", "format": "binary", "description": "Imagen JPEG, PNG o WebP; máximo 10 MB."}
+        }
+      },
+      "ShopPaymentProofResponse": {
+        "type": "object",
+        "required": ["code", "detail", "payment_method", "debt_amount", "oxxo_fee", "total"],
+        "properties": {
+          "code": {"type": "string", "example": "PAYMENT_PROOF_SENT"},
+          "detail": {"type": "string"},
+          "payment_method": {"type": "string", "enum": ["oxxo", "transfer"]},
+          "debt_amount": {"type": "integer", "example": 1000},
+          "oxxo_fee": {"type": "integer", "example": 17},
+          "total": {"type": "integer", "example": 1017}
+        },
+        "example": {"code": "PAYMENT_PROOF_SENT", "detail": "Comprobante enviado a WhatsApp.", "payment_method": "oxxo", "debt_amount": 1000, "oxxo_fee": 17, "total": 1017}
+      },
       "ShopInfoResponse": {
         "type": "object",
         "properties": {
           "shop": {"type": "object"},
+          "payment_bank": {
+            "type": "object",
+            "nullable": true,
+            "description": "Cuenta bancaria asignada para pagos por transferencia/OXXO. Null si no existe una cuenta elegible.",
+            "properties": {
+              "id": {"type": "integer"},
+              "bank_name": {"type": "string"},
+              "headline": {"type": "string"},
+              "card_number": {"type": "string"},
+              "clabe": {"type": "string"}
+            }
+          },
           "balance": {"type": "integer"},
           "credit_limit": {"type": "integer"},
           "available_credit": {"type": "integer"},
@@ -282,6 +619,28 @@
           "overdue_days": {"type": "integer", "nullable": true},
           "consecutive_on_time_payments": {"type": "integer"},
           "is_shop_owner": {"type": "boolean"}
+        }
+      },
+      "SupportCustomerLookupResponse": {
+        "type": "object",
+        "required": ["exists", "customer_phone", "has_active_service"],
+        "properties": {
+          "exists": {"type": "boolean"},
+          "customer_phone": {"type": "string", "example": "8331234567"},
+          "has_active_service": {"type": "boolean"}
+        },
+        "example": {
+          "exists": true,
+          "customer_phone": "8331234567",
+          "has_active_service": true
+        }
+      },
+      "SupportErrorImageResponse": {
+        "type": "object",
+        "required": ["photo_url", "expires_in"],
+        "properties": {
+          "photo_url": {"type": "string", "format": "uri"},
+          "expires_in": {"type": "integer", "example": 86400}
         }
       },
       "ActiveService": {
@@ -292,6 +651,47 @@
           "logo": {"type": "string"},
           "price": {"type": "integer"},
           "available_stock": {"type": "integer"}
+        }
+      },
+      "WikiSectionsResponse": {
+        "type": "object",
+        "required": ["sections"],
+        "properties": {
+          "sections": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WikiSection"
+            }
+          }
+        },
+        "example": {
+          "sections": []
+        }
+      },
+      "WikiSection": {
+        "type": "object",
+        "required": ["id", "title", "body"],
+        "properties": {
+          "id": {
+            "oneOf": [
+              {"type": "string"},
+              {"type": "integer"}
+            ],
+            "description": "Identificador único dentro de la respuesta."
+          },
+          "title": {
+            "type": "string",
+            "description": "Título visible de la sección."
+          },
+          "body": {
+            "type": "string",
+            "description": "Contenido visible de la sección."
+          },
+          "order": {
+            "type": "number",
+            "default": 0,
+            "description": "Orden ascendente; si se omite, se considera 0."
+          }
         }
       }
     }

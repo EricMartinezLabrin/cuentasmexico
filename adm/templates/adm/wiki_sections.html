@@ -1,0 +1,32 @@
+{% extends 'adm/base/base.html' %}
+{% block title %}Wiki de Soporte{% endblock title %}
+{% block body %}
+<div class="container-fluid py-3">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1>Wiki de Soporte</h1>
+        <a href="{% url 'adm:wiki_section_create' %}" class="btn btn-cm">Nueva sección</a>
+    </div>
+    <p class="text-muted">Las secciones activas aparecen en la pestaña Soporte de la app.</p>
+    <div class="table-responsive">
+        <table class="table align-middle">
+            <thead><tr><th>Orden</th><th>Título</th><th>Estado</th><th>Actualizada</th><th>Acciones</th></tr></thead>
+            <tbody>
+            {% for section in sections %}
+                <tr>
+                    <td>{{ section.order }}</td>
+                    <td>{{ section.title }}</td>
+                    <td>{% if section.is_active %}<span class="badge bg-success">Visible</span>{% else %}<span class="badge bg-secondary">Oculta</span>{% endif %}</td>
+                    <td>{{ section.updated_at|date:'Y-m-d H:i' }}</td>
+                    <td>
+                        <a href="{% url 'adm:wiki_section_update' section.pk %}" class="btn btn-sm btn-outline-primary">Editar</a>
+                        <a href="{% url 'adm:wiki_section_delete' section.pk %}" class="btn btn-sm btn-outline-danger">Eliminar</a>
+                    </td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="5">No hay secciones creadas.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock body %}

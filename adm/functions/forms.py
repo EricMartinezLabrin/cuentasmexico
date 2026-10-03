@@ -29,6 +29,7 @@ from ..models import (
     IndexCarouselImage,
     IndexPromoImage,
     Promocion,
+    WikiSection,
 )
 from CuentasMexico import settings
 
@@ -220,6 +221,24 @@ class ServicesForm(forms.ModelForm):
             'description': forms.TextInput(attrs={'class': 'form-control'}),
             'perfil_quantity': forms.NumberInput(attrs={'class': 'form-control'}),
             'logo': forms.FileInput(attrs={'class': 'form-control'}),
+        }
+
+
+class WikiSectionForm(forms.ModelForm):
+    class Meta:
+        model = WikiSection
+        fields = ['title', 'body', 'order', 'is_active']
+        labels = {
+            'title': 'Título',
+            'body': 'Contenido',
+            'order': 'Orden',
+            'is_active': 'Visible en la app',
+        }
+        widgets = {
+            'title': forms.TextInput(attrs={'class': 'form-control'}),
+            'body': forms.Textarea(attrs={'class': 'form-control', 'rows': 8}),
+            'order': forms.NumberInput(attrs={'class': 'form-control', 'min': 0}),
+            'is_active': forms.CheckboxInput(),
         }
 
 
