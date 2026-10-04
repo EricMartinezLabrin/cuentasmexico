@@ -4,6 +4,7 @@ from django.urls import reverse
 from django.contrib.auth.models import User
 from django.test import override_settings
 from adm.models import Account, Business, Service, Supplier, UserDetail, Sale, WikiSection
+from api.views import _get_or_create_shop_sale_customer
 import json
 
 
@@ -59,6 +60,43 @@ class WikiSectionsAPITestCase(TestCase):
         response = self.client.get(reverse('api:wiki_sections'))
 
         self.assertEqual(response.status_code, 401)
+
+
+class ShopSaleCustomerTests(TestCase):
+    def setUp(self):
+        self.business = Business.objects.create(name='sale-business')
+        self.seller = User.objects.create_user(username='seller')
+
+    def test_reuses_customer_found_by_phone_before_username(self):
+        customer = User.objects.create_user(username='custom-username', email='customer@example.com')
+        UserDetail.objects.create(
+            business=self.business,
+            user=customer,
+            phone_number='8332323006',
+            lada=52,
+            country='Mexico',
+        )
+
+        result = _get_or_create_shop_sale_customer(
+            {'customer_phone': '8332323006', 'customer_name': 'Cliente'},
+            self.seller,
+        )
+
+        self.assertEqual(result, customer)
+        self.assertEqual(User.objects.filter(username='8332323006').count(), 0)
+        self.assertEqual(UserDetail.objects.filter(phone_number='8332323006').count(), 1)
+
+    def test_email_only_customer_does_not_use_shared_placeholder_phone(self):
+        first = _get_or_create_shop_sale_customer(
+            {'customer_email': 'first@example.com'}, self.seller
+        )
+        second = _get_or_create_shop_sale_customer(
+            {'customer_email': 'second@example.com'}, self.seller
+        )
+
+        self.assertNotEqual(first, second)
+        self.assertIsNone(first.userdetail.phone_number)
+        self.assertIsNone(second.userdetail.phone_number)
 
 class LoginAPITestCase(TestCase):
     

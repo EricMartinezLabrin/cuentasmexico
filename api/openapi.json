@@ -238,6 +238,14 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/SellAccountRequest"
+              },
+              "example": {
+                "service_id": 12,
+                "months": 1,
+                "customer_name": "Cliente ejemplo",
+                "customer_phone": "8332323006",
+                "customer_lada": 52,
+                "customer_email": "cliente@example.com"
               }
             }
           }
@@ -570,7 +578,7 @@
           "service_id": {"type": "integer"},
           "months": {"type": "integer", "default": 1},
           "customer_name": {"type": "string"},
-          "customer_phone": {"type": "string"},
+          "customer_phone": {"type": "string", "description": "Teléfono del cliente. Si ya existe en UserDetail se reutiliza esa cuenta, aunque tenga otro username."},
           "customer_lada": {"type": "integer", "default": 52},
           "customer_email": {"type": "string", "format": "email"}
         }

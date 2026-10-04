@@ -470,7 +470,10 @@ def _get_or_create_shop_sale_customer(data, seller_user):
     local_phone = phone_number[-10:] if len(phone_number) > 10 else phone_number
     username = local_phone or customer_email
 
-    user = User.objects.filter(username=username).first()
+    # The phone is the customer's identity. It is not safe to infer that the
+    # username is the phone: older customers may have a custom username.
+    detail = _user_detail_by_phone(local_phone) if local_phone else None
+    user = detail.user if detail else User.objects.filter(username=username).first()
     if not user and customer_email:
         user = User.objects.filter(email=customer_email).first()
     if not user:
@@ -494,7 +497,7 @@ def _get_or_create_shop_sale_customer(data, seller_user):
     business = Business.objects.get(pk=1)
     detail_defaults = {
         'business': business,
-        'phone_number': local_phone or '0000000000',
+        'phone_number': local_phone or None,
         'lada': int(lada),
         'country': data.get('customer_country') or data.get('country') or 'Mexico',
     }
