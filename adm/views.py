@@ -3411,7 +3411,8 @@ def ShopApproveView(request, pk):
     if send_welcome:
         welcome = (
             f'¡Bienvenido a Tiendas México de Cuentas México, {shop.owner}! '
-            'Tu tienda ya está activa. Inicia sesión con tu número de teléfono de 10 dígitos y comienza a vender.'
+            'Tu tienda ya está activa. Inicia sesión con tu número de teléfono de 10 dígitos y comienza a vender. '
+            'Puedes iniciar sesión en https://appshop.cuentasmexico.com'
         )
         result = Notification.send_whatsapp_notification_details(welcome, 52, shop.phone)
         if result['success']:
