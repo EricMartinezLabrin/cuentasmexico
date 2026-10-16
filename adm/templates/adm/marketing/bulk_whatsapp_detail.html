@@ -1,0 +1,26 @@
+{% extends 'adm/base/base.html' %}
+{% load static %}
+{% block title %}Envío WhatsApp #{{ job.id }}{% endblock title %}
+{% block body %}
+<div class="container-fluid py-3" id="bulk-whatsapp-page" data-status-url="{% url 'adm:marketing_bulk_whatsapp_status' job.id %}" data-details-url="{% url 'adm:marketing_bulk_whatsapp_details' job.id %}" data-cancel-url="{% url 'adm:marketing_bulk_whatsapp_cancel' job.id %}">
+  <form id="bulk-csrf-form" class="d-none">{% csrf_token %}</form>
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div><h1 class="h4 mb-0">Envío masivo WhatsApp #{{ job.id }}</h1><small class="text-muted">Creado {{ job.created_at|date:'d/m/Y H:i' }}</small></div>
+    <div class="d-flex gap-2"><a href="{% url 'adm:marketing_campaigns' %}" class="btn btn-outline-secondary">Volver a Marketing</a><button id="bulk-cancel-btn" class="btn btn-outline-danger">Cancelar proceso</button></div>
+  </div>
+  <div id="bulk-status-alert" class="alert alert-info">Cargando estado...</div>
+  <div class="row g-3 mb-3">
+    <div class="col-6 col-xl-3"><button class="card border-0 shadow-sm w-100 text-start h-100 bulk-stat" data-status="sent"><div class="card-body"><div class="text-muted small">Enviados</div><div class="h3 mb-0" id="bulk-sent">0</div></div></button></div>
+    <div class="col-6 col-xl-3"><button class="card border-0 shadow-sm w-100 text-start h-100 bulk-stat" data-status="ignored"><div class="card-body"><div class="text-muted small">Ignorados</div><div class="h3 mb-0" id="bulk-ignored">0</div></div></button></div>
+    <div class="col-6 col-xl-3"><button class="card border-0 shadow-sm w-100 text-start h-100 bulk-stat" data-status="error"><div class="card-body"><div class="text-muted small">Errores</div><div class="h3 mb-0" id="bulk-errors">0</div></div></button></div>
+    <div class="col-6 col-xl-3"><button class="card border-0 shadow-sm w-100 text-start h-100 bulk-stat" data-status="pending"><div class="card-body"><div class="text-muted small">Pendientes</div><div class="h3 mb-0" id="bulk-pending">0</div></div></button></div>
+  </div>
+  <div class="card border-0 shadow-sm"><div class="card-body">
+    <div class="row g-3"><div class="col-12 col-md-4"><div class="text-muted small">Estado</div><div class="fw-semibold" id="bulk-state">-</div></div><div class="col-12 col-md-4"><div class="text-muted small">Número actual</div><div class="fw-semibold" id="bulk-current">-</div></div><div class="col-12 col-md-4"><div class="text-muted small">Tiempo restante</div><div class="fw-semibold" id="bulk-countdown">-</div></div></div>
+    <div class="progress mt-4" style="height: 22px"><div id="bulk-progress" class="progress-bar bg-success" role="progressbar" style="width: 0%">0%</div></div>
+  </div></div>
+</div>
+
+<div class="modal fade" id="bulkDetailsModal" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-xl modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="bulk-details-title">Detalles</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div><div class="modal-body" id="bulk-details-body"></div></div></div></div>
+<script src="{% static 'adm/js/marketing_bulk_whatsapp_detail.js' %}"></script>
+{% endblock body %}

@@ -1,4 +1,5 @@
 {% extends 'adm/base/base.html' %}
+{% load static %}
 {% block title %}Marketing IA{% endblock title %}
 {% block body %}
 <div class="container-fluid py-3">
@@ -7,6 +8,9 @@
       <h1 class="h4 mb-0">Marketing IA</h1>
       <small class="text-muted">Campañas WhatsApp + SMS basadas en estadísticas.</small>
     </div>
+    <a href="{% url 'adm:marketing_bulk_whatsapp_list' %}" class="btn btn-outline-success me-2">
+      <i class="bi bi-whatsapp me-1"></i>Envío masivo WhatsApp
+    </a>
     <a href="{% url 'adm:marketing_campaign_create' %}" class="btn btn-cm">
       <i class="bi bi-magic me-1"></i>Nueva campaña IA
     </a>
@@ -79,4 +83,46 @@
     </div>
   </div>
 </div>
+<div class="modal fade" id="marketingBulkWhatsAppModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Envío masivo de WhatsApp</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <form id="marketing-bulk-whatsapp-form" method="post" enctype="multipart/form-data" action="{% url 'adm:marketing_bulk_whatsapp_create' %}">
+        {% csrf_token %}
+        <div class="modal-body">
+          <div class="alert alert-warning small">Solo envía mensajes a contactos que hayan aceptado recibir comunicaciones. El proceso aplicará pausas automáticas para proteger la cuenta.</div>
+          <div class="mb-3">
+            <label class="form-label" for="bulk-phone-numbers">Números de WhatsApp</label>
+            <textarea class="form-control" id="bulk-phone-numbers" name="phone_numbers" rows="6" required placeholder="8335355863, 8335355864&#10;+52 833 535 5865"></textarea>
+            <div class="form-text">Se aceptan comas, espacios, tabulaciones y saltos de línea. Solo México.</div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="bulk-message-text">Mensaje</label>
+            <textarea class="form-control" id="bulk-message-text" name="message_text" rows="6" placeholder="Usa *negrita*, _cursiva_, ~tachado~, ```monoespaciado``` y emojis."></textarea>
+            <div class="form-text">Puedes enviar solo texto, solo imagen o ambos.</div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="bulk-image">Imagen opcional</label>
+            <input class="form-control" id="bulk-image" type="file" name="image" accept="image/jpeg,image/png,image/webp">
+            <div class="form-text">JPG, PNG o WebP, máximo 10 MB.</div>
+          </div>
+          <div class="row g-2">
+            <div class="col-6"><label class="form-label" for="bulk-delay-min">Delay mínimo (minutos)</label><input class="form-control" id="bulk-delay-min" type="number" name="delay_min_minutes" min="1" max="60" value="2" required></div>
+            <div class="col-6"><label class="form-label" for="bulk-delay-max">Delay máximo (minutos)</label><input class="form-control" id="bulk-delay-max" type="number" name="delay_max_minutes" min="1" max="60" value="5" required></div>
+          </div>
+          <div class="alert alert-info small mt-3 mb-0">Después de cada 5 intentos habrá una pausa obligatoria aleatoria de 10 a 15 minutos.</div>
+          <div id="marketing-bulk-whatsapp-status" class="alert alert-info mt-3 d-none"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-success"><i class="bi bi-send me-1"></i>Revisar y enviar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+<script src="{% static 'adm/js/marketing_bulk_whatsapp.js' %}"></script>
 {% endblock body %}

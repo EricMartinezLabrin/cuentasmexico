@@ -1,0 +1,57 @@
+{% extends 'adm/base/base.html' %}
+{% load static %}
+{% block title %}Envíos masivos WhatsApp{% endblock title %}
+{% block body %}
+<div class="container-fluid py-3">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div><h1 class="h4 mb-0">Envíos masivos WhatsApp</h1><small class="text-muted">Historial y procesos en curso.</small></div>
+    <div class="d-flex gap-2"><a href="{% url 'adm:marketing_campaigns' %}" class="btn btn-outline-secondary">Volver a Marketing</a><button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#marketingBulkWhatsAppModal"><i class="bi bi-send me-1"></i>Nuevo envío</button></div>
+  </div>
+  <div class="card border-0 shadow-sm"><div class="table-responsive"><table class="table align-middle mb-0">
+    <thead class="table-light"><tr><th>ID</th><th>Estado</th><th>Total</th><th>Enviados</th><th>Ignorados</th><th>Errores</th><th>Creado</th><th></th></tr></thead>
+    <tbody>
+      {% for job in jobs %}
+      <tr>
+        <td>#{{ job.id }}</td>
+        <td><span class="badge {% if job.status == 'completed' %}text-bg-success{% elif job.status == 'failed' %}text-bg-danger{% elif job.status == 'cancelled' %}text-bg-warning{% elif job.status == 'running' or job.status == 'waiting' %}text-bg-primary{% else %}text-bg-secondary{% endif %}">{{ job.get_status_display }}</span><div class="small text-muted">{{ job.status_message }}</div></td>
+        <td>{{ job.total_count }}</td><td>{{ job.sent_count }}</td><td>{{ job.ignored_count }}</td><td>{{ job.error_count }}</td>
+        <td>{{ job.created_at|date:'d/m/Y H:i' }}</td><td class="text-end"><button type="button" class="btn btn-sm btn-outline-primary bulk-history-view" data-job-id="{{ job.id }}" data-status-url="{% url 'adm:marketing_bulk_whatsapp_status' job.id %}" data-details-url="{% url 'adm:marketing_bulk_whatsapp_details' job.id %}" data-cancel-url="{% url 'adm:marketing_bulk_whatsapp_cancel' job.id %}">Ver proceso</button></td>
+      </tr>
+      {% empty %}<tr><td colspan="8" class="text-center text-muted py-4">No hay envíos masivos todavía.</td></tr>{% endfor %}
+    </tbody>
+  </table></div></div>
+</div>
+
+<div class="modal fade" id="marketingBulkWhatsAppModal" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-lg modal-dialog-scrollable"><div class="modal-content">
+  <div class="modal-header"><h5 class="modal-title">Nuevo envío masivo de WhatsApp</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
+  <form id="marketing-bulk-whatsapp-form" method="post" enctype="multipart/form-data" action="{% url 'adm:marketing_bulk_whatsapp_create' %}"><div class="modal-body">{% csrf_token %}
+    <div class="alert alert-warning small">Solo envía mensajes a contactos que hayan aceptado recibir comunicaciones.</div>
+    <div class="mb-3"><label class="form-label" for="bulk-phone-numbers">Números de WhatsApp</label><textarea class="form-control" id="bulk-phone-numbers" name="phone_numbers" rows="6" required placeholder="8335355863, 8335355864&#10;+52 833 535 5865"></textarea><div class="form-text">Se aceptan comas, espacios, tabulaciones y saltos de línea. Solo México.</div></div>
+    <div class="mb-3"><label class="form-label" for="bulk-message-text">Mensaje</label><textarea class="form-control" id="bulk-message-text" name="message_text" rows="6" placeholder="Usa *negrita*, _cursiva_, ~tachado~, ```monoespaciado``` y emojis."></textarea></div>
+    <div class="mb-3"><label class="form-label" for="bulk-image">Imagen opcional</label><input class="form-control" id="bulk-image" type="file" name="image" accept="image/jpeg,image/png,image/webp"><div class="form-text">JPG, PNG o WebP, máximo 10 MB.</div></div>
+    <div class="row g-2"><div class="col-6"><label class="form-label" for="bulk-delay-min">Delay mínimo</label><input class="form-control" id="bulk-delay-min" type="number" name="delay_min_minutes" min="1" max="60" value="2" required></div><div class="col-6"><label class="form-label" for="bulk-delay-max">Delay máximo</label><input class="form-control" id="bulk-delay-max" type="number" name="delay_max_minutes" min="1" max="60" value="5" required></div></div>
+    <div class="alert alert-info small mt-3 mb-0">Después de cada 5 intentos habrá una pausa obligatoria aleatoria de 10 a 15 minutos.</div><div id="marketing-bulk-whatsapp-status" class="alert alert-info mt-3 d-none"></div>
+  </div><div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="btn btn-success"><i class="bi bi-send me-1"></i>Revisar y enviar</button></div></form>
+</div></div></div>
+<div class="modal fade" id="bulkHistoryModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title" id="bulk-history-title">Proceso de envío</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
+    <div class="modal-body">
+      <form id="bulk-history-csrf" class="d-none">{% csrf_token %}</form>
+      <div id="bulk-history-alert" class="alert alert-info">Cargando estado...</div>
+      <div class="row g-2 mb-3">
+        <div class="col-6 col-md-3"><button class="btn btn-light border w-100 text-start bulk-history-stat" data-status="sent">Enviados: <strong id="history-sent">0</strong></button></div>
+        <div class="col-6 col-md-3"><button class="btn btn-light border w-100 text-start bulk-history-stat" data-status="ignored">Ignorados: <strong id="history-ignored">0</strong></button></div>
+        <div class="col-6 col-md-3"><button class="btn btn-light border w-100 text-start bulk-history-stat" data-status="error">Errores: <strong id="history-errors">0</strong></button></div>
+        <div class="col-6 col-md-3"><button class="btn btn-light border w-100 text-start bulk-history-stat" data-status="pending">Pendientes: <strong id="history-pending">0</strong></button></div>
+      </div>
+      <div class="row g-2 mb-3"><div class="col-md-4"><small class="text-muted">Estado</small><div id="history-state">-</div></div><div class="col-md-4"><small class="text-muted">Número actual</small><div id="history-current">-</div></div><div class="col-md-4"><small class="text-muted">Tiempo restante</small><div id="history-countdown">-</div></div></div>
+      <div class="progress mb-3" style="height: 22px"><div id="history-progress" class="progress-bar bg-success" style="width: 0%">0%</div></div>
+      <div id="bulk-history-details" class="d-none"></div>
+    </div>
+    <div class="modal-footer"><button type="button" id="bulk-history-cancel" class="btn btn-outline-danger">Cancelar proceso</button><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button></div>
+  </div></div>
+</div>
+<script src="{% static 'adm/js/marketing_bulk_whatsapp.js' %}"></script>
+<script src="{% static 'adm/js/marketing_bulk_whatsapp_list.js' %}"></script>
+{% endblock body %}

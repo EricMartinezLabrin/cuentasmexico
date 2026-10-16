@@ -186,6 +186,54 @@ class Notification():
             print(f"⚠️ Error al enviar WhatsApp media: {str(e)}")
             return 500
 
+    @staticmethod
+    def send_whatsapp_notification_with_media_details(message, phone_number, media_url, mime_type='image/png', file_name='campana.png'):
+        full_phone = re.sub(r'\D+', '', str(phone_number or ''))
+        config = Notification._evo_config()
+        if not config:
+            missing = []
+            if not settings.EVO_WHATSAPP_API_URL:
+                missing.append('EVO_WHATSAPP_API_URL')
+            if not settings.EVO_INSTANCE:
+                missing.append('EVO_INSTANCE')
+            if not settings.EVO_API_KEY:
+                missing.append('EVO_API_KEY')
+            return {
+                'success': False,
+                'status_code': 500,
+                'full_phone': full_phone,
+                'error': 'WhatsApp API no configurada',
+                'detail': f'Faltan variables de entorno/configuracion: {", ".join(missing)}',
+            }
+
+        evo_api_url, evo_instance, evo_api_key = config
+        endpoint = f'{evo_api_url}/message/sendMedia/{evo_instance}'
+        payload = {
+            'number': full_phone,
+            'mediatype': 'image',
+            'mimetype': mime_type,
+            'caption': message or '',
+            'media': str(media_url or '').strip(),
+            'fileName': file_name,
+        }
+        headers = {'apikey': evo_api_key, 'Content-Type': 'application/json'}
+        try:
+            response = requests.post(endpoint, json=payload, headers=headers, timeout=30)
+            response_text = (response.text or '').strip()
+            success = response.status_code in [200, 201]
+            return {
+                'success': success,
+                'status_code': response.status_code,
+                'full_phone': full_phone,
+                'response_body': response_text[:2000],
+                'error': '' if success else 'Evolution API rechazo el mensaje',
+                'detail': 'Evolution API acepto el mensaje.' if success else f'Evolution API respondio HTTP {response.status_code}. Respuesta: {response_text[:1000] or "sin cuerpo"}',
+            }
+        except requests.exceptions.Timeout:
+            return {'success': False, 'status_code': 408, 'full_phone': full_phone, 'error': 'Timeout al enviar WhatsApp', 'detail': 'La solicitud a Evolution API supero 30 segundos sin respuesta.'}
+        except requests.exceptions.RequestException as exc:
+            return {'success': False, 'status_code': 500, 'full_phone': full_phone, 'error': 'Error de red enviando WhatsApp', 'detail': f'{type(exc).__name__}: {exc}'}
+
     def send_whatsapp_group_notification(message, group_id):
         """
         Send WhatsApp notification to a group via Evolution API.
