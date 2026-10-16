@@ -64,15 +64,9 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:8000/health/ || exit 1
 
 # Comando por defecto para producción
-CMD ["gunicorn", \
-     "--bind", "0.0.0.0:8000", \
-     "--workers", "1", \
-     "--threads", "4", \
-     "--worker-class", "gthread", \
-     "--max-requests", "5000", \
-     "--max-requests-jitter", "500", \
-     "--timeout", "120", \
-     "--graceful-timeout", "60", \
-     "--access-logfile", "-", \
-     "--error-logfile", "-", \
-     "CuentasMexico.wsgi:application"]
+CMD ["sh", "-c", \
+     "python manage.py process_marketing_bulk_whatsapp --poll-seconds 5 & \
+      exec gunicorn --bind 0.0.0.0:8000 --workers 1 --threads 4 \
+      --worker-class gthread --max-requests 5000 --max-requests-jitter 500 \
+      --timeout 120 --graceful-timeout 60 --access-logfile - --error-logfile - \
+      CuentasMexico.wsgi:application"]

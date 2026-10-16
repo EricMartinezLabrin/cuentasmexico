@@ -112,6 +112,7 @@ CORS_ALLOWED_ORIGINS = list(set(globals().get('CORS_ALLOWED_ORIGINS', []) + [
     'http://127.0.0.1:8081',
     'http://localhost:19006',
     'http://127.0.0.1:19006',
+    'https://appshop.cuentasmexico.com'
 ]))
 if CORS_ALLOW_CREDENTIALS:
     CORS_ALLOW_ALL_ORIGINS = False
