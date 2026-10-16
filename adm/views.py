@@ -60,6 +60,7 @@ from .models import (
     Status, Supplier, Credits, Promocion, AccountChangeHistory,
     Affiliate, AffiliateCommission, AffiliateWithdrawal, AffiliateSettings, AffiliateSale, AISettings,
     MarketingCampaign, MarketingCampaignRecommendation, MarketingCampaignDelivery, MarketingCampaignRedemption,
+    MarketingBulkWhatsApp,
     MarketingUserTag, WikiSection
 )
 from cupon.models import Cupon, CouponRedemption, Shop
@@ -83,6 +84,7 @@ from .functions.forms import (
     WikiSectionForm,
 )
 from .functions.forms_marketing import MarketingCampaignForm
+from .functions.marketing_bulk import MAX_IMAGE_BYTES, create_bulk_job
 from .functions.permissions import UserAccessMixin
 from .functions.country import Country
 from .functions.active_inactive import Active_Inactive
@@ -6901,3 +6903,131 @@ def marketing_campaign_refresh_recommendations(request, pk):
             'rows': rows,
         }
     )
+
+
+@permission_required('is_superuser', 'adm:no-permission')
+def marketing_bulk_whatsapp_create(request):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método no permitido.'}, status=405)
+    try:
+        delay_min = int(request.POST.get('delay_min_minutes', '2'))
+        delay_max = int(request.POST.get('delay_max_minutes', '5'))
+    except (TypeError, ValueError):
+        return JsonResponse({'success': False, 'error': 'El intervalo debe ser numérico.'}, status=400)
+
+    image = request.FILES.get('image')
+    if image:
+        if image.content_type not in {'image/jpeg', 'image/png', 'image/webp'}:
+            return JsonResponse({'success': False, 'error': 'La imagen debe ser JPG, PNG o WebP.'}, status=400)
+        if Image is None:
+            return JsonResponse({'success': False, 'error': 'No está disponible la validación de imágenes.'}, status=500)
+        try:
+            image.file.seek(0)
+            with Image.open(image.file) as checked_image:
+                checked_image.verify()
+            image.file.seek(0)
+        except Exception:
+            return JsonResponse({'success': False, 'error': 'El archivo no es una imagen válida.'}, status=400)
+        if image.size > MAX_IMAGE_BYTES:
+            return JsonResponse({'success': False, 'error': 'La imagen no puede superar 10 MB.'}, status=400)
+
+    try:
+        job = create_bulk_job(
+            user=request.user,
+            raw_numbers=request.POST.get('phone_numbers', ''),
+            message=request.POST.get('message_text', ''),
+            image=image,
+            delay_min=delay_min,
+            delay_max=delay_max,
+        )
+    except ValueError as exc:
+        return JsonResponse({'success': False, 'error': str(exc)}, status=400)
+    except Exception as exc:
+        logger.exception('No se pudo crear el envío masivo de WhatsApp')
+        return JsonResponse({'success': False, 'error': _error_to_text(exc)}, status=500)
+
+    return JsonResponse({
+        'success': True,
+        'job_id': job.id,
+        'detail_url': reverse('adm:marketing_bulk_whatsapp_detail', kwargs={'pk': job.id}),
+        'status_url': reverse('adm:marketing_bulk_whatsapp_status', kwargs={'pk': job.id}),
+        'total_count': job.total_count,
+        'ignored_count': job.ignored_count,
+    })
+
+
+@permission_required('is_superuser', 'adm:no-permission')
+def marketing_bulk_whatsapp_list(request):
+    jobs = MarketingBulkWhatsApp.objects.select_related('created_by').order_by('-created_at')[:200]
+    return render(request, 'adm/marketing/bulk_whatsapp_list.html', {'jobs': jobs})
+
+
+def _marketing_bulk_status_payload(job):
+    pending_count = job.recipients.filter(status='pending').count()
+    now = timezone.now()
+    remaining_seconds = max(0, int((job.next_action_at - now).total_seconds())) if job.next_action_at and job.next_action_at > now else 0
+    return {
+        'success': True,
+        'job_id': job.id,
+        'status': job.status,
+        'status_label': job.get_status_display(),
+        'status_message': job.status_message,
+        'total_count': job.total_count,
+        'sent_count': job.sent_count,
+        'ignored_count': job.ignored_count,
+        'error_count': job.error_count,
+        'pending_count': pending_count,
+        'attempt_count': job.attempt_count,
+        'current_number': job.current_number,
+        'remaining_seconds': remaining_seconds,
+        'pause_until': job.pause_until.isoformat() if job.pause_until else None,
+        'started_at': job.started_at.isoformat() if job.started_at else None,
+        'finished_at': job.finished_at.isoformat() if job.finished_at else None,
+        'cancel_url': reverse('adm:marketing_bulk_whatsapp_cancel', kwargs={'pk': job.id}),
+        'details_url': reverse('adm:marketing_bulk_whatsapp_details', kwargs={'pk': job.id}),
+    }
+
+
+@permission_required('is_superuser', 'adm:no-permission')
+def marketing_bulk_whatsapp_detail(request, pk):
+    job = MarketingBulkWhatsApp.objects.get(pk=pk)
+    return render(request, 'adm/marketing/bulk_whatsapp_detail.html', {'job': job})
+
+
+@permission_required('is_superuser', 'adm:no-permission')
+def marketing_bulk_whatsapp_status(request, pk):
+    job = MarketingBulkWhatsApp.objects.get(pk=pk)
+    return JsonResponse(_marketing_bulk_status_payload(job))
+
+
+@permission_required('is_superuser', 'adm:no-permission')
+def marketing_bulk_whatsapp_details(request, pk):
+    job = MarketingBulkWhatsApp.objects.get(pk=pk)
+    status = request.GET.get('status', '').strip()
+    queryset = job.recipients.all()
+    if status in {'pending', 'sent', 'ignored', 'error'}:
+        queryset = queryset.filter(status=status)
+    items = list(queryset.order_by('id').values(
+        'id', 'original_value', 'normalized_number', 'status', 'reason',
+        'provider_response', 'attempted_at', 'sent_at',
+    )[:1000])
+    for item in items:
+        item['attempted_at'] = item['attempted_at'].isoformat() if item['attempted_at'] else None
+        item['sent_at'] = item['sent_at'].isoformat() if item['sent_at'] else None
+    return JsonResponse({'success': True, 'status': status, 'items': items})
+
+
+@permission_required('is_superuser', 'adm:no-permission')
+def marketing_bulk_whatsapp_cancel(request, pk):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método no permitido.'}, status=405)
+    job = MarketingBulkWhatsApp.objects.get(pk=pk)
+    if job.status in ('completed', 'cancelled', 'failed'):
+        return JsonResponse({'success': False, 'error': 'El proceso ya terminó.'}, status=400)
+    job.status = 'cancelled'
+    job.finished_at = timezone.now()
+    job.next_action_at = None
+    job.pause_until = None
+    job.status_message = 'Proceso cancelado por el usuario.'
+    job.save(update_fields=['status', 'finished_at', 'next_action_at', 'pause_until', 'status_message', 'updated_at'])
+    return JsonResponse({'success': True, 'message': 'Proceso cancelado.'})

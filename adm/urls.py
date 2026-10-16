@@ -250,6 +250,12 @@ urlpatterns = [
 
     # Marketing IA
     path('marketing/', login_required(views.marketing_campaigns), name='marketing_campaigns'),
+    path('marketing/bulk-whatsapp/', login_required(views.marketing_bulk_whatsapp_list), name='marketing_bulk_whatsapp_list'),
+    path('marketing/bulk-whatsapp/create/', login_required(views.marketing_bulk_whatsapp_create), name='marketing_bulk_whatsapp_create'),
+    path('marketing/bulk-whatsapp/<int:pk>/', login_required(views.marketing_bulk_whatsapp_detail), name='marketing_bulk_whatsapp_detail'),
+    path('marketing/bulk-whatsapp/<int:pk>/status/', login_required(views.marketing_bulk_whatsapp_status), name='marketing_bulk_whatsapp_status'),
+    path('marketing/bulk-whatsapp/<int:pk>/details/', login_required(views.marketing_bulk_whatsapp_details), name='marketing_bulk_whatsapp_details'),
+    path('marketing/bulk-whatsapp/<int:pk>/cancel/', login_required(views.marketing_bulk_whatsapp_cancel), name='marketing_bulk_whatsapp_cancel'),
     path('marketing/create/', login_required(views.marketing_campaign_create), name='marketing_campaign_create'),
     path('marketing/<int:pk>/delete/', login_required(views.marketing_campaign_delete), name='marketing_campaign_delete'),
     path('marketing/<int:pk>/', login_required(views.marketing_campaign_detail), name='marketing_campaign_detail'),

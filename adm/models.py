@@ -1304,6 +1304,85 @@ class MarketingCampaignDelivery(models.Model):
         return f"{self.campaign.name} -> {self.destination} ({self.status})"
 
 
+class MarketingBulkWhatsApp(models.Model):
+    STATUS_CHOICES = [
+        ('queued', 'En cola'),
+        ('running', 'Enviando'),
+        ('waiting', 'En espera'),
+        ('completed', 'Terminado'),
+        ('cancelled', 'Cancelado'),
+        ('failed', 'Fallido'),
+    ]
+
+    created_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='marketing_bulk_whatsapp_jobs',
+    )
+    message_text = models.TextField(blank=True, default='')
+    image = models.ImageField(upload_to='marketing/bulk-whatsapp/', blank=True, null=True)
+    delay_min_minutes = models.PositiveIntegerField(default=2)
+    delay_max_minutes = models.PositiveIntegerField(default=5)
+    batch_size = models.PositiveIntegerField(default=5)
+    batch_pause_min_minutes = models.PositiveIntegerField(default=10)
+    batch_pause_max_minutes = models.PositiveIntegerField(default=15)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='queued')
+    total_count = models.PositiveIntegerField(default=0)
+    sent_count = models.PositiveIntegerField(default=0)
+    ignored_count = models.PositiveIntegerField(default=0)
+    error_count = models.PositiveIntegerField(default=0)
+    attempt_count = models.PositiveIntegerField(default=0)
+    current_number = models.CharField(max_length=20, blank=True, default='')
+    status_message = models.CharField(max_length=255, blank=True, default='')
+    next_action_at = models.DateTimeField(null=True, blank=True)
+    pause_until = models.DateTimeField(null=True, blank=True)
+    started_at = models.DateTimeField(null=True, blank=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['status', 'next_action_at']),
+            models.Index(fields=['created_by', 'created_at']),
+        ]
+
+    def __str__(self):
+        return f'WhatsApp masivo #{self.pk} ({self.get_status_display()})'
+
+
+class MarketingBulkWhatsAppRecipient(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'Pendiente'),
+        ('sent', 'Enviado'),
+        ('ignored', 'Ignorado'),
+        ('error', 'Error'),
+    ]
+
+    job = models.ForeignKey(
+        MarketingBulkWhatsApp, on_delete=models.CASCADE, related_name='recipients',
+    )
+    original_value = models.CharField(max_length=120)
+    normalized_number = models.CharField(max_length=20, blank=True, default='')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    reason = models.TextField(blank=True, default='')
+    provider_response = models.TextField(blank=True, default='')
+    attempted_at = models.DateTimeField(null=True, blank=True)
+    sent_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['id']
+        indexes = [
+            models.Index(fields=['job', 'status', 'id']),
+            models.Index(fields=['job', 'normalized_number']),
+        ]
+
+    def __str__(self):
+        return f'{self.normalized_number or self.original_value} ({self.status})'
+
+
 class MarketingCampaignRedemption(models.Model):
     SOURCE_CHOICES = [
         ('adm', 'Venta /adm'),

@@ -150,6 +150,9 @@ staticfiles/
 !cupon/migrations/0005_cupon_image.py
 !adm/migrations/0015_userdetail_phone_number_unique.py
 !adm/migrations/0016_supporterrorimage.py
+!adm/migrations/0017_shoppaymentproof.py
+!adm/migrations/0018_business_receivable_whatsapp.py
+!adm/migrations/0019_marketingbulkwhatsapp.py
 !cupon/migrations/0007_shop_payment_bank.py
 
 # Dokploy
