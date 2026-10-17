@@ -49,7 +49,10 @@ class SettingsForm(forms.ModelForm):
             'flow_customer_key': 'Flow Customer Key',
             'flow_secret_key': 'Flow Secret Key',
             'flow_show': 'Mostrar Boton de Flow',
-            'logo': 'Logo'
+            'logo': 'Logo',
+            'app_version': 'Versión publicada de la app móvil',
+            'app_update_url': 'URL de descarga o Google Play',
+            'app_release_notes': 'Notas de la versión',
         }
 
 

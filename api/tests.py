@@ -30,6 +30,23 @@ class AppVersionAPITestCase(TestCase):
 
         self.assertEqual(response.status_code, 405)
 
+    def test_uses_business_values_when_configured(self):
+        Business.objects.create(
+            name='Cuentas Mexico',
+            app_version='2.0.1',
+            app_update_url='https://example.com/app-2.0.1.apk',
+            app_release_notes='Correcciones y mejoras',
+        )
+
+        response = self.client.get(reverse('api:app_version'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {
+            'version': '2.0.1',
+            'update_url': 'https://example.com/app-2.0.1.apk',
+            'release_notes': 'Correcciones y mejoras',
+        })
+
 
 class WikiSectionsAPITestCase(TestCase):
     def setUp(self):

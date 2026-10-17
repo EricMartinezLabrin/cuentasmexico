@@ -15,6 +15,7 @@
       "get": {
         "summary": "Version pública de la app móvil",
         "description": "Endpoint público. La app debe comparar version con su versión instalada y continuar normalmente si la consulta falla.",
+        "x-admin-config": "Los valores se editan desde Ajustes del administrador. Si no se configuran allí, se usan APP_VERSION, APP_UPDATE_URL y APP_RELEASE_NOTES.",
         "responses": {
           "200": {
             "description": "Metadatos de distribución de la app",

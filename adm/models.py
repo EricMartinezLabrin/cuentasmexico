@@ -35,6 +35,14 @@ class Business(models.Model):
     free_days = models.IntegerField(default=7)
     receivable_pending_whatsapp_enabled = models.BooleanField(default=True)
     receivable_pending_whatsapp_last_sent_at = models.DateTimeField(null=True, blank=True)
+    app_version = models.CharField(
+        max_length=20,
+        blank=True,
+        default='',
+        validators=[RegexValidator(regex=r'^\d+\.\d+\.\d+$', message='Usa el formato MAJOR.MINOR.PATCH.')],
+    )
+    app_update_url = models.URLField(max_length=500, blank=True, default='')
+    app_release_notes = models.TextField(blank=True, default='')
 
     def __str__(self):
         return self.name
