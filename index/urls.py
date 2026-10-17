@@ -15,6 +15,7 @@ urlpatterns = [
     path('no-permission', views.NoPermissionView.as_view(), name='no-permission'),
     path('detail/<int:pk>', views.ServiceDetailView.as_view(), name='service_detail'),
     path('cart', views.CartView.as_view(), name='cart'),
+    path('api/shop-recommendations/', views.shop_recommendations, name='shop_recommendations'),
     path('shop', views.ShopListView.as_view(), name='shop'),
     path('redeem', views.RedeemView.as_view(), name='redeem'),
     path('redeem/', views.RedeemView.as_view()),

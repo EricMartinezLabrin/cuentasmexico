@@ -10,14 +10,32 @@
         </div>
     </div>
 
-    <form method="get" class="row g-2 mb-4">
+    <form method="get" class="row g-2 mb-4" id="shop-search-form">
         <div class="col-md-6">
-            <input type="search" name="q" value="{{ q }}" class="form-control" placeholder="Buscar por tienda, dueno o email">
+            <input type="search" name="q" value="{{ q }}" class="form-control" id="shop-search" placeholder="Buscar por tienda, dueño, email o WhatsApp">
         </div>
         <div class="col-auto">
             <button class="btn btn-primary" type="submit">Buscar</button>
         </div>
+        <div class="col-auto">
+            <button class="btn btn-outline-secondary" type="button" id="paste-shop-phone">
+                <i class="bi bi-clipboard me-1"></i>Pegar
+            </button>
+        </div>
     </form>
+
+    <div class="d-flex justify-content-end align-items-center gap-2 mb-3">
+        <label for="shop-sort" class="mb-0">Ordenar</label>
+        <select id="shop-sort" class="form-select form-select-sm" style="width: auto;" aria-label="Ordenar tiendas">
+            <option value="default" {% if sort == 'default' %}selected{% endif %}>Predeterminado</option>
+            <option value="name" {% if sort == 'name' %}selected{% endif %}>Nombre de tienda (A-Z)</option>
+            <option value="city" {% if sort == 'city' %}selected{% endif %}>Ciudad (A-Z)</option>
+            <option value="available_desc" {% if sort == 'available_desc' %}selected{% endif %}>Saldo disponible (mayor primero)</option>
+            <option value="available_asc" {% if sort == 'available_asc' %}selected{% endif %}>Saldo disponible (menor primero)</option>
+            <option value="debt_desc" {% if sort == 'debt_desc' %}selected{% endif %}>Mayor deuda primero</option>
+            <option value="balance_desc" {% if sort == 'balance_desc' %}selected{% endif %}>Saldo contable (mayor primero)</option>
+        </select>
+    </div>
 
     {% if pending_shops %}
         <h2 class="h5">Solicitudes pendientes</h2>
@@ -28,7 +46,7 @@
                         <th>Tienda</th>
                         <th>Dueno</th>
                         <th>Ciudad</th>
-                        <th>Contacto</th>
+                        <th>WhatsApp</th>
                         <th></th>
                     </tr>
                 </thead>
@@ -38,7 +56,7 @@
                             <td>{{ shop.name }}</td>
                             <td>{{ shop.owner }}</td>
                             <td>{{ shop.city }}</td>
-                            <td>{{ shop.phone }}{% if shop.email %}<br>{{ shop.email }}{% endif %}</td>
+                            <td>{{ shop.normalized_phone }}{% if shop.email %}<br>{{ shop.email }}{% endif %}</td>
                             <td class="text-end">
                                 <a class="btn btn-sm btn-outline-primary" href="{% url 'adm:shop_detail' shop.id %}">Ver</a>
                             </td>
@@ -50,12 +68,13 @@
     {% endif %}
 
     <div class="table-responsive">
-        <table class="table table-hover align-middle">
+        <table class="table table-hover align-middle" id="active-shops-table">
             <thead>
                 <tr>
                     <th>Tienda</th>
                     <th>Dueno</th>
                     <th>Ciudad</th>
+                    <th>WhatsApp</th>
                     <th>Saldo</th>
                     <th>Limite</th>
                     <th>Estado</th>
@@ -64,10 +83,17 @@
             </thead>
             <tbody>
                 {% for row in shop_rows %}
-                    <tr>
+                    <tr
+                        data-sort-name="{{ row.shop.name|lower }}"
+                        data-sort-city="{{ row.shop.city|lower }}"
+                        data-sort-available="{{ row.available }}"
+                        data-sort-debt="{{ row.debt }}"
+                        data-sort-balance="{{ row.balance }}"
+                    >
                         <td>{{ row.shop.name }}</td>
                         <td>{{ row.shop.owner }}</td>
                         <td>{{ row.shop.city }}</td>
+                        <td>{{ row.normalized_phone }}</td>
                         <td>${{ row.balance }}</td>
                         <td>${{ row.shop.credit_limit }}</td>
                         <td>
@@ -82,10 +108,149 @@
                         </td>
                     </tr>
                 {% empty %}
-                    <tr><td colspan="7" class="text-muted">No hay tiendas registradas.</td></tr>
+                    <tr><td colspan="8" class="text-muted">No hay tiendas activas.</td></tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
+
+    {% if is_paginated %}
+        <nav aria-label="Paginación de tiendas">
+            <ul class="pagination justify-content-center">
+                {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page=1&amp;sort={{ sort }}{% if q %}&amp;q={{ q|urlencode }}{% endif %}">Primera</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}&amp;sort={{ sort }}{% if q %}&amp;q={{ q|urlencode }}{% endif %}">Anterior</a>
+                    </li>
+                {% else %}
+                    <li class="page-item disabled"><span class="page-link">Primera</span></li>
+                    <li class="page-item disabled"><span class="page-link">Anterior</span></li>
+                {% endif %}
+
+                {% for number in paginator.page_range %}
+                    {% if page_obj.number == number %}
+                        <li class="page-item active" aria-current="page"><span class="page-link">{{ number }}</span></li>
+                    {% else %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ number }}&amp;sort={{ sort }}{% if q %}&amp;q={{ q|urlencode }}{% endif %}">{{ number }}</a>
+                        </li>
+                    {% endif %}
+                {% endfor %}
+
+                {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}&amp;sort={{ sort }}{% if q %}&amp;q={{ q|urlencode }}{% endif %}">Siguiente</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ paginator.num_pages }}&amp;sort={{ sort }}{% if q %}&amp;q={{ q|urlencode }}{% endif %}">Última</a>
+                    </li>
+                {% else %}
+                    <li class="page-item disabled"><span class="page-link">Siguiente</span></li>
+                    <li class="page-item disabled"><span class="page-link">Última</span></li>
+                {% endif %}
+            </ul>
+        </nav>
+        <p class="text-center text-muted small">
+            Página {{ page_obj.number }} de {{ paginator.num_pages }}
+        </p>
+    {% endif %}
+
+    {% if suspended_shops %}
+        <details class="mt-4 mb-4">
+            <summary class="h5" style="cursor: pointer;">Suspendidas ({{ suspended_shops|length }})</summary>
+            <div class="table-responsive mt-3">
+                <table class="table table-sm table-hover align-middle">
+                    <thead>
+                        <tr>
+                            <th>Tienda</th>
+                            <th>Dueño</th>
+                            <th>Ciudad</th>
+                            <th>WhatsApp</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for shop in suspended_shops %}
+                            <tr>
+                                <td>{{ shop.name }}</td>
+                                <td>{{ shop.owner }}</td>
+                                <td>{{ shop.city }}</td>
+                                <td>{{ shop.normalized_phone }}{% if shop.email %}<br>{{ shop.email }}{% endif %}</td>
+                                <td class="text-end">
+                                    <a class="btn btn-sm btn-outline-primary" href="{% url 'adm:shop_detail' shop.id %}">Ver</a>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </details>
+    {% endif %}
 </div>
 {% endblock body %}
+
+{% block extrajs %}
+<script>
+    (function () {
+        const button = document.getElementById('paste-shop-phone');
+        const input = document.getElementById('shop-search');
+        const form = document.getElementById('shop-search-form');
+
+        if (!button || !input || !form) return;
+
+        input.addEventListener('input', function () {
+            if (!input.value.trim() && new URLSearchParams(window.location.search).has('q')) {
+                form.submit();
+            }
+        });
+
+        const sortSelect = document.getElementById('shop-sort');
+        const shopTableBody = document.querySelector('#active-shops-table tbody');
+        if (sortSelect && shopTableBody) {
+            const originalRows = Array.from(shopTableBody.querySelectorAll('tr[data-sort-name]'));
+
+            sortSelect.addEventListener('change', function () {
+                const rows = Array.from(shopTableBody.querySelectorAll('tr[data-sort-name]'));
+                const sort = sortSelect.value;
+                const textCompare = (left, right) => left.localeCompare(right, 'es', { sensitivity: 'base' });
+
+                if (sort === 'default') {
+                    originalRows.forEach(function (row) {
+                        shopTableBody.appendChild(row);
+                    });
+                    return;
+                }
+
+                rows.sort(function (left, right) {
+                    if (sort === 'name' || sort === 'city') {
+                        return textCompare(left.dataset['sort' + sort.charAt(0).toUpperCase() + sort.slice(1)], right.dataset['sort' + sort.charAt(0).toUpperCase() + sort.slice(1)]);
+                    }
+
+                    const numericKey = sort.startsWith('available') ? 'available' : sort.startsWith('debt') ? 'debt' : 'balance';
+                    const datasetKey = 'sort' + numericKey.charAt(0).toUpperCase() + numericKey.slice(1);
+                    const leftValue = Number(left.dataset[datasetKey]);
+                    const rightValue = Number(right.dataset[datasetKey]);
+                    return sort.endsWith('_desc') ? rightValue - leftValue : leftValue - rightValue;
+                });
+
+                rows.forEach(function (row) {
+                    shopTableBody.appendChild(row);
+                });
+            });
+        }
+
+        button.addEventListener('click', async function () {
+            try {
+                const clipboardText = await navigator.clipboard.readText();
+                const digits = clipboardText.replace(/\D/g, '');
+                input.value = digits.length >= 10 ? digits.slice(-10) : digits;
+                form.submit();
+            } catch (error) {
+                input.focus();
+            }
+        });
+    })();
+</script>
+{% endblock extrajs %}
