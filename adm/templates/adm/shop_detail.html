@@ -32,14 +32,49 @@
 
     <div class="row g-4 mb-4">
         <div class="col-lg-6">
-            <h2 class="h5">Perfil</h2>
-            <table class="table table-sm">
-                <tr><th>Telefono</th><td>{{ object.phone }}</td></tr>
-                <tr><th>Email</th><td>{{ object.email|default:"" }}</td></tr>
-                <tr><th>Giro</th><td>{{ object.giro }}</td></tr>
-                <tr><th>Direccion</th><td>{{ object.address }} {{ object.cp|default:"" }}</td></tr>
-                <tr><th>Usuario dueno</th><td>{{ object.creator_user|default:"Sin usuario" }}</td></tr>
-            </table>
+            <h2 class="h5">Editar datos de la tienda</h2>
+            <form method="post" action="{% url 'adm:shop_update' object.id %}">
+                {% csrf_token %}
+                <input type="hidden" name="credit_limit" value="{{ object.credit_limit }}">
+                {% if profile_form.non_field_errors %}
+                    <div class="alert alert-danger">{{ profile_form.non_field_errors }}</div>
+                {% endif %}
+                <div class="row g-2">
+                    <div class="col-md-6">
+                        <label class="form-label" for="id_name">Nombre</label>
+                        {{ profile_form.name }}
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" for="id_owner">Dueño</label>
+                        {{ profile_form.owner }}
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" for="id_phone">Teléfono / WhatsApp</label>
+                        {{ profile_form.phone }}
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" for="id_email">Email</label>
+                        {{ profile_form.email }}
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" for="id_giro">Giro</label>
+                        {{ profile_form.giro }}
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" for="id_city">Ciudad</label>
+                        {{ profile_form.city }}
+                    </div>
+                    <div class="col-md-8">
+                        <label class="form-label" for="id_address">Dirección</label>
+                        {{ profile_form.address }}
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label" for="id_cp">Código postal</label>
+                        {{ profile_form.cp }}
+                    </div>
+                </div>
+                <button class="btn btn-primary mt-3" type="submit">Guardar datos</button>
+            </form>
         </div>
         <div class="col-lg-6">
             <h2 class="h5">Actualizar limite</h2>

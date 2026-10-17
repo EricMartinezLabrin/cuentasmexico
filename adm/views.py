@@ -3444,12 +3444,31 @@ class ShopDetailView(UserAccessMixin, DetailView):
         )
         context['eligible_payment_banks'] = _eligible_shop_payment_banks()
         context['balance'] = balance
+        context['profile_form'] = ShopForm(instance=shop)
         context['subusers'] = UserDetail.objects.filter(associated_shop=shop).select_related('user').order_by('-is_shop_owner', 'user__username')
         context['credits'] = Credits.objects.filter(shop=shop).select_related('customer').order_by('-date')[:100]
         context['sales'] = _shop_store_sales_queryset(shop).select_related(
             'customer', 'customer__userdetail', 'account', 'account__account_name'
         ).order_by('-created_at')[:100]
         return context
+
+
+@permission_required('is_staff', 'adm:no-permission')
+def ShopUpdateView(request, pk):
+    shop = Shop.objects.get(pk=pk)
+    if request.method != 'POST':
+        return redirect(reverse('adm:shop_detail', args=[shop.id]))
+
+    form = ShopForm(request.POST, instance=shop)
+    if form.is_valid():
+        form.save()
+        messages.success(request, 'Datos de la tienda actualizados.')
+        return redirect(reverse('adm:shop_detail', args=[shop.id]))
+
+    messages.error(request, 'Revisa los datos de la tienda: ' + ' '.join(
+        error for errors in form.errors.values() for error in errors
+    ))
+    return redirect(reverse('adm:shop_detail', args=[shop.id]))
 
 
 @permission_required('is_staff', 'adm:no-permission')

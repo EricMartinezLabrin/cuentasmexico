@@ -40,6 +40,7 @@ urlpatterns = [
     path('shops/billing/', login_required(views.ShopBillingView.as_view()), name='shop_billing'),
     path('shops/billing/export/excel/', login_required(views.ShopBillingExportExcelView), name='shop_billing_export_excel'),
     path('shops/billing/export/pdf/', login_required(views.ShopBillingExportPDFView), name='shop_billing_export_pdf'),
+    path('shops/<int:pk>/update/', login_required(views.ShopUpdateView), name='shop_update'),
     path('shops/<int:pk>/', login_required(views.ShopDetailView.as_view()), name='shop_detail'),
     path('shops/approve/<int:pk>/', login_required(views.ShopApproveView), name='shop_approve'),
     path('shops/disable/<int:pk>/', login_required(views.ShopDisableView), name='shop_disable'),
