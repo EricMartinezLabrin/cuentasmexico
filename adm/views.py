@@ -3498,9 +3498,30 @@ def ShopApproveView(request, pk):
 @permission_required('is_staff', 'adm:no-permission')
 def ShopDisableView(request, pk):
     shop = Shop.objects.get(pk=pk)
+    was_active = shop.status
     shop.status = False
     shop.save(update_fields=['status'])
-    messages.success(request, 'Tienda deshabilitada.')
+    if was_active:
+        deactivation_message = (
+            f'Hola, {shop.owner or "socio"}. Te informamos que tu tienda fue desactivada de Cuentas México. '
+            'Por este motivo, ya no podrás vender Netflix, Disney+, ViX, Max ni los demás servicios de Cuentas México. '
+            'Si deseas volver a vender nuestros servicios, solo responde a este mensaje y te ayudaremos a reactivarla. '
+            'Gracias.'
+        )
+        try:
+            result = Notification.send_whatsapp_notification_details(deactivation_message, 52, shop.phone)
+            if result.get('success'):
+                messages.success(request, 'Tienda deshabilitada y aviso enviado por WhatsApp.')
+            else:
+                messages.warning(
+                    request,
+                    f'Tienda deshabilitada, pero no se pudo enviar WhatsApp: {result.get("detail", "Error desconocido")}',
+                )
+        except Exception as exc:
+            logger.exception('No se pudo enviar aviso de desactivación de tienda shop_id=%s', shop.id)
+            messages.warning(request, f'Tienda deshabilitada, pero falló el aviso por WhatsApp: {exc}')
+    else:
+        messages.success(request, 'Tienda ya estaba deshabilitada.')
     return redirect(reverse('adm:shop_detail', args=[shop.id]))
 
 
