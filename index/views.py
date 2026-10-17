@@ -1,4 +1,5 @@
 # Django
+import random
 from django.shortcuts import render
 from django.http import HttpResponse, JsonResponse
 from django.contrib.auth.views import LoginView, LogoutView, PasswordResetView, PasswordResetDoneView, PasswordResetConfirmView, PasswordResetCompleteView
@@ -28,7 +29,7 @@ import stripe
 # Configuracion de metodos de pago habilitados
 # Para habilitar MercadoPago, cambiar a True
 MERCADOPAGO_ENABLED = False
-PAYPAL_ENABLED = True
+PAYPAL_ENABLED = False
 STRIPE_ENABLED = False
 
 # local
@@ -352,14 +353,81 @@ class ShopListView(ListView):
         return context
 
     def get_queryset(self):
-        if self.request.GET.get('city') is not None:
-            city = self.request.GET.get('city')
-            try:
-                return Shop.objects.filter(city=city).exclude(status=False)
-            except Shop.DoesNotExist:
-                return None
-        else:
-            return super().get_queryset().exclude(status=False)
+        shops = Shop.objects.filter(status=True, confirmation=True)
+        city = (self.request.GET.get('city') or '').strip()
+        cp = ''.join(character for character in str(self.request.GET.get('cp') or '') if character.isdigit())
+        if city:
+            shops = shops.filter(city=city)
+        if len(cp) == 5:
+            cp_value = int(cp)
+            exact_cp_shops = shops.filter(cp=cp_value)
+            shops = exact_cp_shops if exact_cp_shops.exists() else shops.filter(
+                cp__gte=cp_value - 100,
+                cp__lte=cp_value + 100,
+            )
+        return _order_shops_for_display(shops)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['shop_filter_cp'] = ''.join(character for character in str(self.request.GET.get('cp') or '') if character.isdigit())
+        return context
+
+
+def _shop_sales_count(shop):
+    shop_user_ids = UserDetail.objects.filter(associated_shop=shop).values_list('user_id', flat=True)
+    return Sale.objects.filter(user_seller_id__in=shop_user_ids).count()
+
+
+def _order_shops_for_display(shops):
+    shops = list(shops)
+    if len(shops) < 2:
+        return shops
+
+    sales_by_id = {shop.id: _shop_sales_count(shop) for shop in shops}
+    newest = max(shops, key=lambda shop: shop.id)
+    remaining = [shop for shop in shops if shop.id != newest.id]
+    best_seller = max(remaining, key=lambda shop: (sales_by_id[shop.id], shop.id))
+    remaining = [shop for shop in remaining if shop.id != best_seller.id]
+
+    ordered = [newest, best_seller]
+    if remaining:
+        random_shop = random.choice(remaining)
+        ordered.append(random_shop)
+        remaining = [shop for shop in remaining if shop.id != random_shop.id]
+
+    return ordered + sorted(remaining, key=lambda shop: -shop.id)
+
+
+@require_http_methods(['GET'])
+def shop_recommendations(request):
+    raw_cp = ''.join(character for character in str(request.GET.get('cp') or '') if character.isdigit())
+    if len(raw_cp) != 5:
+        return JsonResponse({'shops': [], 'detail': 'Ingresa un código postal de 5 dígitos.'}, status=400)
+
+    customer_cp = int(raw_cp)
+    shops = []
+    for shop in Shop.objects.filter(status=True, confirmation=True).exclude(cp__isnull=True):
+        distance = abs(int(shop.cp) - customer_cp)
+        if distance <= 100:
+            shops.append({
+                'id': shop.id,
+                'name': shop.name,
+                'owner': shop.owner,
+                'address': shop.address,
+                'city': shop.city,
+                'cp': shop.cp,
+                'phone': shop.phone,
+                'distance': distance,
+            })
+
+    shop_ids = [shop['id'] for shop in shops]
+    ordered_shops = _order_shops_for_display(Shop.objects.filter(id__in=shop_ids))
+    shops_by_id = {shop['id']: shop for shop in shops}
+    ordered_shop_data = [shops_by_id[shop.id] for shop in ordered_shops]
+    return JsonResponse({
+        'shops': ordered_shop_data[:3],
+        'total': len(ordered_shop_data),
+    })
 
 
 class RedeemView(FormView):

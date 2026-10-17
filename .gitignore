@@ -153,6 +153,7 @@ staticfiles/
 !adm/migrations/0017_shoppaymentproof.py
 !adm/migrations/0018_business_receivable_whatsapp.py
 !adm/migrations/0019_marketingbulkwhatsapp.py
+!adm/migrations/0020_marketingbulk_utf8mb4.py
 !adm/migrations/0021_business_app_release.py
 !cupon/migrations/0007_shop_payment_bank.py
 

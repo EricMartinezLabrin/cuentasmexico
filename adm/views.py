@@ -39,6 +39,11 @@ import pyperclip as clipboard
 
 
 logger = logging.getLogger(__name__)
+
+
+def _normalize_shop_phone(phone):
+    digits = ''.join(character for character in str(phone or '') if character.isdigit())
+    return digits[-10:] if len(digits) >= 10 else digits
 from adm.functions.send_whatsapp_notification import Notification
 from adm.functions.receivable_bulk_jobs import (
     ALL_JOBS,
@@ -3217,12 +3222,13 @@ def _shop_billing_rows(request):
     for shop in shops:
         sales_qs = _shop_sales_queryset(shop, date_from=date_from, date_to=date_to)
         sales_summary = sales_qs.aggregate(total=Sum('payment_amount'), count=Count('id'))
+        has_sales = _shop_store_sales_queryset(shop).exists()
         balance = _shop_balance(shop)
         days_negative = None
         is_overdue = False
         if shop.last_negative_balance_since:
             days_negative = (now - shop.last_negative_balance_since).days
-            is_overdue = balance < 0 and days_negative >= 7
+            is_overdue = has_sales and balance < 0 and days_negative >= 7
         debt_status = 'al_dia'
         if is_overdue:
             debt_status = 'atrasado'
@@ -3260,25 +3266,69 @@ class ShopListView(UserAccessMixin, ListView):
     paginate_by = 25
     ordering = ['-id']
 
-    def get_queryset(self):
+    def _filtered_queryset(self):
         qs = Shop.objects.select_related('creator_user').order_by('-id')
         q = (self.request.GET.get('q') or '').strip()
         if q:
-            qs = qs.filter(Q(name__icontains=q) | Q(owner__icontains=q) | Q(email__icontains=q))
+            search_filters = Q(name__icontains=q) | Q(owner__icontains=q) | Q(email__icontains=q)
+            normalized_q = _normalize_shop_phone(q)
+            if len(normalized_q) == 10:
+                search_filters |= Q(phone__icontains=normalized_q)
+            qs = qs.filter(search_filters)
         return qs
+
+    def get_queryset(self):
+        shops = list(self._filtered_queryset().filter(status=True, confirmation=True))
+        sort = (self.request.GET.get('sort') or 'default').strip()
+
+        for shop in shops:
+            shop._shop_list_balance = _shop_balance(shop)
+            shop._shop_list_available = shop.credit_limit + shop._shop_list_balance
+
+        sort_keys = {
+            'default': lambda shop: -shop.id,
+            'name': lambda shop: (str(shop.name or '').casefold(), shop.id),
+            'city': lambda shop: (str(shop.city or '').casefold(), str(shop.name or '').casefold(), shop.id),
+            'available_desc': lambda shop: (-shop._shop_list_available, str(shop.name or '').casefold(), shop.id),
+            'available_asc': lambda shop: (shop._shop_list_available, str(shop.name or '').casefold(), shop.id),
+            'debt_desc': lambda shop: (
+                -(abs(shop._shop_list_balance) if shop._shop_list_balance < 0 else 0),
+                str(shop.name or '').casefold(),
+                shop.id,
+            ),
+            'balance_desc': lambda shop: (-shop._shop_list_balance, str(shop.name or '').casefold(), shop.id),
+        }
+        shops.sort(key=sort_keys.get(sort, sort_keys['name']))
+        return shops
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['pending_shops'] = self.get_queryset().filter(Q(status=False) | Q(confirmation=False)).distinct()
+        all_shops = self._filtered_queryset()
+        context['pending_shops'] = all_shops.filter(confirmation=False).distinct()
+        context['suspended_shops'] = all_shops.filter(status=False, confirmation=True).distinct()
+        for shop in context['pending_shops']:
+            shop.normalized_phone = _normalize_shop_phone(shop.phone)
+        for shop in context['suspended_shops']:
+            shop.normalized_phone = _normalize_shop_phone(shop.phone)
         balances = {}
         shop_rows = []
         for shop in context['object_list']:
-            balances[shop.id] = _shop_balance(shop)
+            balance = getattr(shop, '_shop_list_balance', None)
+            if balance is None:
+                balance = _shop_balance(shop)
+            balances[shop.id] = balance
             _update_shop_negative_since(shop, balances[shop.id])
-            shop_rows.append({'shop': shop, 'balance': balances[shop.id]})
+            shop_rows.append({
+                'shop': shop,
+                'balance': balances[shop.id],
+                'available': shop.credit_limit + balances[shop.id],
+                'debt': abs(balances[shop.id]) if balances[shop.id] < 0 else 0,
+                'normalized_phone': _normalize_shop_phone(shop.phone),
+            })
         context['balances'] = balances
         context['shop_rows'] = shop_rows
         context['q'] = self.request.GET.get('q', '')
+        context['sort'] = self.request.GET.get('sort', 'default')
         return context
 
 

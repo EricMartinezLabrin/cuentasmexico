@@ -5,7 +5,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('adm', '0019_marketingbulkwhatsapp'),
+        ('adm', '0020_marketingbulk_utf8mb4'),
     ]
 
     operations = [

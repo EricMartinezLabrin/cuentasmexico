@@ -368,3 +368,29 @@ html {
     font-size: 1.25rem;
   }
 }
+/* Shop cards: equal height and consistent content alignment. */
+.shop-grid > .col {
+  display: flex;
+}
+
+.shop-card {
+  width: 100%;
+  height: 390px;
+}
+
+.shop-card > div:first-child {
+  height: 180px;
+  min-height: 180px;
+  max-height: 180px;
+  aspect-ratio: auto;
+}
+
+.shop-card > div:nth-child(2) {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+
+.shop-card > div:nth-child(2) > div:nth-last-child(1) {
+  margin-top: auto;
+}

@@ -47,21 +47,27 @@
             <div class="col-6">
                 <div class="mb-3">
                     <!-- text -->
-                    <h6>Existen <span class="cm">{{object_list.count}}</span> tiendas distribuyendo nuestros productos</h6>
+                    <h6>Existen <span class="cm">{{ object_list|length }}</span> tiendas distribuyendo nuestros productos</h6>
                     
                 </div>
             </div>
             <form method="get" class="search align-right">
                 <div class="search align-right">
                     <div class="input-group mb-3 ">
-                            <input type="text" class="form-control" name="city" placeholder="Selecciona tu ciudad" aria-label="Selecciona tu ciudad" aria-describedby="button-addon2">
+                            <input type="text" class="form-control" name="city" value="{{ request.GET.city }}" placeholder="Selecciona tu ciudad" aria-label="Selecciona tu ciudad">
+                            <input type="text" class="form-control" name="cp" value="{{ shop_filter_cp }}" maxlength="5" inputmode="numeric" placeholder="Código postal" aria-label="Código postal">
                             <button class="btn bg-white border" type="submit" id=""><i class="bi bi-search"></i></button>
                     </div>                
                 </div>
             </form>
+            {% if shop_filter_cp %}
+                <div class="col-12 mb-3">
+                    <a href="{% url 'shop' %}" class="btn btn-sm btn-outline-secondary">Quitar filtro de código postal y ver todas las tiendas activas</a>
+                </div>
+            {% endif %}
         </div>
-        <div class="row row-cols-lg-4 row-cols-md-3 g-4 g-lg-4">
-            {% if object_list.count == 0 %}
+        <div class="row row-cols-lg-4 row-cols-md-3 g-4 g-lg-4 shop-grid">
+            {% if object_list|length == 0 %}
                 <div class="alert alert-danger m-3" role="alert">
                     No hay tiendas disponibles en tu ciudad.
                 </div>
@@ -69,9 +75,9 @@
             <!-- col -->
             {% for shop in object_list %}
                 {% if shop.address %}
-                    <div class="col">
+                    <div class="col d-flex">
                     <!-- card -->
-                    <div class="card p-3 card-product">
+                    <div class="card p-3 card-product shop-card">
                             <div> 
                             <!-- img -->
                             {% if shop.image %}
@@ -99,7 +105,7 @@
                                 <div>
                                     <!-- badge --> 
                                     <div class="badge text-bg-success border">Acepta pagos en efectivo</div>
-                                    <div class="badge text-bg-light border">Entrega Inmediata (codigo de canje)</div>
+                                    <div class="badge text-bg-light border">Entrega Inmediata.</div>
                                 </div>
                             </div>
                         </div>

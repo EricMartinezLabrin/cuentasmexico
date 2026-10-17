@@ -230,11 +230,46 @@
                         </div>
                         {% endif %}
 
-                        {% if not paypal_enabled and not mercadopago_enabled and not stripe_enabled %}
-                        <button class="btn btn-secondary btn-lg w-100" disabled>
-                           No hay metodos de pago disponibles
-                        </button>
-                        {% endif %}
+                        <div class="payment-options mt-3">
+                            <h6 class="mb-3">Selecciona tu metodo de pago:</h6>
+
+                            <div class="card mb-3 border-primary">
+                                <div class="card-body">
+                                    <h6 class="card-title"><i class="bi bi-bank me-2"></i>Transferencia bancaria</h6>
+                                    <p class="mb-1">CLABE: <strong>058813708666400158</strong></p>
+                                    <p class="mb-1">Banco: <strong>Banregio</strong></p>
+                                    <p class="mb-3">Titular: <strong>Cuentas Mexico</strong></p>
+                                    <p class="small text-muted mb-2">Despues de pagar, envia foto del comprobante por WhatsApp para terminar tu compra.</p>
+                                    <a class="btn btn-success" target="_blank" rel="noopener" href="https://wa.me/5218335355863?text=Hola%2C%20envio%20comprobante%20de%20transferencia%20de%20mi%20compra.">
+                                        <i class="bi bi-whatsapp me-1"></i>Enviar comprobante
+                                    </a>
+                                </div>
+                            </div>
+
+                            <div class="card mb-3 border-success">
+                                <div class="card-body">
+                                    <h6 class="card-title"><i class="bi bi-cash-coin me-2"></i>Efectivo / OXXO</h6>
+                                    <p class="mb-1">Cuenta para pagar en OXXO: <strong>4741743532205482</strong></p>
+                                    <p class="mb-1">Banco: <strong>Banregio</strong></p>
+                                    <p class="mb-3">Titular: <strong>Cuentas Mexico</strong></p>
+                                    <p class="small text-muted mb-2">Tambien puedes pagar en efectivo en una tienda cercana. Despues envia foto del comprobante por WhatsApp.</p>
+                                    <a class="btn btn-success" target="_blank" rel="noopener" href="https://wa.me/5218335355863?text=Hola%2C%20envio%20comprobante%20de%20pago%20en%20efectivo%20u%20OXXO%20de%20mi%20compra.">
+                                        <i class="bi bi-whatsapp me-1"></i>Enviar comprobante
+                                    </a>
+
+                                    <div class="border-top mt-3 pt-3">
+                                        <h6 class="mb-1">Paga en efectivo en un comercio asociado</h6>
+                                        <p class="small text-muted mb-2">Puedes pagar en cualquiera de nuestros comercios asociados cercanos a tu domicilio. Ingresa tu código postal y te mostraremos opciones próximas.</p>
+                                        <label for="shop-recommendation-cp" class="form-label">Busca un comercio por código postal</label>
+                                        <div class="input-group">
+                                            <input type="text" inputmode="numeric" maxlength="5" class="form-control" id="shop-recommendation-cp" placeholder="Código postal">
+                                            <button type="button" class="btn btn-outline-primary" id="find-shop-recommendation">Buscar comercios</button>
+                                        </div>
+                                        <div id="shop-recommendation-results" class="mt-3"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
 
                         {% if paypal_enabled and not paypal_data and not mercadopago_enabled and stripe_enabled and not stripe_data %}
                         <button class="btn btn-secondary btn-lg w-100" disabled>
@@ -459,6 +494,51 @@
         });
     });
     {% endif %}
+
+    const shopRecommendationButton = document.getElementById('find-shop-recommendation');
+    const shopRecommendationCp = document.getElementById('shop-recommendation-cp');
+    const shopRecommendationResults = document.getElementById('shop-recommendation-results');
+
+    if (shopRecommendationButton && shopRecommendationCp && shopRecommendationResults) {
+        const escapeShopText = function (value) {
+            return String(value || '').replace(/[&<>"']/g, function (character) {
+                return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'}[character];
+            });
+        };
+
+        shopRecommendationButton.addEventListener('click', function () {
+            const cp = shopRecommendationCp.value.replace(/\D/g, '');
+            if (cp.length !== 5) {
+                shopRecommendationResults.innerHTML = '<div class="alert alert-warning mb-0">Ingresa un codigo postal de 5 digitos.</div>';
+                return;
+            }
+
+            shopRecommendationResults.innerHTML = '<div class="text-muted small">Buscando tienda cercana...</div>';
+            fetch('{% url "shop_recommendations" %}?cp=' + encodeURIComponent(cp))
+                .then(function (response) { return response.json(); })
+                .then(function (data) {
+                    if (!data.shops || !data.shops.length) {
+                        shopRecommendationResults.innerHTML = '<div class="alert alert-info mb-0">No encontramos una tienda cercana a ese codigo postal.</div>';
+                        return;
+                    }
+
+                    shopRecommendationResults.innerHTML = data.shops.map(function (shop) {
+                        return '<div class="alert alert-light border mb-2">'
+                            + '<strong>' + escapeShopText(shop.name) + '</strong><br>'
+                            + escapeShopText(shop.address) + ', ' + escapeShopText(shop.city) + ', CP ' + escapeShopText(shop.cp) + '<br>'
+                            + 'WhatsApp: ' + escapeShopText(shop.phone)
+                            + '</div>';
+                    }).join('');
+
+                    if (data.total > data.shops.length) {
+                        shopRecommendationResults.innerHTML += '<a class="btn btn-outline-primary btn-sm" href="{% url "shop" %}?cp=' + encodeURIComponent(cp) + '">Ver todos los comercios de este código postal (' + data.total + ')</a>';
+                    }
+                })
+                .catch(function () {
+                    shopRecommendationResults.innerHTML = '<div class="alert alert-danger mb-0">No fue posible buscar tiendas. Intenta nuevamente.</div>';
+                });
+        });
+    }
 </script>
 
 {% endblock extrajs %}
