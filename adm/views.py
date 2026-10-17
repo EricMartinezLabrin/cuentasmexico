@@ -65,7 +65,7 @@ from .models import (
     Status, Supplier, Credits, Promocion, AccountChangeHistory,
     Affiliate, AffiliateCommission, AffiliateWithdrawal, AffiliateSettings, AffiliateSale, AISettings,
     MarketingCampaign, MarketingCampaignRecommendation, MarketingCampaignDelivery, MarketingCampaignRedemption,
-    MarketingBulkWhatsApp,
+    MarketingBulkWhatsApp, MarketingBulkWhatsAppRecipient,
     MarketingUserTag, WikiSection
 )
 from cupon.models import Cupon, CouponRedemption, Shop
@@ -7079,11 +7079,19 @@ def marketing_bulk_whatsapp_details(request, pk):
     items = list(queryset.order_by('id').values(
         'id', 'original_value', 'normalized_number', 'status', 'reason',
         'provider_response', 'attempted_at', 'sent_at',
-    )[:1000])
+    ))
+    status_labels = dict(MarketingBulkWhatsAppRecipient.STATUS_CHOICES)
     for item in items:
+        item['status_label'] = status_labels.get(item['status'], item['status'])
         item['attempted_at'] = item['attempted_at'].isoformat() if item['attempted_at'] else None
         item['sent_at'] = item['sent_at'].isoformat() if item['sent_at'] else None
-    return JsonResponse({'success': True, 'status': status, 'items': items})
+    return JsonResponse({
+        'success': True,
+        'status': status,
+        'status_label': status_labels.get(status, 'Todos'),
+        'total_available': len(items),
+        'items': items,
+    })
 
 
 @permission_required('is_superuser', 'adm:no-permission')

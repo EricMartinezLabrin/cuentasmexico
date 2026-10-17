@@ -10,6 +10,28 @@
   </div>
   <div id="bulk-status-alert" class="alert alert-info">Cargando estado...</div>
   <div class="row g-3 mb-3">
+    <div class="col-12 col-xl-8"><div class="card border-0 shadow-sm h-100"><div class="card-body">
+      <h2 class="h6">Contenido enviado</h2>
+      <div class="small text-muted mb-1">Mensaje</div>
+      <pre class="bg-light border rounded p-3 mb-3" style="white-space: pre-wrap; min-height: 90px">{{ job.message_text|default:'(Sin texto)' }}</pre>
+      {% if job.image %}<div class="small text-muted mb-2">Imagen</div><a href="{{ job.image.url }}" target="_blank" rel="noopener"><img src="{{ job.image.url }}" alt="Imagen del mensaje" class="img-fluid rounded border" style="max-height: 360px"></a>{% else %}<div class="text-muted small">Este envío no tiene imagen.</div>{% endif %}
+    </div></div></div>
+    <div class="col-12 col-xl-4"><div class="card border-0 shadow-sm h-100"><div class="card-body">
+      <h2 class="h6">Información del proceso</h2>
+      <dl class="row small mb-0">
+        <dt class="col-6">Creado por</dt><dd class="col-6">{{ job.created_by|default:'-' }}</dd>
+        <dt class="col-6">Creado</dt><dd class="col-6">{{ job.created_at|date:'d/m/Y H:i:s' }}</dd>
+        <dt class="col-6">Iniciado</dt><dd class="col-6">{{ job.started_at|date:'d/m/Y H:i:s'|default:'-' }}</dd>
+        <dt class="col-6">Terminado</dt><dd class="col-6">{{ job.finished_at|date:'d/m/Y H:i:s'|default:'-' }}</dd>
+        <dt class="col-6">Intentos</dt><dd class="col-6">{{ job.attempt_count }}</dd>
+        <dt class="col-6">Delay</dt><dd class="col-6">{{ job.delay_min_minutes }}–{{ job.delay_max_minutes }} min</dd>
+        <dt class="col-6">Lote</dt><dd class="col-6">{{ job.batch_size }}</dd>
+        <dt class="col-6">Pausa lote</dt><dd class="col-6">{{ job.batch_pause_min_minutes }}–{{ job.batch_pause_max_minutes }} min</dd>
+      </dl>
+      {% if job.status_message %}<hr><div class="small text-muted">Comentario / estado</div><div>{{ job.status_message }}</div>{% endif %}
+    </div></div></div>
+  </div>
+  <div class="row g-3 mb-3">
     <div class="col-6 col-xl-3"><button class="card border-0 shadow-sm w-100 text-start h-100 bulk-stat" data-status="sent"><div class="card-body"><div class="text-muted small">Enviados</div><div class="h3 mb-0" id="bulk-sent">0</div></div></button></div>
     <div class="col-6 col-xl-3"><button class="card border-0 shadow-sm w-100 text-start h-100 bulk-stat" data-status="ignored"><div class="card-body"><div class="text-muted small">Ignorados</div><div class="h3 mb-0" id="bulk-ignored">0</div></div></button></div>
     <div class="col-6 col-xl-3"><button class="card border-0 shadow-sm w-100 text-start h-100 bulk-stat" data-status="error"><div class="card-body"><div class="text-muted small">Errores</div><div class="h3 mb-0" id="bulk-errors">0</div></div></button></div>
@@ -18,6 +40,10 @@
   <div class="card border-0 shadow-sm"><div class="card-body">
     <div class="row g-3"><div class="col-12 col-md-4"><div class="text-muted small">Estado</div><div class="fw-semibold" id="bulk-state">-</div></div><div class="col-12 col-md-4"><div class="text-muted small">Número actual</div><div class="fw-semibold" id="bulk-current">-</div></div><div class="col-12 col-md-4"><div class="text-muted small">Tiempo restante</div><div class="fw-semibold" id="bulk-countdown">-</div></div></div>
     <div class="progress mt-4" style="height: 22px"><div id="bulk-progress" class="progress-bar bg-success" role="progressbar" style="width: 0%">0%</div></div>
+  </div></div>
+  <div class="card border-0 shadow-sm mt-3"><div class="card-body">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3"><h2 class="h6 mb-0">Detalle de destinatarios</h2><div class="btn-group btn-group-sm" role="group" aria-label="Filtrar destinatarios"><button type="button" class="btn btn-outline-secondary bulk-detail-filter active" data-status="">Todos</button><button type="button" class="btn btn-outline-success bulk-detail-filter" data-status="sent">Enviados</button><button type="button" class="btn btn-outline-warning bulk-detail-filter" data-status="ignored">Ignorados</button><button type="button" class="btn btn-outline-danger bulk-detail-filter" data-status="error">Errores</button><button type="button" class="btn btn-outline-secondary bulk-detail-filter" data-status="pending">Pendientes</button></div></div>
+    <div id="bulk-details-inline"><div class="text-muted">Cargando destinatarios...</div></div>
   </div></div>
 </div>
 
