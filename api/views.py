@@ -437,10 +437,15 @@ def app_version_api(request):
     if request.method != 'GET':
         return JsonResponse(status=405, data={'detail': 'method not allowed'})
 
+    from adm.models import Business
+
+    business = Business.objects.filter(pk=1).values(
+        'app_version', 'app_update_url', 'app_release_notes'
+    ).first()
     return JsonResponse({
-        'version': settings.APP_VERSION,
-        'update_url': settings.APP_UPDATE_URL,
-        'release_notes': settings.APP_RELEASE_NOTES or None,
+        'version': (business or {}).get('app_version') or settings.APP_VERSION,
+        'update_url': (business or {}).get('app_update_url') or settings.APP_UPDATE_URL,
+        'release_notes': (business or {}).get('app_release_notes') or settings.APP_RELEASE_NOTES or None,
     })
 
 

@@ -49,6 +49,36 @@
         <div class="card border-0 shadow-sm mb-4">
             <div class="card-header bg-white d-flex justify-content-between align-items-center">
                 <div>
+                    <h2 class="h5 mb-0">Versión de la app móvil</h2>
+                    <small class="text-muted">Estos datos son los que consulta la app para detectar actualizaciones.</small>
+                </div>
+                {% if object %}
+                    <a href="{% url 'adm:settings_update' object.pk %}" class="btn btn-cm">Editar datos</a>
+                {% endif %}
+            </div>
+            <div class="card-body row g-3">
+                {% if object %}
+                    <div class="col-12 col-md-4">
+                        <label class="form-label">Versión</label>
+                        <input type="text" class="form-control" value="{{ object.app_version }}" disabled>
+                    </div>
+                    <div class="col-12 col-md-8">
+                        <label class="form-label">URL de descarga</label>
+                        <input type="text" class="form-control" value="{{ object.app_update_url|default:'Sin configurar' }}" disabled>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Notas de la versión</label>
+                        <textarea class="form-control" rows="3" disabled>{{ object.app_release_notes }}</textarea>
+                    </div>
+                {% else %}
+                    <div class="col-12 text-muted">Configura primero los datos del negocio para editar la versión de la app.</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <div>
                     <h2 class="h5 mb-0">Avisos de cuentas pendientes</h2>
                     <small class="text-muted">WhatsApp cada 3 horas, de 12:00 a 21:00 CDMX, al 833 448 2256.</small>
                 </div>
