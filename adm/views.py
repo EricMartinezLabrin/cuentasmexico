@@ -2834,6 +2834,17 @@ class CouponRedemptionLogView(UserAccessMixin, ListView):
         context['channel_choices'] = CouponRedemption.CHANNEL_CHOICES
         return context
 
+
+@permission_required('is_staff', 'adm:no-permission')
+def CouponRedemptionCustomerDetailView(request, customer_id):
+    customer = User.objects.select_related('userdetail').get(pk=customer_id)
+    inactive_page = request.GET.get('inactive_page', 1)
+    return render(request, 'adm/coupon_redemption_customer_detail.html', {
+        'customer': customer,
+        'active': Sales.customer_sales_active(customer),
+        'inactive': Sales.customer_sales_inactive(customer, inactive_page),
+    })
+
 @permission_required('is_staff', 'adm:no-permission')
 def CuponRedeemView(request):
     template_name = "adm/cupon_redeem.html"

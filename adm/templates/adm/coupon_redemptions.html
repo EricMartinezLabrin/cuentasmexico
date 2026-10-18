@@ -51,7 +51,7 @@
                     <td>{{ item.redeemed_at }}</td>
                     <td>{{ item.cupon.name }}</td>
                     <td>{{ item.customer.username }}</td>
-                    <td>{% if item.phone_lada %}+{{ item.phone_lada }} {% endif %}{{ item.phone_number|default:'-' }}</td>
+                    <td>{% if item.customer_id %}<a href="#" class="coupon-customer-phone" data-bs-toggle="modal" data-bs-target="#couponCustomerDetailModal" data-detail-url="{% url 'adm:coupon_redemption_customer_detail' item.customer_id %}">{% if item.phone_lada %}+{{ item.phone_lada }} {% endif %}{{ item.phone_number|default:'-' }}</a>{% else %}-{% endif %}</td>
                     <td>{{ item.get_channel_display }}</td>
                     <td>
                         {{ item.service_name|default:'-' }}
@@ -70,4 +70,43 @@
     </table>
 
     {% include 'adm/base/paginator.html' %}
+
+    <div class="modal fade" id="couponCustomerDetailModal" tabindex="-1" aria-labelledby="couponCustomerDetailModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="couponCustomerDetailModalLabel">Detalle del cliente</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body" id="coupon-customer-detail-body">
+                    <div class="text-center text-muted py-4">Selecciona un teléfono para cargar el detalle.</div>
+                </div>
+            </div>
+        </div>
+    </div>
 {% endblock body %}
+{% block extrajs %}
+    <script>
+        (() => {
+            const modal = document.getElementById('couponCustomerDetailModal');
+            const body = document.getElementById('coupon-customer-detail-body');
+            if (!modal || !body) return;
+            modal.addEventListener('show.bs.modal', async (event) => {
+                const link = event.relatedTarget;
+                const detailUrl = link ? link.dataset.detailUrl : '';
+                body.innerHTML = '<div class="text-center py-4"><div class="spinner-border text-primary" role="status"></div><div class="mt-2 text-muted">Cargando detalle...</div></div>';
+                if (!detailUrl) return;
+                try {
+                    const response = await fetch(detailUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                    if (!response.ok) throw new Error('No se pudo cargar el detalle del cliente.');
+                    body.innerHTML = await response.text();
+                } catch (error) {
+                    body.innerHTML = `<div class="alert alert-danger">${error.message}</div>`;
+                }
+            });
+            modal.addEventListener('hidden.bs.modal', () => {
+                body.innerHTML = '<div class="text-center text-muted py-4">Selecciona un teléfono para cargar el detalle.</div>';
+            });
+        })();
+    </script>
+{% endblock extrajs %}
