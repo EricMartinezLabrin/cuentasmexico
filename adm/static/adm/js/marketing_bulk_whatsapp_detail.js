@@ -5,6 +5,7 @@
   const detailsUrl = page.dataset.detailsUrl;
   const cancelUrl = page.dataset.cancelUrl;
   const resumeUrl = page.dataset.resumeUrl;
+  const editUrl = page.dataset.editUrl;
   const terminal = new Set(['completed', 'cancelled', 'failed']);
   let timer;
 
@@ -41,6 +42,7 @@
       alert.textContent = `${data.status_label}: ${data.status_message || ''}`;
       document.getElementById('bulk-cancel-btn').style.display = terminal.has(data.status) ? 'none' : '';
       document.getElementById('bulk-resume-btn').style.display = data.status === 'cancelled' && data.pending_count > 0 ? '' : 'none';
+      document.getElementById('bulk-edit-btn').style.display = data.status === 'cancelled' ? '' : 'none';
       if (terminal.has(data.status)) clearTimeout(timer);
     } catch (error) {
       document.getElementById('bulk-status-alert').textContent = error.message;
@@ -84,6 +86,20 @@
     const csrfInput = document.querySelector('#bulk-csrf-form input[name="csrfmiddlewaretoken"]');
     await fetch(resumeUrl, { method: 'POST', headers: { 'X-CSRFToken': csrfInput ? csrfInput.value : '', 'X-Requested-With': 'XMLHttpRequest' } });
     refresh();
+  });
+  document.getElementById('bulk-edit-btn').addEventListener('click', () => {
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('bulkEditModal')).show();
+  });
+  document.getElementById('bulk-edit-form').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const alert = document.getElementById('bulk-edit-alert');
+    const form = event.currentTarget;
+    const response = await fetch(editUrl, { method: 'POST', body: new FormData(form), headers: { 'X-CSRFToken': document.querySelector('#bulk-csrf-form input[name="csrfmiddlewaretoken"]')?.value || '', 'X-Requested-With': 'XMLHttpRequest' } });
+    const data = await response.json();
+    alert.className = `alert ${response.ok && data.success ? 'alert-success' : 'alert-danger'}`;
+    alert.textContent = data.message || data.error || 'No se pudieron guardar los cambios.';
+    alert.classList.remove('d-none');
+    if (response.ok && data.success) setTimeout(() => window.location.reload(), 500);
   });
   showDetails('', inlineDetails);
   refresh();
