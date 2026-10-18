@@ -7149,3 +7149,38 @@ def marketing_bulk_whatsapp_resume(request, pk):
         job.status_message = 'Proceso reanudado; continuarÃ¡ con los envÃ­os pendientes.'
         job.save(update_fields=['status', 'finished_at', 'next_action_at', 'pause_until', 'status_message', 'updated_at'])
     return JsonResponse({'success': True, 'message': 'Proceso reanudado.'})
+
+
+@permission_required('is_superuser', 'adm:no-permission')
+def marketing_bulk_whatsapp_edit(request, pk):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'MÃ©todo no permitido.'}, status=405)
+    job = MarketingBulkWhatsApp.objects.get(pk=pk)
+    if job.status != 'cancelled':
+        return JsonResponse({'success': False, 'error': 'Solo se puede editar un proceso cancelado.'}, status=400)
+
+    message = request.POST.get('message_text', '')
+    image = request.FILES.get('image')
+    if not message.strip() and not image and not job.image:
+        return JsonResponse({'success': False, 'error': 'Agrega un mensaje, una imagen o ambos.'}, status=400)
+    if image:
+        if image.content_type not in {'image/jpeg', 'image/png', 'image/webp'}:
+            return JsonResponse({'success': False, 'error': 'La imagen debe ser JPG, PNG o WebP.'}, status=400)
+        if Image is None:
+            return JsonResponse({'success': False, 'error': 'No estÃ¡ disponible la validaciÃ³n de imÃ¡genes.'}, status=500)
+        try:
+            image.file.seek(0)
+            with Image.open(image.file) as checked_image:
+                checked_image.verify()
+            image.file.seek(0)
+        except Exception:
+            return JsonResponse({'success': False, 'error': 'El archivo no es una imagen vÃ¡lida.'}, status=400)
+        if image.size > MAX_IMAGE_BYTES:
+            return JsonResponse({'success': False, 'error': 'La imagen no puede superar 10 MB.'}, status=400)
+
+    job.message_text = message
+    if image:
+        job.image = image
+    job.status_message = 'Contenido actualizado. Listo para reanudar.'
+    job.save(update_fields=['message_text', 'image', 'status_message', 'updated_at'])
+    return JsonResponse({'success': True, 'message': 'Contenido actualizado.'})
