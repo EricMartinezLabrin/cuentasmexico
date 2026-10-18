@@ -7074,6 +7074,7 @@ def _marketing_bulk_status_payload(job):
         'started_at': job.started_at.isoformat() if job.started_at else None,
         'finished_at': job.finished_at.isoformat() if job.finished_at else None,
         'cancel_url': reverse('adm:marketing_bulk_whatsapp_cancel', kwargs={'pk': job.id}),
+        'resume_url': reverse('adm:marketing_bulk_whatsapp_resume', kwargs={'pk': job.id}),
         'details_url': reverse('adm:marketing_bulk_whatsapp_details', kwargs={'pk': job.id}),
     }
 
@@ -7129,3 +7130,22 @@ def marketing_bulk_whatsapp_cancel(request, pk):
     job.status_message = 'Proceso cancelado por el usuario.'
     job.save(update_fields=['status', 'finished_at', 'next_action_at', 'pause_until', 'status_message', 'updated_at'])
     return JsonResponse({'success': True, 'message': 'Proceso cancelado.'})
+
+
+@permission_required('is_superuser', 'adm:no-permission')
+def marketing_bulk_whatsapp_resume(request, pk):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'MÃ©todo no permitido.'}, status=405)
+    with transaction.atomic():
+        job = MarketingBulkWhatsApp.objects.select_for_update().get(pk=pk)
+        if job.status != 'cancelled':
+            return JsonResponse({'success': False, 'error': 'Solo se pueden reanudar procesos cancelados.'}, status=400)
+        if not job.recipients.filter(status='pending').exists():
+            return JsonResponse({'success': False, 'error': 'El proceso no tiene envÃ­os pendientes.'}, status=400)
+        job.status = 'queued'
+        job.finished_at = None
+        job.next_action_at = None
+        job.pause_until = None
+        job.status_message = 'Proceso reanudado; continuarÃ¡ con los envÃ­os pendientes.'
+        job.save(update_fields=['status', 'finished_at', 'next_action_at', 'pause_until', 'status_message', 'updated_at'])
+    return JsonResponse({'success': True, 'message': 'Proceso reanudado.'})

@@ -4,6 +4,7 @@
   const statusUrl = page.dataset.statusUrl;
   const detailsUrl = page.dataset.detailsUrl;
   const cancelUrl = page.dataset.cancelUrl;
+  const resumeUrl = page.dataset.resumeUrl;
   const terminal = new Set(['completed', 'cancelled', 'failed']);
   let timer;
 
@@ -39,6 +40,7 @@
       alert.className = `alert ${data.status === 'failed' ? 'alert-danger' : data.status === 'completed' ? 'alert-success' : data.status === 'cancelled' ? 'alert-warning' : 'alert-info'}`;
       alert.textContent = `${data.status_label}: ${data.status_message || ''}`;
       document.getElementById('bulk-cancel-btn').style.display = terminal.has(data.status) ? 'none' : '';
+      document.getElementById('bulk-resume-btn').style.display = data.status === 'cancelled' && data.pending_count > 0 ? '' : 'none';
       if (terminal.has(data.status)) clearTimeout(timer);
     } catch (error) {
       document.getElementById('bulk-status-alert').textContent = error.message;
@@ -75,6 +77,12 @@
     const csrfInput = document.querySelector('#bulk-csrf-form input[name="csrfmiddlewaretoken"]');
     const token = csrfInput ? csrfInput.value : '';
     await fetch(cancelUrl, { method: 'POST', headers: { 'X-CSRFToken': token, 'X-Requested-With': 'XMLHttpRequest' } });
+    refresh();
+  });
+  document.getElementById('bulk-resume-btn').addEventListener('click', async () => {
+    if (!window.confirm('¿Reanudar los envíos pendientes?')) return;
+    const csrfInput = document.querySelector('#bulk-csrf-form input[name="csrfmiddlewaretoken"]');
+    await fetch(resumeUrl, { method: 'POST', headers: { 'X-CSRFToken': csrfInput ? csrfInput.value : '', 'X-Requested-With': 'XMLHttpRequest' } });
     refresh();
   });
   showDetails('', inlineDetails);
