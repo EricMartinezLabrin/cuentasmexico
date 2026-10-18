@@ -636,6 +636,75 @@ def account_change_history_view(request):
         'service_stats': service_stats,
     })
 
+
+@permission_required('is_staff', 'adm:no-permission')
+def SalesOverviewView(request):
+    """Return paid sales and account changes for the selected date range."""
+    today = timezone.localdate()
+    date_from_raw = request.GET.get('date_from', '').strip()
+    date_to_raw = request.GET.get('date_to', '').strip()
+
+    try:
+        date_from = datetime.strptime(date_from_raw, '%Y-%m-%d').date() if date_from_raw else today
+        date_to = datetime.strptime(date_to_raw, '%Y-%m-%d').date() if date_to_raw else today
+    except ValueError:
+        return JsonResponse({'success': False, 'error': 'Las fechas deben tener formato YYYY-MM-DD.'}, status=400)
+    if date_from > date_to:
+        return JsonResponse({'success': False, 'error': 'La fecha inicial no puede ser posterior a la fecha final.'}, status=400)
+
+    sales = Sale.objects.select_related(
+        'customer__userdetail',
+        'user_seller__userdetail__associated_shop',
+        'account__account_name',
+    ).filter(
+        created_at__date__gte=date_from,
+        created_at__date__lte=date_to,
+        payment_amount__gt=0,
+    ).order_by('-created_at', '-id')
+
+    sales_payload = []
+    for sale in sales:
+        shop = getattr(getattr(sale.user_seller, 'userdetail', None), 'associated_shop', None)
+        customer_detail = getattr(sale.customer, 'userdetail', None)
+        customer_contact = getattr(customer_detail, 'phone_number', None) or sale.customer.email or sale.customer.username
+        sales_payload.append({
+            'id': sale.id,
+            'created_at': timezone.localtime(sale.created_at).strftime('%d/%m/%Y %H:%M'),
+            'customer': customer_contact,
+            'service': getattr(sale.account.account_name, 'description', '-'),
+            'account_email': sale.account.email,
+            'seller': shop.name if shop else str(sale.user_seller),
+            'amount': sale.payment_amount,
+            'invoice': sale.invoice,
+        })
+
+    changes = AccountChangeHistory.objects.select_related(
+        'changed_by', 'service', 'old_sale', 'new_sale',
+    ).filter(
+        changed_at__date__gte=date_from,
+        changed_at__date__lte=date_to,
+    ).order_by('-changed_at', '-id')
+
+    changes_payload = [{
+        'changed_at': timezone.localtime(change.changed_at).strftime('%d/%m/%Y %H:%M'),
+        'customer': change.customer_username or change.customer_email or change.customer_phone or '-',
+        'service': change.service.description,
+        'old_account': change.old_account_email or '-',
+        'new_account': change.new_account_email or '-',
+        'expiration': timezone.localtime(change.new_sale_expiration).strftime('%d/%m/%Y %H:%M') if change.new_sale_expiration else '-',
+        'source': change.get_source_display(),
+        'changed_by': change.changed_by.username if change.changed_by else 'sistema',
+        'notes': change.notes or '',
+    } for change in changes]
+
+    return JsonResponse({
+        'success': True,
+        'date_from': date_from.isoformat(),
+        'date_to': date_to.isoformat(),
+        'sales': sales_payload,
+        'changes': changes_payload,
+    })
+
 # ========== VISTAS DE DETALLE DE ESTADÍSTICAS WEB ==========
 
 @permission_required('is_superuser', 'adm:no-permission')

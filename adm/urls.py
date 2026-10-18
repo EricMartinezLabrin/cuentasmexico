@@ -11,6 +11,7 @@ app_name = "adm"
 urlpatterns = [
     # Sales paths
     # Sales paths
+    path('sales/overview/', login_required(views.SalesOverviewView), name='sales_overview'),
     path('sales/<str:phone_number>/', views.SalesView, name='sales_with_phone'),
 #     Scripts
 
