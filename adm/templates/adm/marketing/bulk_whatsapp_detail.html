@@ -11,7 +11,7 @@
   <div id="bulk-status-alert" class="alert alert-info">Cargando estado...</div>
   <div class="row g-3 mb-3">
     <div class="col-12 col-xl-8"><div class="card border-0 shadow-sm h-100"><div class="card-body">
-      <div class="d-flex justify-content-between align-items-center"><h2 class="h6 mb-0">Contenido enviado</h2><button id="bulk-edit-btn" type="button" class="btn btn-sm btn-outline-primary"{% if job.status != 'cancelled' %} style="display: none"{% endif %}>Editar contenido</button></div>
+      <div class="d-flex justify-content-between align-items-center"><h2 class="h6 mb-0">Contenido enviado</h2><button id="bulk-edit-btn" type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#bulkEditModal"{% if job.status != 'cancelled' %} style="display: none"{% endif %}>Editar contenido</button></div>
       <div class="small text-muted mb-1">Mensaje</div>
       <pre class="bg-light border rounded p-3 mb-3" style="white-space: pre-wrap; min-height: 90px">{{ job.message_text|default:'(Sin texto)' }}</pre>
       {% if job.image %}<div class="small text-muted mb-2">Imagen</div><a href="{{ job.image.url }}" target="_blank" rel="noopener"><img src="{{ job.image.url }}" alt="Imagen del mensaje" class="img-fluid rounded border" style="max-height: 360px"></a>{% else %}<div class="text-muted small">Este envío no tiene imagen.</div>{% endif %}
