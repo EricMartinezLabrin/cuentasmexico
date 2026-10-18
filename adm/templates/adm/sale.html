@@ -395,7 +395,7 @@ WhatsApp y Telegram al número 833 535 5863.
                                             <span class="badge bg-warning">{{ a.account.external_status }}</span>
                                         {% endif %}
                                     </td>
-                                    <td>{{ a.user_seller }}</td>
+                                    <td>{% if a.user_seller.userdetail.associated_shop %}{{ a.user_seller.userdetail.associated_shop.name }}{% else %}{{ a.user_seller }}{% endif %}</td>
                                     <td class="text-center">
                                         <div class="btn-group btn-group-sm" role="group">
                                             <button class="btn btn-outline-info"
@@ -494,7 +494,7 @@ WhatsApp y Telegram al número 833 535 5863.
                                         {% endif %}
                                     </span>
                                 </div>
-                                <div><small>Vendedor</small><span>{{ a.user_seller }}</span></div>
+                                <div><small>Vendedor</small><span>{% if a.user_seller.userdetail.associated_shop %}{{ a.user_seller.userdetail.associated_shop.name }}{% else %}{{ a.user_seller }}{% endif %}</span></div>
                             </div>
                             <div class="sales-mobile-actions" onclick="event.stopPropagation()">
                                 <button class="btn btn-outline-info btn-sm"
@@ -629,7 +629,7 @@ WhatsApp y Telegram al número 833 535 5863.
                                             <span class="badge bg-warning">{{ a.account.external_status }}</span>
                                         {% endif %}
                                     </td>
-                                    <td>{{ a.user_seller }}</td>
+                                    <td>{% if a.user_seller.userdetail.associated_shop %}{{ a.user_seller.userdetail.associated_shop.name }}{% else %}{{ a.user_seller }}{% endif %}</td>
                                     <td class="text-center">
                                         {% if a.old_acc %}
                                             <a href="#"
@@ -689,7 +689,7 @@ WhatsApp y Telegram al número 833 535 5863.
                                         {% endif %}
                                     </span>
                                 </div>
-                                <div><small>Vendedor</small><span>{{ a.user_seller }}</span></div>
+                                <div><small>Vendedor</small><span>{% if a.user_seller.userdetail.associated_shop %}{{ a.user_seller.userdetail.associated_shop.name }}{% else %}{{ a.user_seller }}{% endif %}</span></div>
                             </div>
                             <div class="sales-mobile-actions">
                                 {% if a.old_acc %}
