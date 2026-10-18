@@ -2,11 +2,11 @@
 {% load static %}
 {% block title %}Envío WhatsApp #{{ job.id }}{% endblock title %}
 {% block body %}
-<div class="container-fluid py-3" id="bulk-whatsapp-page" data-status-url="{% url 'adm:marketing_bulk_whatsapp_status' job.id %}" data-details-url="{% url 'adm:marketing_bulk_whatsapp_details' job.id %}" data-cancel-url="{% url 'adm:marketing_bulk_whatsapp_cancel' job.id %}">
+<div class="container-fluid py-3" id="bulk-whatsapp-page" data-status-url="{% url 'adm:marketing_bulk_whatsapp_status' job.id %}" data-details-url="{% url 'adm:marketing_bulk_whatsapp_details' job.id %}" data-cancel-url="{% url 'adm:marketing_bulk_whatsapp_cancel' job.id %}" data-resume-url="{% url 'adm:marketing_bulk_whatsapp_resume' job.id %}">
   <form id="bulk-csrf-form" class="d-none">{% csrf_token %}</form>
   <div class="d-flex justify-content-between align-items-center mb-3">
     <div><h1 class="h4 mb-0">Envío masivo WhatsApp #{{ job.id }}</h1><small class="text-muted">Creado {{ job.created_at|date:'d/m/Y H:i' }}</small></div>
-    <div class="d-flex gap-2"><a href="{% url 'adm:marketing_campaigns' %}" class="btn btn-outline-secondary">Volver a Marketing</a><button id="bulk-cancel-btn" class="btn btn-outline-danger">Cancelar proceso</button></div>
+    <div class="d-flex gap-2"><a href="{% url 'adm:marketing_campaigns' %}" class="btn btn-outline-secondary">Volver a Marketing</a><button id="bulk-resume-btn" class="btn btn-success" style="display: none">Reanudar proceso</button><button id="bulk-cancel-btn" class="btn btn-outline-danger">Cancelar proceso</button></div>
   </div>
   <div id="bulk-status-alert" class="alert alert-info">Cargando estado...</div>
   <div class="row g-3 mb-3">
@@ -48,5 +48,5 @@
 </div>
 
 <div class="modal fade" id="bulkDetailsModal" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-xl modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="bulk-details-title">Detalles</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div><div class="modal-body" id="bulk-details-body"></div></div></div></div>
-<script src="{% static 'adm/js/marketing_bulk_whatsapp_detail.js' %}"></script>
+<script defer src="{% static 'adm/js/marketing_bulk_whatsapp_detail.js' %}"></script>
 {% endblock body %}

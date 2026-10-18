@@ -257,6 +257,7 @@ urlpatterns = [
     path('marketing/bulk-whatsapp/<int:pk>/status/', login_required(views.marketing_bulk_whatsapp_status), name='marketing_bulk_whatsapp_status'),
     path('marketing/bulk-whatsapp/<int:pk>/details/', login_required(views.marketing_bulk_whatsapp_details), name='marketing_bulk_whatsapp_details'),
     path('marketing/bulk-whatsapp/<int:pk>/cancel/', login_required(views.marketing_bulk_whatsapp_cancel), name='marketing_bulk_whatsapp_cancel'),
+    path('marketing/bulk-whatsapp/<int:pk>/resume/', login_required(views.marketing_bulk_whatsapp_resume), name='marketing_bulk_whatsapp_resume'),
     path('marketing/create/', login_required(views.marketing_campaign_create), name='marketing_campaign_create'),
     path('marketing/<int:pk>/delete/', login_required(views.marketing_campaign_delete), name='marketing_campaign_delete'),
     path('marketing/<int:pk>/', login_required(views.marketing_campaign_detail), name='marketing_campaign_detail'),
