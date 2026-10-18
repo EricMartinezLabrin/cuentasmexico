@@ -30,6 +30,7 @@
       alert.className = `alert ${data.status === 'completed' ? 'alert-success' : data.status === 'failed' ? 'alert-danger' : data.status === 'cancelled' ? 'alert-warning' : 'alert-info'}`;
       alert.textContent = `${data.status_label}: ${data.status_message || ''}`;
       document.getElementById('bulk-history-cancel').style.display = terminal.has(data.status) ? 'none' : '';
+      document.getElementById('bulk-history-edit').style.display = data.status === 'cancelled' ? '' : 'none';
       document.getElementById('bulk-history-resume').style.display = data.status === 'cancelled' && data.pending_count > 0 ? '' : 'none';
       if (terminal.has(data.status)) { clearTimeout(timer); timer = null; }
     } catch (error) {
@@ -50,7 +51,7 @@
   }
 
   document.querySelectorAll('.bulk-history-view').forEach((button) => button.addEventListener('click', () => {
-    current = { statusUrl: button.dataset.statusUrl, detailsUrl: button.dataset.detailsUrl, cancelUrl: button.dataset.cancelUrl, resumeUrl: button.dataset.resumeUrl };
+    current = { detailUrl: button.dataset.detailUrl, statusUrl: button.dataset.statusUrl, detailsUrl: button.dataset.detailsUrl, cancelUrl: button.dataset.cancelUrl, resumeUrl: button.dataset.resumeUrl };
     document.getElementById('bulk-history-title').textContent = `Proceso de envío #${button.dataset.jobId}`;
     document.getElementById('bulk-history-details').classList.add('d-none');
     modal.show();
@@ -68,6 +69,9 @@
     const input = document.querySelector('#bulk-history-csrf input[name="csrfmiddlewaretoken"]');
     await fetch(current.resumeUrl, { method: 'POST', headers: { 'X-CSRFToken': input ? input.value : '', 'X-Requested-With': 'XMLHttpRequest' } });
     refresh();
+  });
+  document.getElementById('bulk-history-edit').addEventListener('click', () => {
+    if (current && current.detailUrl) window.location.href = current.detailUrl;
   });
   modalElement.addEventListener('hidden.bs.modal', () => { current = null; clearTimeout(timer); timer = null; });
 })();

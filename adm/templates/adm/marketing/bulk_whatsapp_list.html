@@ -15,7 +15,7 @@
         <td>#{{ job.id }}</td>
         <td><span class="badge {% if job.status == 'completed' %}text-bg-success{% elif job.status == 'failed' %}text-bg-danger{% elif job.status == 'cancelled' %}text-bg-warning{% elif job.status == 'running' or job.status == 'waiting' %}text-bg-primary{% else %}text-bg-secondary{% endif %}">{{ job.get_status_display }}</span><div class="small text-muted">{{ job.status_message }}</div></td>
         <td>{{ job.total_count }}</td><td>{{ job.sent_count }}</td><td>{{ job.ignored_count }}</td><td>{{ job.error_count }}</td>
-        <td>{{ job.created_at|date:'d/m/Y H:i' }}</td><td class="text-end"><div class="d-flex justify-content-end gap-1"><a class="btn btn-sm btn-primary" href="{% url 'adm:marketing_bulk_whatsapp_detail' job.id %}">Ver detalles</a><button type="button" class="btn btn-sm btn-outline-primary bulk-history-view" data-job-id="{{ job.id }}" data-status-url="{% url 'adm:marketing_bulk_whatsapp_status' job.id %}" data-details-url="{% url 'adm:marketing_bulk_whatsapp_details' job.id %}" data-cancel-url="{% url 'adm:marketing_bulk_whatsapp_cancel' job.id %}" data-resume-url="{% url 'adm:marketing_bulk_whatsapp_resume' job.id %}">Ver proceso</button></div></td>
+        <td>{{ job.created_at|date:'d/m/Y H:i' }}</td><td class="text-end"><div class="d-flex justify-content-end gap-1"><a class="btn btn-sm btn-primary" href="{% url 'adm:marketing_bulk_whatsapp_detail' job.id %}">Ver detalles</a><button type="button" class="btn btn-sm btn-outline-primary bulk-history-view" data-job-id="{{ job.id }}" data-detail-url="{% url 'adm:marketing_bulk_whatsapp_detail' job.id %}" data-status-url="{% url 'adm:marketing_bulk_whatsapp_status' job.id %}" data-details-url="{% url 'adm:marketing_bulk_whatsapp_details' job.id %}" data-cancel-url="{% url 'adm:marketing_bulk_whatsapp_cancel' job.id %}" data-resume-url="{% url 'adm:marketing_bulk_whatsapp_resume' job.id %}">Ver proceso</button></div></td>
       </tr>
       {% empty %}<tr><td colspan="8" class="text-center text-muted py-4">No hay envíos masivos todavía.</td></tr>{% endfor %}
     </tbody>
@@ -49,7 +49,7 @@
       <div class="progress mb-3" style="height: 22px"><div id="history-progress" class="progress-bar bg-success" style="width: 0%">0%</div></div>
       <div id="bulk-history-details" class="d-none"></div>
     </div>
-    <div class="modal-footer"><button type="button" id="bulk-history-resume" class="btn btn-success" style="display: none">Reanudar proceso</button><button type="button" id="bulk-history-cancel" class="btn btn-outline-danger">Cancelar proceso</button><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button></div>
+    <div class="modal-footer"><button type="button" id="bulk-history-edit" class="btn btn-outline-primary" style="display: none">Editar contenido</button><button type="button" id="bulk-history-resume" class="btn btn-success" style="display: none">Reanudar proceso</button><button type="button" id="bulk-history-cancel" class="btn btn-outline-danger">Cancelar proceso</button><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button></div>
   </div></div>
 </div>
 <script defer src="{% static 'adm/js/marketing_bulk_whatsapp.js' %}"></script>
