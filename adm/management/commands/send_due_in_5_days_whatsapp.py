@@ -62,7 +62,11 @@ class Command(BaseCommand):
         day_end = timezone.make_aware(datetime.combine(target_day, time.max))
 
         sales = list(
-            Sale.objects.select_related('customer__userdetail', 'account__account_name')
+            Sale.objects.select_related(
+                'customer__userdetail',
+                'account__account_name',
+                'user_seller__userdetail__associated_shop',
+            )
             .filter(expiration_date__gte=day_start, expiration_date__lte=day_end, status=True)
             .order_by('expiration_date', 'customer__userdetail__lada', 'customer__userdetail__phone_number')
         )
@@ -105,18 +109,27 @@ class Command(BaseCommand):
             discounted_price = int(round(service_price * 0.75))
             discounted_total_3m = discounted_price * 3
 
-            message = (
-                f'Hola. Tu cuenta {service_name} ({account_email}, perfil {account_profile}) vence en 5 dias '
-                f'({target_day.strftime("%Y-%m-%d")}).\n\n'
-                f'Este descuento aplica solo hoy ({base_day.strftime("%d-%m-%Y")}).\n\n'
-                f'Hoy tienes 2 opciones de renovacion:\n'
-                f'1. Renovar 3 meses con 25 por ciento de descuento:\n'
-                f'- Precio normal: ${service_price} por mes\n'
-                f'- Precio con descuento: ${discounted_price} por mes\n'
-                f'- Total final por 3 meses: ${discounted_total_3m}\n'
-                f'2. Renovar 1 mes a precio normal: ${service_price}\n\n'
-                f'Cuando gustes te ayudamos a renovarla: https://wa.me/5218335355863'
-            )
+            shop = getattr(getattr(sale.user_seller, 'userdetail', None), 'associated_shop', None)
+            if shop:
+                message = (
+                    f'Hola. Tu cuenta {service_name} ({account_email}, perfil {account_profile}) vence en 5 dias '
+                    f'({target_day.strftime("%Y-%m-%d")}).\n\n'
+                    f'Para renovar, acude o contacta a la tienda {shop.name}, donde realizaste tu compra.'
+                )
+            else:
+                message = (
+                    f'Hola. Tu cuenta {service_name} ({account_email}, perfil {account_profile}) vence en 5 dias '
+                    f'({target_day.strftime("%Y-%m-%d")}).\n\n'
+                    f'Este descuento aplica solo hoy ({base_day.strftime("%d-%m-%Y")}).\n\n'
+                    f'Puedes elegir una de estas dos opciones:\n\n'
+                    f'1. Renovar solo 1 mes:\n'
+                    f'Pago total: ${service_price}\n\n'
+                    f'2. Renovar 3 meses juntos (con 25 por ciento de descuento):\n'
+                    f'Pago mensual: ${discounted_price}\n'
+                    f'Pago total por los 3 meses: ${discounted_total_3m}\n\n'
+                    f'Importante: el precio de ${discounted_price} por mes solo aplica si pagas los 3 meses juntos. Si pagas solo 1 mes, debes pagar ${service_price}.\n\n'
+                    f'Cuando gustes te ayudamos a renovarla: https://wa.me/5218335355863'
+                )
 
             set_job_message(JOB_DUE_5_DAYS, f'Enviando a venta {sale.id}')
             self.stdout.write(f'[due_5_days] Procesando sale_id={sale.id}')

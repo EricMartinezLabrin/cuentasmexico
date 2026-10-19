@@ -136,6 +136,12 @@
         {% endif %}
     </div>
 
+    <div class="d-flex justify-content-end mb-4">
+        <button type="button" class="btn btn-outline-success btn-lg" data-bs-toggle="modal" data-bs-target="#salesOverviewModal" title="Ver ventas y cambios por fecha">
+            <i class="bi bi-bar-chart-line me-2"></i> Resumen de ventas
+        </button>
+    </div>
+
     <!-- Free Days Alert -->
     {% if customer.userdetail.free_days > 0 %}
         <div class="alert alert-success alert-dismissible fade show d-flex align-items-center mb-4" role="alert">
@@ -395,7 +401,7 @@ WhatsApp y Telegram al número 833 535 5863.
                                             <span class="badge bg-warning">{{ a.account.external_status }}</span>
                                         {% endif %}
                                     </td>
-                                    <td>{{ a.user_seller }}</td>
+                                    <td>{% if a.user_seller.userdetail.associated_shop %}{{ a.user_seller.userdetail.associated_shop.name }}{% else %}{{ a.user_seller }}{% endif %}</td>
                                     <td class="text-center">
                                         <div class="btn-group btn-group-sm" role="group">
                                             <button class="btn btn-outline-info"
@@ -494,7 +500,7 @@ WhatsApp y Telegram al número 833 535 5863.
                                         {% endif %}
                                     </span>
                                 </div>
-                                <div><small>Vendedor</small><span>{{ a.user_seller }}</span></div>
+                                <div><small>Vendedor</small><span>{% if a.user_seller.userdetail.associated_shop %}{{ a.user_seller.userdetail.associated_shop.name }}{% else %}{{ a.user_seller }}{% endif %}</span></div>
                             </div>
                             <div class="sales-mobile-actions" onclick="event.stopPropagation()">
                                 <button class="btn btn-outline-info btn-sm"
@@ -629,7 +635,7 @@ WhatsApp y Telegram al número 833 535 5863.
                                             <span class="badge bg-warning">{{ a.account.external_status }}</span>
                                         {% endif %}
                                     </td>
-                                    <td>{{ a.user_seller }}</td>
+                                    <td>{% if a.user_seller.userdetail.associated_shop %}{{ a.user_seller.userdetail.associated_shop.name }}{% else %}{{ a.user_seller }}{% endif %}</td>
                                     <td class="text-center">
                                         {% if a.old_acc %}
                                             <a href="#"
@@ -689,7 +695,7 @@ WhatsApp y Telegram al número 833 535 5863.
                                         {% endif %}
                                     </span>
                                 </div>
-                                <div><small>Vendedor</small><span>{{ a.user_seller }}</span></div>
+                                <div><small>Vendedor</small><span>{% if a.user_seller.userdetail.associated_shop %}{{ a.user_seller.userdetail.associated_shop.name }}{% else %}{{ a.user_seller }}{% endif %}</span></div>
                             </div>
                             <div class="sales-mobile-actions">
                                 {% if a.old_acc %}
@@ -796,6 +802,28 @@ WhatsApp y Telegram al número 833 535 5863.
     </div>
 </div>
 
+<div class="modal fade" id="salesOverviewModal" tabindex="-1" aria-labelledby="salesOverviewModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="salesOverviewModalLabel">Resumen de ventas y cambios</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-2 align-items-end mb-3">
+                    <div class="col-12 col-md-4"><label class="form-label" for="sales-overview-from">Desde</label><input type="date" class="form-control" id="sales-overview-from"></div>
+                    <div class="col-12 col-md-4"><label class="form-label" for="sales-overview-to">Hasta</label><input type="date" class="form-control" id="sales-overview-to"></div>
+                    <div class="col-12 col-md-4"><button type="button" class="btn btn-primary w-100" id="sales-overview-load"><i class="bi bi-search me-1"></i> Consultar rango</button></div>
+                </div>
+                <div id="sales-overview-alert" class="alert alert-info d-none"></div>
+                <div class="btn-group mb-3" role="group" aria-label="Tipo de consulta"><button type="button" class="btn btn-outline-primary active" id="sales-overview-sales-tab">Ventas</button><button type="button" class="btn btn-outline-secondary" id="sales-overview-changes-tab">Cambios de cuenta</button></div>
+                <section id="sales-overview-sales-panel"><div class="d-flex justify-content-between align-items-center mb-2"><h6 class="mb-0">Ventas pagadas</h6><span class="badge text-bg-success" id="sales-overview-sales-count">0</span></div><div class="table-responsive"><table class="table table-sm table-striped align-middle"><thead><tr><th>Fecha</th><th>Cliente</th><th>Servicio</th><th>Cuenta</th><th>Vendedor</th><th>Factura</th><th class="text-end">Importe</th></tr></thead><tbody id="sales-overview-sales-body"><tr><td colspan="7" class="text-center text-muted">Abre el resumen para consultar.</td></tr></tbody></table></div></section>
+                <section id="sales-overview-changes-panel" class="d-none"><div class="d-flex justify-content-between align-items-center mb-2"><h6 class="mb-0">Cambios de cuenta</h6><span class="badge text-bg-secondary" id="sales-overview-changes-count">0</span></div><div class="table-responsive"><table class="table table-sm table-striped align-middle"><thead><tr><th>Fecha</th><th>Cliente</th><th>Servicio</th><th>Cuenta anterior</th><th>Cuenta nueva</th><th>Vencimiento nuevo</th><th>Origen</th><th>Ejecutado por</th></tr></thead><tbody id="sales-overview-changes-body"><tr><td colspan="8" class="text-center text-muted">Abre el resumen para consultar.</td></tr></tbody></table></div></section>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Home Code Modal -->
 <div class="modal fade" id="homeCodeModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -837,6 +865,73 @@ WhatsApp y Telegram al número 833 535 5863.
 {% block extrajs %}
     <script src="{% static 'adm/js/copy.js' %}"></script>
     <script>
+        (() => {
+            const overviewModal = document.getElementById('salesOverviewModal');
+            if (!overviewModal) return;
+            const overviewUrl = "{% url 'adm:sales_overview' %}";
+            const fromInput = document.getElementById('sales-overview-from');
+            const toInput = document.getElementById('sales-overview-to');
+            const alertBox = document.getElementById('sales-overview-alert');
+            const salesPanel = document.getElementById('sales-overview-sales-panel');
+            const changesPanel = document.getElementById('sales-overview-changes-panel');
+            const salesTab = document.getElementById('sales-overview-sales-tab');
+            const changesTab = document.getElementById('sales-overview-changes-tab');
+
+            function todayIso() {
+                const now = new Date();
+                const offset = now.getTimezoneOffset() * 60000;
+                return new Date(now.getTime() - offset).toISOString().slice(0, 10);
+            }
+
+            function escapeHtml(value) {
+                return String(value ?? '').replace(/[&<>'"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char]));
+            }
+
+            function renderSales(rows) {
+                document.getElementById('sales-overview-sales-count').textContent = rows.length;
+                document.getElementById('sales-overview-sales-body').innerHTML = rows.length ? rows.map((row) => `<tr><td class="text-nowrap">${escapeHtml(row.created_at)}</td><td>${escapeHtml(row.customer)}</td><td>${escapeHtml(row.service)}</td><td>${escapeHtml(row.account_email)}</td><td>${escapeHtml(row.seller)}</td><td>${escapeHtml(row.invoice)}</td><td class="text-end">$${escapeHtml(row.amount)}</td></tr>`).join('') : '<tr><td colspan="7" class="text-center text-muted">No hay ventas pagadas en este rango.</td></tr>';
+            }
+
+            function renderChanges(rows) {
+                document.getElementById('sales-overview-changes-count').textContent = rows.length;
+                document.getElementById('sales-overview-changes-body').innerHTML = rows.length ? rows.map((row) => `<tr><td class="text-nowrap">${escapeHtml(row.changed_at)}</td><td>${escapeHtml(row.customer)}</td><td>${escapeHtml(row.service)}</td><td>${escapeHtml(row.old_account)}</td><td>${escapeHtml(row.new_account)}</td><td class="text-nowrap">${escapeHtml(row.expiration)}</td><td>${escapeHtml(row.source)}</td><td>${escapeHtml(row.changed_by)}</td></tr>`).join('') : '<tr><td colspan="8" class="text-center text-muted">No hay cambios en este rango.</td></tr>';
+            }
+
+            async function loadOverview() {
+                alertBox.className = 'alert alert-info';
+                alertBox.textContent = 'Cargando información...';
+                try {
+                    const params = new URLSearchParams({ date_from: fromInput.value, date_to: toInput.value });
+                    const response = await fetch(`${overviewUrl}?${params.toString()}`, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                    const data = await response.json();
+                    if (!response.ok || !data.success) throw new Error(data.error || 'No se pudo cargar el resumen.');
+                    renderSales(data.sales);
+                    renderChanges(data.changes);
+                    alertBox.className = 'alert alert-success';
+                    alertBox.textContent = `Rango consultado: ${data.date_from} a ${data.date_to}.`;
+                } catch (error) {
+                    alertBox.className = 'alert alert-danger';
+                    alertBox.textContent = error.message;
+                }
+            }
+
+            function showPanel(panel, activeTab, inactiveTab) {
+                panel.classList.remove('d-none');
+                (panel === salesPanel ? changesPanel : salesPanel).classList.add('d-none');
+                activeTab.classList.add('active');
+                inactiveTab.classList.remove('active');
+            }
+
+            overviewModal.addEventListener('show.bs.modal', () => {
+                if (!fromInput.value) fromInput.value = todayIso();
+                if (!toInput.value) toInput.value = todayIso();
+                loadOverview();
+            });
+            document.getElementById('sales-overview-load').addEventListener('click', loadOverview);
+            salesTab.addEventListener('click', () => showPanel(salesPanel, salesTab, changesTab));
+            changesTab.addEventListener('click', () => showPanel(changesPanel, changesTab, salesTab));
+        })();
+
         let currentHomeCode = '';
         let homeCodeInterval = null;
         let homeCodeRetries = 0;

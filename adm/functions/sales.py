@@ -820,7 +820,12 @@ class Sales():
         active = Sale.objects.filter(
             customer=customer,
             status=True
-        ).select_related('account__account_name', 'account', 'user_seller')
+        ).select_related(
+            'account__account_name',
+            'account',
+            'user_seller',
+            'user_seller__userdetail__associated_shop',
+        )
         return active
 
     def customer_sales_inactive(customer, page=1):
@@ -829,7 +834,12 @@ class Sales():
         inactive = Sale.objects.filter(
             customer=customer,
             status=False
-        ).select_related('account__account_name', 'account', 'user_seller').order_by('-created_at')
+        ).select_related(
+            'account__account_name',
+            'account',
+            'user_seller',
+            'user_seller__userdetail__associated_shop',
+        ).order_by('-created_at')
         
         # Paginación para inactivos (15 por página)
         paginator = Paginator(inactive, 15)

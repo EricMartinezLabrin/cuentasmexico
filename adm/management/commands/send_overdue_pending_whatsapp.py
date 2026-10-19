@@ -63,7 +63,11 @@ class Command(BaseCommand):
         expired_end = timezone.make_aware(datetime.combine(base_day - timedelta(days=1), time.max))
 
         candidates = list(
-            Sale.objects.select_related('customer__userdetail', 'account__account_name')
+            Sale.objects.select_related(
+                'customer__userdetail',
+                'account__account_name',
+                'user_seller__userdetail__associated_shop',
+            )
             .filter(expiration_date__lte=expired_end, status=True)
             .order_by('expiration_date', 'customer__userdetail__lada', 'customer__userdetail__phone_number')
         )
@@ -123,17 +127,26 @@ class Command(BaseCommand):
             expired_on = timezone.localtime(sale.expiration_date).date()
             grace_days = max(0, (base_day - expired_on).days)
 
-            message = (
-                f'Hola. Te compartimos un recordatorio de tu cuenta {service_name} ({account_email}, perfil {account_profile}).\n\n'
-                f'Vencio el {expired_on.strftime("%d-%m-%Y")} y te hemos mantenido el servicio activo por {grace_days} dia(s) para evitarte interrupciones.\n\n'
-                f'Hoy tienes 2 opciones de renovacion:\n'
-                f'1. Renovar 3 meses con 20 por ciento de descuento:\n'
-                f'- Precio normal: ${service_price} por mes\n'
-                f'- Precio con descuento: ${discounted_price} por mes\n'
-                f'- Total final por 3 meses: ${discounted_total_3m}\n'
-                f'2. Renovar 1 mes a precio normal: ${service_price}\n\n'
-                f'Cuando gustes te ayudamos a renovarla: https://wa.me/5218335355863'
-            )
+            shop = getattr(getattr(sale.user_seller, 'userdetail', None), 'associated_shop', None)
+            if shop:
+                message = (
+                    f'Hola. Te compartimos un recordatorio de tu cuenta {service_name} ({account_email}, perfil {account_profile}).\n\n'
+                    f'Vencio el {expired_on.strftime("%d-%m-%Y")} y te hemos mantenido el servicio activo por {grace_days} dia(s) para evitarte interrupciones.\n\n'
+                    f'Para renovar el servicio, acude o contacta a la tienda {shop.name}, donde realizaste tu compra.'
+                )
+            else:
+                message = (
+                    f'Hola. Te compartimos un recordatorio de tu cuenta {service_name} ({account_email}, perfil {account_profile}).\n\n'
+                    f'Vencio el {expired_on.strftime("%d-%m-%Y")} y te hemos mantenido el servicio activo por {grace_days} dia(s) para evitarte interrupciones.\n\n'
+                    f'Puedes elegir una de estas dos opciones:\n\n'
+                    f'1. Renovar solo 1 mes:\n'
+                    f'Pago total: ${service_price}\n\n'
+                    f'2. Renovar 3 meses juntos (con 20 por ciento de descuento):\n'
+                    f'Pago mensual: ${discounted_price}\n'
+                    f'Pago total por los 3 meses: ${discounted_total_3m}\n\n'
+                    f'Importante: el precio de ${discounted_price} por mes solo aplica si pagas los 3 meses juntos. Si pagas solo 1 mes, debes pagar ${service_price}.\n\n'
+                    f'Cuando gustes te ayudamos a renovarla: https://wa.me/5218335355863'
+                )
 
             set_job_message(JOB_OVERDUE_PENDING, f'Enviando a venta {sale.id}')
             self.stdout.write(f'[overdue_pending] Procesando sale_id={sale.id}')

@@ -1,0 +1,48 @@
+<div class="mb-4">
+    <h5 class="mb-1">{{ customer.username }}</h5>
+    <div class="text-muted small">
+        {% if customer.email %}{{ customer.email }}{% endif %}
+        {% if customer.userdetail.phone_number %} · +{{ customer.userdetail.lada }} {{ customer.userdetail.phone_number }}{% endif %}
+    </div>
+</div>
+
+<h6 class="border-bottom pb-2">Ventas activas</h6>
+<div class="table-responsive mb-4">
+    <table class="table table-sm table-striped align-middle">
+        <thead><tr><th>Servicio</th><th>Cuenta</th><th>Vencimiento</th><th>Vendedor</th><th>Importe</th></tr></thead>
+        <tbody>
+            {% for sale in active %}
+                <tr>
+                    <td>{{ sale.account.account_name.description }}</td>
+                    <td>{{ sale.account.email }} <small class="text-muted">(Perfil {{ sale.account.profile|default:'-' }})</small></td>
+                    <td>{{ sale.expiration_date|date:'d/m/Y H:i' }}</td>
+                    <td>{% if sale.user_seller.userdetail.associated_shop %}{{ sale.user_seller.userdetail.associated_shop.name }}{% else %}{{ sale.user_seller }}{% endif %}</td>
+                    <td>${{ sale.payment_amount }}</td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="5" class="text-center text-muted">No hay ventas activas.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<h6 class="border-bottom pb-2">Historial de ventas</h6>
+<div class="table-responsive">
+    <table class="table table-sm table-striped align-middle">
+        <thead><tr><th>Fecha</th><th>Servicio</th><th>Cuenta</th><th>Estado</th><th>Vendedor</th><th>Importe</th></tr></thead>
+        <tbody>
+            {% for sale in inactive %}
+                <tr>
+                    <td>{{ sale.created_at|date:'d/m/Y H:i' }}</td>
+                    <td>{{ sale.account.account_name.description }}</td>
+                    <td>{{ sale.account.email }} <small class="text-muted">(Perfil {{ sale.account.profile|default:'-' }})</small></td>
+                    <td><span class="badge text-bg-secondary">Inactiva</span></td>
+                    <td>{% if sale.user_seller.userdetail.associated_shop %}{{ sale.user_seller.userdetail.associated_shop.name }}{% else %}{{ sale.user_seller }}{% endif %}</td>
+                    <td>${{ sale.payment_amount }}</td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="6" class="text-center text-muted">No hay ventas anteriores.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>

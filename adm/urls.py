@@ -11,6 +11,7 @@ app_name = "adm"
 urlpatterns = [
     # Sales paths
     # Sales paths
+    path('sales/overview/', login_required(views.SalesOverviewView), name='sales_overview'),
     path('sales/<str:phone_number>/', views.SalesView, name='sales_with_phone'),
 #     Scripts
 
@@ -154,6 +155,8 @@ urlpatterns = [
          name='cupon_redeem_end'),
     path('cupon/redemptions/', login_required(views.CouponRedemptionLogView.as_view()),
          name='coupon_redemptions'),
+    path('cupon/redemptions/customer/<int:customer_id>/', login_required(views.CouponRedemptionCustomerDetailView),
+         name='coupon_redemption_customer_detail'),
     path('receivable/', login_required(views.ReceivableView.as_view()),
          name='receivable'),
     path('receivable/send-cobranza/', login_required(views.TriggerSendDueTodayWhatsApp), name='receivable_send_cobranza'),
