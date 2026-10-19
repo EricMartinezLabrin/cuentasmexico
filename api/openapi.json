@@ -65,7 +65,7 @@
           "400": {"code": "INVALID_PHONE", "body": {"code": "INVALID_PHONE", "detail": "phone must be a valid Mexican 10-digit number"}},
           "404": {"codes": ["ACCOUNT_NOT_FOUND", "SHOP_NOT_FOUND"]},
           "403": {"code": "SHOP_NOT_ACTIVE_OR_APPROVED"},
-          "429": {"code": "OTP_RATE_LIMITED", "headers": {"Retry-After": "60"}, "body": {"code": "OTP_RATE_LIMITED", "retry_after_seconds": 60}},
+          "429": {"code": "OTP_RATE_LIMITED", "headers": {"Retry-After": "60"}, "body": {"code": "OTP_RATE_LIMITED", "retry_after_seconds": 60}, "limits": {"per_phone_per_minute": 5, "per_phone_per_hour": 15, "per_ip_per_hour": 30}},
           "502": {"code": "OTP_PROVIDER_UNAVAILABLE"}
         },
         "responses": {

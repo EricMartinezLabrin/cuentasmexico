@@ -50,17 +50,25 @@ def _client_ip(request):
 
 def _rate_limit(phone_e164, ip):
     minute_key = f'phone-otp-minute:{phone_e164}'
-    if not cache.add(minute_key, 1, 60):
+    if cache.add(minute_key, 1, 60):
+        minute_count = 1
+    else:
+        minute_count = cache.incr(minute_key)
+    if minute_count > 5:
         return 60
     hour_key = f'phone-otp-hour:{phone_e164}'
-    hour_count = cache.get(hour_key, 0) + 1
-    cache.set(hour_key, hour_count, 3600)
-    if hour_count > 5:
+    if cache.add(hour_key, 1, 3600):
+        hour_count = 1
+    else:
+        hour_count = cache.incr(hour_key)
+    if hour_count > 15:
         return 3600
     if ip:
         ip_key = f'phone-otp-ip-hour:{ip}'
-        ip_count = cache.get(ip_key, 0) + 1
-        cache.set(ip_key, ip_count, 3600)
+        if cache.add(ip_key, 1, 3600):
+            ip_count = 1
+        else:
+            ip_count = cache.incr(ip_key)
         if ip_count > 30:
             return 3600
     return None
