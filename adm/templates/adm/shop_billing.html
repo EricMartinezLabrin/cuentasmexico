@@ -12,31 +12,33 @@
 
     <form method="get" class="row g-2 mb-4">
         <div class="col-md-3"><input class="form-control" name="q" value="{{ filters.q }}" placeholder="Tienda o dueno"></div>
+        <div class="col-md-3"><input id="billing-phone" class="form-control" type="tel" name="phone" value="{{ filters.phone }}" placeholder="Teléfono" aria-label="Filtrar por teléfono"></div>
         <div class="col-md-2"><input class="form-control" name="city" value="{{ filters.city }}" placeholder="Ciudad"></div>
         <div class="col-md-2"><input class="form-control" type="date" name="from" value="{{ filters.from }}"></div>
         <div class="col-md-2"><input class="form-control" type="date" name="to" value="{{ filters.to }}"></div>
         <div class="col-md-2">
             <select class="form-select" name="status">
-                <option value="all" {% if filters.status == 'all' %}selected{% endif %}>Todos</option>
-                <option value="debt" {% if filters.status == 'debt' %}selected{% endif %}>Con deuda</option>
-                <option value="current" {% if filters.status == 'current' %}selected{% endif %}>Al dia</option>
+                <option value="debt" {% if filters.status != 'overdue' %}selected{% endif %}>Con deuda</option>
                 <option value="overdue" {% if filters.status == 'overdue' %}selected{% endif %}>Atrasados</option>
             </select>
         </div>
         <div class="col-md-1"><button class="btn btn-primary w-100" type="submit">Filtrar</button></div>
     </form>
 
+    <p class="text-muted">Pago semanal según el día de activación. El primer pago vence una semana después; el atraso cuenta desde el primer vencimiento pendiente de la deuda actual.</p>
     <div class="table-responsive">
         <table class="table table-hover align-middle">
             <thead>
                 <tr>
                     <th>Tienda</th>
                     <th>Dueno</th>
+                    <th>Teléfono</th>
                     <th>Ciudad</th>
                     <th>Ventas</th>
                     <th>Cantidad</th>
-                    <th>Saldo</th>
                     <th>Deuda</th>
+                    <th>Fecha de pago</th>
+                    <th>Días de atraso</th>
                     <th>Estado</th>
                 </tr>
             </thead>
@@ -45,11 +47,13 @@
                     <tr>
                         <td><a href="{% url 'adm:shop_detail' row.shop.id %}">{{ row.shop.name }}</a></td>
                         <td>{{ row.owner }}</td>
+                        <td>{{ row.phone }}</td>
                         <td>{{ row.city }}</td>
                         <td>${{ row.sales_total }}</td>
                         <td>{{ row.sales_count }}</td>
-                        <td>${{ row.balance }}</td>
                         <td>${{ row.debt }}</td>
+                        <td>{% if row.payment_date %}{{ row.payment_date|date:"l d/m/Y" }}{% else %}Sin fecha de activación{% endif %}</td>
+                        <td>{% if row.payment_date %}{{ row.days_overdue }}{% else %}—{% endif %}</td>
                         <td>
                             {% if row.debt_status == 'atrasado' %}
                                 <span class="badge bg-danger">Atrasado</span>
@@ -61,10 +65,20 @@
                         </td>
                     </tr>
                 {% empty %}
-                    <tr><td colspan="8" class="text-muted">Sin resultados.</td></tr>
+                    <tr><td colspan="10" class="text-muted">Sin tiendas con deuda para los filtros seleccionados.</td></tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
 </div>
 {% endblock body %}
+
+{% block extrajs %}
+<script>
+    document.getElementById('billing-phone').addEventListener('paste', function (event) {
+        event.preventDefault();
+        const digits = event.clipboardData.getData('text').replace(/\D/g, '');
+        this.value = digits.slice(-10);
+    });
+</script>
+{% endblock extrajs %}

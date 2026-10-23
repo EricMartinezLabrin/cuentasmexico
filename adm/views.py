@@ -3284,31 +3284,58 @@ def _update_shop_negative_since(shop, balance=None):
         shop.save(update_fields=['last_negative_balance_since'])
 
 
+def _shop_billing_schedule(activation, negative_since, today):
+    if not activation:
+        return None, 0
+    first_due = timezone.localtime(activation).date() + timedelta(days=7)
+    debt_start = timezone.localtime(negative_since).date() if negative_since else today
+    elapsed = max(0, (debt_start - first_due).days)
+    due = first_due + timedelta(days=((elapsed + 6) // 7) * 7)
+    return due, max(0, (today - due).days)
+
+
 def _shop_billing_rows(request):
     q = (request.GET.get('q') or '').strip()
+    phone = (request.GET.get('phone') or '').strip()
     city = (request.GET.get('city') or '').strip()
-    status_filter = (request.GET.get('status') or 'all').strip()
+    status_filter = (request.GET.get('status') or 'debt').strip()
     date_from = _parse_date_param(request.GET.get('from'))
     date_to = _parse_date_param(request.GET.get('to'))
 
-    shops = Shop.objects.select_related('creator_user').all().order_by('name')
+    shops = Shop.objects.select_related('creator_user').exclude(pk__in=(67, 68, 70)).order_by('name')
     if q:
         shops = shops.filter(Q(name__icontains=q) | Q(owner__icontains=q) | Q(email__icontains=q))
     if city:
         shops = shops.filter(city__icontains=city)
 
     rows = []
-    now = timezone.now()
+    today = timezone.localdate()
     for shop in shops:
+        if shop.name.strip().casefold() == 'fer':
+            continue
+        normalized_phone = _normalize_shop_phone(shop.phone)
+        if phone and phone not in normalized_phone:
+            continue
+        balance = _shop_balance(shop)
+        if balance >= 0:
+            continue
         sales_qs = _shop_sales_queryset(shop, date_from=date_from, date_to=date_to)
         sales_summary = sales_qs.aggregate(total=Sum('payment_amount'), count=Count('id'))
-        has_sales = _shop_store_sales_queryset(shop).exists()
-        balance = _shop_balance(shop)
-        days_negative = None
-        is_overdue = False
-        if shop.last_negative_balance_since:
-            days_negative = (now - shop.last_negative_balance_since).days
-            is_overdue = has_sales and balance < 0 and days_negative >= 7
+        # Recover the beginning of the current debt even for legacy shops without
+        # last_negative_balance_since. Partial payments must not reset its age.
+        running_balance = 0
+        negative_since = None
+        for movement in Credits.objects.filter(shop=shop).order_by('date', 'pk').values('credits', 'date'):
+            previous_balance = running_balance
+            running_balance += movement['credits']
+            if running_balance >= 0:
+                negative_since = None
+            elif previous_balance >= 0:
+                negative_since = movement['date']
+        payment_date, days_overdue = _shop_billing_schedule(
+            shop.confirmation_date, negative_since, today,
+        )
+        is_overdue = days_overdue > 0
         debt_status = 'al_dia'
         if is_overdue:
             debt_status = 'atrasado'
@@ -3317,6 +3344,7 @@ def _shop_billing_rows(request):
 
         row = {
             'shop': shop,
+            'phone': normalized_phone,
             'owner': shop.creator_user or shop.owner,
             'city': shop.city,
             'sales_total': sales_summary['total'] or 0,
@@ -3325,13 +3353,10 @@ def _shop_billing_rows(request):
             'credit_limit': shop.credit_limit,
             'debt': abs(balance) if balance < 0 else 0,
             'debt_status': debt_status,
-            'days_negative': days_negative,
+            'payment_date': payment_date,
+            'days_overdue': days_overdue,
         }
 
-        if status_filter == 'debt' and balance >= 0:
-            continue
-        if status_filter == 'current' and balance < 0:
-            continue
         if status_filter == 'overdue' and not is_overdue:
             continue
         rows.append(row)
@@ -3646,10 +3671,11 @@ class ShopBillingView(UserAccessMixin, TemplateView):
         context['rows'] = _shop_billing_rows(self.request)
         context['filters'] = {
             'q': self.request.GET.get('q', ''),
+            'phone': self.request.GET.get('phone', ''),
             'city': self.request.GET.get('city', ''),
             'from': self.request.GET.get('from', ''),
             'to': self.request.GET.get('to', ''),
-            'status': self.request.GET.get('status', 'all'),
+            'status': self.request.GET.get('status', 'debt'),
         }
         return context
 
@@ -3661,17 +3687,20 @@ def ShopBillingExportExcelView(request):
     response['Content-Disposition'] = 'attachment; filename="cobranza-tiendas.csv"'
     response.write('\ufeff')
     writer = csv.writer(response)
-    writer.writerow(['Tienda', 'Dueno', 'Ciudad', 'Ventas', 'Cantidad ventas', 'Saldo actual', 'Limite credito', 'Deuda', 'Estado'])
+    writer.writerow(['Tienda', 'Dueno', 'Telefono', 'Ciudad', 'Ventas', 'Cantidad ventas', 'Saldo actual', 'Limite credito', 'Deuda', 'Fecha de pago', 'Dias de atraso', 'Estado'])
     for row in rows:
         writer.writerow([
             row['shop'].name,
             row['owner'],
+            row['phone'],
             row['city'],
             row['sales_total'],
             row['sales_count'],
             row['balance'],
             row['credit_limit'],
             row['debt'],
+            row['payment_date'] or 'Sin fecha de activacion',
+            row['days_overdue'] if row['payment_date'] else '',
             row['debt_status'],
         ])
     return response
@@ -3711,7 +3740,7 @@ def _simple_pdf_response(title, lines, filename):
 def ShopBillingExportPDFView(request):
     rows = _shop_billing_rows(request)
     lines = [
-        f"{row['shop'].name} | {row['city']} | ventas ${row['sales_total']} ({row['sales_count']}) | saldo ${row['balance']} | deuda ${row['debt']} | {row['debt_status']}"
+        f"{row['shop'].name} | {row['phone']} | deuda ${row['debt']} | pago {row['payment_date'] or 'Sin activacion'} | atraso {str(row['days_overdue']) + ' dias' if row['payment_date'] else 'Sin fecha'}"
         for row in rows
     ]
     if not lines:
