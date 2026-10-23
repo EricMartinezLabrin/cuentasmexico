@@ -5,6 +5,7 @@ from django.contrib.auth.decorators import login_required
 
 from . import views
 from . import api_sync
+from . import shop_map_views as maps
 
 app_name = "adm"
 
@@ -37,6 +38,18 @@ urlpatterns = [
     path('crm/export/churn-products.csv', login_required(views.crm_export_churn_products), name='crm_export_churn_products'),
     path('crm/export/recovered-customers.csv', login_required(views.crm_export_recovered_customers), name='crm_export_recovered_customers'),
     path('shops/', login_required(views.ShopListView.as_view()), name='shop_list'),
+    path('shops/map/', maps.map_page, name='shop_map'),
+    path('shops/map/config/', maps.map_config, name='shop_map_config'),
+    path('shops/map/data/', maps.map_data, name='shop_map_data'),
+    path('shops/map/detail/<int:pk>/', maps.map_detail, name='shop_map_detail'),
+    path('shops/map/search/', maps.search_location, name='shop_map_search'),
+    path('shops/map/location/<int:pk>/', maps.save_location, name='shop_map_location'),
+    path('shops/map/batch/', maps.batch_status, name='shop_map_batch_status'),
+    path('shops/map/batch/step/', maps.batch_step, name='shop_map_batch_step'),
+    path('shops/map/routes/', maps.route_list, name='shop_map_routes'),
+    path('shops/map/routes/create/', maps.route_create, name='shop_map_route_create'),
+    path('shops/map/routes/<int:pk>/revoke/', maps.route_revoke, name='shop_map_route_revoke'),
+    path('shops/route/<str:token>/', maps.route_public, name='shop_route_public'),
     path('shops/create/', login_required(views.ShopCreateView), name='shop_create'),
     path('shops/billing/', login_required(views.ShopBillingView.as_view()), name='shop_billing'),
     path('shops/billing/export/excel/', login_required(views.ShopBillingExportExcelView), name='shop_billing_export_excel'),

@@ -1,0 +1,11 @@
+{% load static %}
+<div class="col-12 my-2" id="shop-location-widget" data-config="{% url 'adm:shop_map_config' %}" data-search="{% url 'adm:shop_map_search' %}">
+  <details><summary>Ubicar tienda en mapa</summary>
+    <p class="small mt-2">Busca dirección comercial, elige resultado y corrige pin. Marca «Confirmar ubicación exacta» antes de guardar. Cambiar dirección invalida confirmación anterior.</p>
+    <button class="btn btn-outline-secondary" type="button" id="form-search-location">Buscar dirección capturada</button><div id="form-location-results" role="status"></div><div id="form-location-map" class="shop-map-canvas mt-2"></div>
+    <p class="small">Búsqueda por botón, sin autocompletado. Consulta <a href="https://operations.osmfoundation.org/policies/nominatim/" target="_blank" rel="noopener">política Nominatim</a>. Coordenadas opcionales; sin pin tienda no aparecerá en mapa.</p>
+  </details>
+</div>
+{% include 'adm/shop_map_assets.html' %}
+<script src="{% static 'adm/js/shop_map_utils.js' %}"></script>
+<script src="{% static 'adm/js/shop_location_widget.js' %}"></script>

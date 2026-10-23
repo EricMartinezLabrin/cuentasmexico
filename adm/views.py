@@ -3415,7 +3415,7 @@ class ShopListView(UserAccessMixin, ListView):
 @permission_required('is_staff', 'adm:no-permission')
 def ShopCreateView(request):
     if request.method == 'POST':
-        form = ShopForm(request.POST)
+        form = ShopForm(request.POST, location_user=request.user)
         if form.is_valid():
             phone = form.cleaned_data['phone']
             phone_digits = ''.join(ch for ch in str(phone or '') if ch.isdigit())
@@ -3539,7 +3539,7 @@ def ShopUpdateView(request, pk):
     if request.method != 'POST':
         return redirect(reverse('adm:shop_detail', args=[shop.id]))
 
-    form = ShopForm(request.POST, instance=shop)
+    form = ShopForm(request.POST, instance=shop, location_user=request.user)
     if form.is_valid():
         form.save()
         messages.success(request, 'Datos de la tienda actualizados.')

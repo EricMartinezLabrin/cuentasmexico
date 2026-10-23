@@ -410,3 +410,12 @@ AI_CHAT_SYSTEM_PROMPT = os.getenv(
     'Responde de forma clara y breve. '
     'Si no tienes suficiente información, dilo explícitamente.'
 )
+
+
+# Shop maps: providers can be switched without editing frontend assets.
+SHOP_MAP_TILE_URL = os.getenv('SHOP_MAP_TILE_URL', 'https://tile.openstreetmap.org/{z}/{x}/{y}.png')
+SHOP_MAP_ATTRIBUTION = os.getenv('SHOP_MAP_ATTRIBUTION', '\u00a9 OpenStreetMap contributors')
+SHOP_GEOCODER_URL = os.getenv('SHOP_GEOCODER_URL', 'https://nominatim.openstreetmap.org/search')
+SHOP_GEOCODER_USER_AGENT = os.getenv('SHOP_GEOCODER_USER_AGENT', 'CuentasMexico-ShopMap/1.0 (+https://cuentasmexico.com)')
+# Deliberately small, one-time initial load; larger/recurring work needs another provider.
+SHOP_GEOCODE_INITIAL_LIMIT = int(os.getenv('SHOP_GEOCODE_INITIAL_LIMIT', '100'))
