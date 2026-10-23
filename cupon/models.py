@@ -39,6 +39,24 @@ class Shop(models.Model):
         related_name='payment_shops'
     )
 
+    latitude = models.DecimalField(max_digits=10, decimal_places=7, null=True, blank=True)
+    longitude = models.DecimalField(max_digits=10, decimal_places=7, null=True, blank=True)
+    location_source = models.CharField(max_length=30, blank=True)
+    location_confirmed = models.BooleanField(default=False)
+    location_reviewed_at = models.DateTimeField(null=True, blank=True)
+    location_reviewed_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name='reviewed_shop_locations')
+
+    def save(self, *args, **kwargs):
+        if self.pk:
+            previous = type(self).objects.filter(pk=self.pk).values('address', 'city', 'cp', 'latitude', 'longitude').first()
+            if previous and any(previous[key] != getattr(self, key) for key in ('address', 'city', 'cp')):
+                self.location_confirmed = False
+                self.location_reviewed_at = None
+                self.location_reviewed_by = None
+                if kwargs.get('update_fields') is not None:
+                    kwargs['update_fields'] = set(kwargs['update_fields']) | {'location_confirmed', 'location_reviewed_at', 'location_reviewed_by'}
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return self.name
 
@@ -198,3 +216,32 @@ class CouponRedemption(models.Model):
         else:
             unit = 'mes' if qty == 1 else 'meses'
         return f"{qty} {unit}"
+
+
+class ShopGeocodeCache(models.Model):
+    key = models.CharField(max_length=64, unique=True)
+    query = models.CharField(max_length=600)
+    results = models.JSONField(default=list)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+class ShopGeocodeControl(models.Model):
+    # Singleton database lock coordinates interactive searches and the initial batch.
+    last_request_at = models.DateTimeField(null=True, blank=True)
+    batch_started = models.BooleanField(default=False)
+    batch_finished = models.BooleanField(default=False)
+    batch_running_until = models.DateTimeField(null=True, blank=True)
+    batch_cursor = models.PositiveIntegerField(default=0)
+    batch_total = models.PositiveIntegerField(default=0)
+    batch_max_id = models.PositiveIntegerField(default=0)
+    batch_processed = models.PositiveIntegerField(default=0)
+    batch_errors = models.JSONField(default=list)
+
+
+class ShopVisitRoute(models.Model):
+    token = models.CharField(max_length=64, unique=True)
+    created_by = models.ForeignKey(User, null=True, on_delete=models.SET_NULL)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    revoked_at = models.DateTimeField(null=True, blank=True)
+    itinerary = models.JSONField(default=dict)

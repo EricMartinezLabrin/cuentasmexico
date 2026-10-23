@@ -1,4 +1,5 @@
 from django import forms
+from django.utils import timezone
 from django.core.files.images import get_image_dimensions
 
 from adm.models import Service
@@ -75,9 +76,44 @@ class CuponForm(forms.ModelForm):
 
 
 class ShopForm(forms.ModelForm):
+    latitude = forms.DecimalField(required=False, min_value=-90, max_value=90, max_digits=10, decimal_places=7, widget=forms.NumberInput(attrs={'class': 'form-control', 'step': 'any'}))
+    longitude = forms.DecimalField(required=False, min_value=-180, max_value=180, max_digits=10, decimal_places=7, widget=forms.NumberInput(attrs={'class': 'form-control', 'step': 'any'}))
+    confirm_location = forms.BooleanField(required=False, label='Confirmar ubicacion exacta')
+
+    def __init__(self, *args, location_user=None, **kwargs):
+        self.location_user = location_user
+        super().__init__(*args, **kwargs)
+
+    def clean(self):
+        cleaned = super().clean()
+        lat, lng = cleaned.get('latitude'), cleaned.get('longitude')
+        if (lat is None) != (lng is None):
+            raise forms.ValidationError('Captura ambas coordenadas o deja ambas vacias.')
+        if cleaned.get('confirm_location') and lat is None:
+            raise forms.ValidationError('Ubica el pin antes de confirmar.')
+        return cleaned
+
+    def save(self, commit=True):
+        shop = super().save(commit=False)
+        previous = Shop.objects.filter(pk=shop.pk).first() if shop.pk else None
+        changed = not previous or previous.latitude != shop.latitude or previous.longitude != shop.longitude
+        if changed:
+            shop.location_source = 'manual' if shop.latitude is not None else ''
+            shop.location_confirmed = False
+            shop.location_reviewed_at = None
+            shop.location_reviewed_by = None
+        if self.cleaned_data.get('confirm_location'):
+            shop.location_confirmed = True
+            shop.location_reviewed_at = timezone.now()
+            shop.location_reviewed_by = self.location_user
+        if commit:
+            shop.save()
+            self.save_m2m()
+        return shop
+
     class Meta:
         model = Shop
-        fields = ['name', 'owner', 'phone', 'email', 'giro', 'address', 'city', 'cp', 'credit_limit']
+        fields = ['name', 'owner', 'phone', 'email', 'giro', 'address', 'city', 'cp', 'credit_limit', 'latitude', 'longitude', 'confirm_location']
         widgets = {
             'name': forms.TextInput(attrs={'class': 'form-control'}),
             'owner': forms.TextInput(attrs={'class': 'form-control'}),

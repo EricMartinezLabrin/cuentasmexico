@@ -1,0 +1,15 @@
+{% load static tz %}
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><meta name="referrer" content="strict-origin-when-cross-origin"><title>Recorrido de tiendas</title>
+<style>body{font:16px system-ui,sans-serif;margin:0;background:#f5f7fa;color:#17202a}main{max-width:1000px;margin:auto;padding:20px}a,button{display:inline-block;padding:12px;margin:4px 0;background:#fff;border:1px solid #ccd2d8;border-radius:6px;color:#174ea6;text-decoration:none;cursor:pointer}li{padding:8px}#public-route-map{height:440px}#share-message{overflow-wrap:anywhere}</style></head><body><main>
+{% if unavailable %}<h1>Recorrido no disponible</h1><p>El enlace caducó o fue revocado.</p>
+{% else %}
+<h1>Recorrido de tiendas</h1><p>Automóvil · Válido hasta {% timezone "America/Mexico_City" %}{{ expires_at|date:"d/m/Y H:i" }}{% endtimezone %} (hora de Ciudad de México)</p><p>Itinerario guardado. Líneas orientativas; abre cada tramo en Google Maps para navegar por calles.</p>
+{% include 'adm/shop_map_assets.html' %}
+<div id="public-route-map" class="shop-map-canvas" aria-label="Mapa del recorrido"></div>
+<h2>Visitas</h2><p id="route-origin"></p><ol>{% for stop in itinerary.stops %}<li>{{ stop.name }} <small>({{ stop.lat }}, {{ stop.lng }})</small></li>{% endfor %}</ol>{% if itinerary.return_to_origin %}<p>Al terminar: regresar al origen.</p>{% endif %}
+<h2>Navegación por tramos</h2><p>Abre los tramos en orden; el final de uno es el inicio del siguiente.</p>{% for segment in segments %}<div><a href="{{ segment.url }}" target="_blank" rel="noopener noreferrer">Abrir tramo {{ segment.number }} en Google Maps</a></div>{% endfor %}
+<button type="button" id="share-public-route">Copiar / compartir recorrido completo</button><p id="share-message" role="status"></p>
+{{ itinerary|json_script:'public-itinerary' }}{{ map_settings|json_script:'public-map-settings' }}
+<script src="{% static 'adm/js/shop_map_utils.js' %}"></script><script src="{% static 'adm/js/shop_route_public.js' %}"></script>
+{% endif %}
+</main></body></html>

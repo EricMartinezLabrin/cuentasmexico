@@ -73,6 +73,8 @@
                         {{ profile_form.cp }}
                     </div>
                 </div>
+                <div class="row g-2 mt-2"><div class="col-md-6"><label for="id_latitude">Latitud</label>{{ profile_form.latitude }}</div><div class="col-md-6"><label for="id_longitude">Longitud</label>{{ profile_form.longitude }}</div><label>{{ profile_form.confirm_location }} Revisé y confirmo ubicación exacta</label></div>
+                {% include 'adm/shop_location_widget.html' %}
                 <button class="btn btn-primary mt-3" type="submit">Guardar datos</button>
             </form>
         </div>

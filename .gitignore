@@ -167,3 +167,6 @@ dokploy-compose.yml
 !docs/
 !docs/wiki-soporte.md
 !docs/soporte-app-movil.md
+
+!cupon/migrations/0008_shopgeocodecache_shopgeocodecontrol_and_more.py
+!docs/mapa-tiendas.md

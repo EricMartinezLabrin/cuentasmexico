@@ -19,6 +19,7 @@
                         {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
                     </div>
                 {% endfor %}
+                {% include 'adm/shop_location_widget.html' %}
                 <div class="col-12"><button class="btn btn-primary" type="submit">Crear tienda</button></div>
             </form>
         </div>
